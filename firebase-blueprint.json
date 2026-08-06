@@ -1,0 +1,127 @@
+{
+  "entities": {
+    "registrations": {
+      "title": "Class Registrations",
+      "description": "Student registrations submitted through the academy registration form",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "subtotal": { "type": "number" },
+        "totalPrice": { "type": "number" }
+      },
+      "required": ["id", "subtotal", "totalPrice"]
+    },
+    "schoolUsers": {
+      "title": "School Users",
+      "description": "Registered students, teachers, and administrators in the system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "departmentId": { "type": "string" }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "classes": {
+      "title": "Academy Classes",
+      "description": "STEM, Arts, Coding, and Music classes available for registration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "number" }
+      },
+      "required": ["id", "title", "category", "price"]
+    },
+    "discountRules": {
+      "title": "Discount Rules",
+      "description": "Tuition bundle and promotional discount rules",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "enabled": { "type": "boolean" }
+      },
+      "required": ["id", "name", "type", "enabled"]
+    },
+    "teachers": {
+      "title": "Teacher Profiles",
+      "description": "Faculty profiles and assigned subjects",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "department": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "resources": {
+      "title": "Class Resources",
+      "description": "Downloadable course materials, schematics, and lecture notes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "classId": { "type": "string" }
+      },
+      "required": ["id", "title", "classId"]
+    },
+    "announcements": {
+      "title": "Class Announcements",
+      "description": "Teacher updates and academy notices",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" }
+      },
+      "required": ["id", "title", "content"]
+    },
+    "schoolNews": {
+      "title": "School News",
+      "description": "Academy announcements and press releases",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" }
+      },
+      "required": ["id", "title"]
+    },
+    "departments": {
+      "title": "Academic Departments",
+      "description": "Departments managing subjects and staff",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" }
+      },
+      "required": ["id", "name", "code"]
+    },
+    "locations": {
+      "title": "Campus & Studio Locations",
+      "description": "Physical labs, studios, and virtual locations for classes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "rolePermissions": {
+      "title": "Role Permissions",
+      "description": "System role permissions for teachers and administrators",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    }
+  }
+}

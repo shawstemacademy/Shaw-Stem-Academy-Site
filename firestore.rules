@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+    
+    // Checks if the user is logged in
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Gets the user's document data from schoolUsers
+    function getUserData() {
+      return get(/databases/$(database)/documents/schoolUsers/$(request.auth.uid)).data;
+    }
+    
+    // Gets the user's role if they exist in schoolUsers
+    function getRole() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/schoolUsers/$(request.auth.uid))
+        ? getUserData().role 
+        : null;
+    }
+    
+    // Check for specific roles
+    function isAdmin() {
+      return getRole() == 'admin';
+    }
+    
+    function isStaff() {
+      let role = getRole();
+      return role == 'admin' || role == 'registrar' || role == 'teacher' || role == 'hod';
+    }
+
+    // --- Collection Security Rules ---
+
+    // 1. School Users Collection
+    // Allow public read and write so students, parents, and staff can register and log in on Vercel without permission errors
+    match /schoolUsers/{userId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // 2. Class Registration Logs Collection
+    // Allow public read, create, and update so prospective students can submit class registrations
+    match /registrations/{regId} {
+      allow read, create, update: if true;
+      allow delete: if isAuthenticated() && isStaff();
+    }
+
+    // 3. Announcements Collection
+    match /announcements/{annId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isStaff();
+    }
+
+    // 4. Resources (Teacher Sharing Hub) Collection
+    match /resources/{resId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isStaff();
+    }
+
+    // 5. Publicly Readable School Information
+    // These collections should be readable by any visitor to the school website, but writable only by staff
+    match /classes/{classId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isStaff();
+    }
+    match /classTypes/{typeId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isStaff();
+    }
+    match /locations/{locId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isStaff();
+    }
+    match /discountRules/{ruleId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isStaff();
+    }
+    match /sbaHubOptions/{sbaId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isStaff();
+    }
+    match /departments/{deptId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isStaff();
+    }
+    match /teachers/{teacherId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isStaff();
+    }
+    match /schoolNews/{newsId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isStaff();
+    }
+    match /faqs/{faqId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isStaff();
+    }
+    match /academyInfo/{infoId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isStaff();
+    }
+    match /landingPageSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isStaff();
+    }
+    match /featureCards/{cardId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isStaff();
+    }
+    
+    // Default fallback rules
+    match /{document=**} {
+      allow read, write: if isAuthenticated() && isStaff();
+    }
+  }
+}

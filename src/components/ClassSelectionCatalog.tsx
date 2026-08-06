@@ -1,0 +1,331 @@
+import React, { useState } from 'react';
+import { ClassItem, FormTheme, ScheduleClash, Department } from '../types';
+import { checkStudentSelectedClashes } from '../lib/scheduleClashUtils';
+import {
+  CheckSquare,
+  Square,
+  Search,
+  Filter,
+  Clock,
+  User,
+  MapPin,
+  Sparkles,
+  Users,
+  Info,
+  AlertTriangle,
+  CheckCircle2,
+  Calendar,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react';
+
+interface ClassSelectionCatalogProps {
+  classList: ClassItem[];
+  selectedClassIds: string[];
+  enrolledClassIds?: string[];
+  onToggleClass: (classId: string) => void;
+  theme: FormTheme;
+  canEditList?: boolean;
+  onOpenManageOptions?: () => void;
+  clashes?: ScheduleClash[];
+  departments?: Department[];
+}
+
+export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
+  classList,
+  selectedClassIds,
+  enrolledClassIds = [],
+  onToggleClass,
+  theme,
+  canEditList = false,
+  onOpenManageOptions,
+  clashes = [],
+  departments = [],
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+
+  // ONLY show courses where isOffered !== false and student is NOT currently registered for
+  const safeClassList = classList || [];
+  const safeEnrolledIds = enrolledClassIds || [];
+  const offeredClasses = safeClassList.filter((cls) => cls && cls.isOffered !== false);
+  const unregisteredOfferedClasses = offeredClasses.filter(
+    (cls) => !safeEnrolledIds.includes(cls.id)
+  );
+
+  // Dynamically compute category options strictly from departments currently in Firestore
+  const activeDeptNames = (departments || []).map((d) => d?.name).filter(Boolean);
+  const categories = ['All', ...activeDeptNames];
+
+  const selectedDeptObj = departments.find((d) => d.name === selectedCategory);
+
+  const filteredClasses = unregisteredOfferedClasses.filter((cls) => {
+    const matchesSearch =
+      (cls?.title || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+      (cls?.instructor || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+      (cls?.description || '').toLowerCase().includes((searchTerm || '').toLowerCase());
+
+    const matchesCategory =
+      selectedCategory === 'All' ||
+      cls?.category === selectedCategory ||
+      cls?.category?.toLowerCase() === selectedCategory.toLowerCase() ||
+      (selectedDeptObj && (
+        cls?.category?.toLowerCase() === selectedDeptObj.code?.toLowerCase() ||
+        cls?.category === selectedDeptObj.id
+      ));
+
+    return matchesSearch && matchesCategory;
+  });
+
+  // Check selected classes for schedule clashes
+  const clashCheck = checkStudentSelectedClashes(selectedClassIds || [], safeClassList, clashes || []);
+
+  return (
+    <div className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden mb-6 transition-all">
+      {/* Top Header */}
+      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <CheckSquare className="w-4 h-4 text-purple-600" />
+            Class Selection & Schedule
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Select one or more classes to enroll. Tuition is added immediately to your running total.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {canEditList && onOpenManageOptions && (
+            <button
+              onClick={onOpenManageOptions}
+              className="px-3 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-lg border border-purple-200 flex items-center gap-1.5 transition-colors"
+            >
+              <span>Course Bank & Settings</span>
+            </button>
+          )}
+          <div className="text-xs font-semibold px-3 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-full">
+            {selectedClassIds.length} {selectedClassIds.length === 1 ? 'Class' : 'Classes'} Selected
+          </div>
+        </div>
+      </div>
+
+      {/* Already Enrolled Filtering Notification */}
+      {safeEnrolledIds.length > 0 && (
+        <div className="px-6 pt-4">
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-xs text-blue-900">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>
+                <strong>Registration Filtering Active:</strong> Only showing classes you are <em>not</em> currently registered for ({safeEnrolledIds.length} already enrolled course{safeEnrolledIds.length > 1 ? 's' : ''} hidden).
+              </span>
+            </div>
+            <span className="font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full border border-blue-300 shrink-0">
+              {unregisteredOfferedClasses.length} Available
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Real-time Schedule Clash Warning Banner */}
+      {clashCheck.hasClash && (
+        <div className="px-6 pt-4">
+          {clashCheck.hasInadmissibleClash ? (
+            <div className="p-4 rounded-xl bg-red-50 border border-red-300 text-red-900 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-sm text-red-800">
+                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+                <span>⚠️ Schedule Clash Detected</span>
+              </div>
+              <p className="text-xs text-red-700 leading-relaxed">
+                The classes you selected have an overlapping time schedule. Please resolve the conflict by selecting non-overlapping courses or contact the academic office.
+              </p>
+              <ul className="list-disc pl-5 text-xs font-medium text-red-800 space-y-1">
+                {clashCheck.clashes.map((c, idx) => (
+                  <li key={idx}>
+                    <strong>{c.classA.title}</strong> overlaps with <strong>{c.classB.title}</strong> ({c.detail})
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-sm text-amber-800">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>ℹ️ Admissible Schedule Overlap</span>
+              </div>
+              <p className="text-xs text-amber-800">
+                The selected courses have an approved schedule overlap exception granted by staff. You may proceed with registration.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="p-6">
+        {/* Search & Category Filter Bar */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 mb-6">
+          {/* Search Input */}
+          <div className="relative w-full lg:w-72 shrink-0">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search classes or instructors..."
+              className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+            />
+          </div>
+
+          {/* Category Chips Container with Left/Right Scroll Buttons */}
+          <div className="relative flex items-center min-w-0 flex-1 bg-gray-50/80 p-1.5 rounded-2xl border border-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById('category-scroll-container');
+                if (el) el.scrollBy({ left: -180, behavior: 'smooth' });
+              }}
+              className="flex items-center justify-center w-7 h-7 bg-white border border-gray-200 rounded-full shadow-2xs text-gray-600 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-300 shrink-0 z-10 mr-1 transition-all"
+              title="Scroll left"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div
+              id="category-scroll-container"
+              className="flex items-center gap-1.5 overflow-x-auto py-2 px-0.5 scroll-smooth max-w-full"
+              style={{ scrollbarWidth: 'thin' }}
+            >
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                    selectedCategory === cat
+                      ? 'bg-purple-700 text-white shadow-2xs ring-2 ring-purple-400/30'
+                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById('category-scroll-container');
+                if (el) el.scrollBy({ left: 180, behavior: 'smooth' });
+              }}
+              className="flex items-center justify-center w-7 h-7 bg-white border border-gray-200 rounded-full shadow-2xs text-gray-600 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-300 shrink-0 z-10 ml-1 transition-all"
+              title="Scroll right"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Classes List (Checkbox Style) */}
+        <div className="space-y-4">
+          {filteredClasses.length === 0 ? (
+            <div className="p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
+              <Info className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm font-medium text-gray-600">No classes found matching your criteria.</p>
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedCategory('All');
+                }}
+                className="mt-2 text-xs font-semibold text-purple-600 hover:underline"
+              >
+                Clear Search Filters
+              </button>
+            </div>
+          ) : (
+            filteredClasses.map((cls) => {
+              const isSelected = selectedClassIds.includes(cls.id);
+              const availableSeats = cls.capacity - cls.enrolled;
+
+              return (
+                <div
+                  key={cls.id}
+                  onClick={() => onToggleClass(cls.id)}
+                  className={`group relative p-4 sm:p-5 rounded-xl border transition-all cursor-pointer select-none ${
+                    isSelected
+                      ? 'bg-purple-50/70 border-purple-400 ring-2 ring-purple-500/20 shadow-xs'
+                      : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-gray-50/50'
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Checkbox Icon */}
+                    <div className="mt-0.5 flex-shrink-0">
+                      {isSelected ? (
+                        <div className="w-5 h-5 rounded bg-purple-700 text-white flex items-center justify-center shadow-2xs">
+                          <CheckSquare className="w-4 h-4" />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded border-2 border-gray-300 group-hover:border-purple-500 bg-white" />
+                      )}
+                    </div>
+
+                    {/* Class Details */}
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-bold text-gray-900 group-hover:text-purple-900">
+                            {cls.title}
+                          </h3>
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                            {cls.category}
+                          </span>
+                        </div>
+
+                        {/* Price Badge */}
+                        <div className="text-right">
+                          <span className="text-lg font-black text-purple-900">${cls.price}</span>
+                          <span className="text-[11px] text-gray-500 font-normal">
+                            {cls.pricePeriod ? ` / ${cls.pricePeriod}` : ' / semester'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-gray-600 mt-1 leading-relaxed">{cls.description}</p>
+
+                      {/* Class Metadata Badges */}
+                      <div className="mt-3 flex flex-wrap items-center gap-y-1.5 gap-x-4 text-xs text-gray-500">
+                        <div className="flex items-center gap-1 text-gray-700 font-medium">
+                          <Clock className="w-3.5 h-3.5 text-purple-600" />
+                          <span>{cls.schedule}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <User className="w-3.5 h-3.5 text-gray-400" />
+                          <span>Instructor: {cls.instructor}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                          <span>{cls.location}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5 text-gray-400" />
+                          <span>{cls.ageGroup}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                              availableSeats <= 3
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            {availableSeats} seats left
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
