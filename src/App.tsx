@@ -736,6 +736,7 @@ export default function App() {
         status: 'unverified',
         avatar: gUser.photoURL || undefined,
         department: 'Student Body',
+        studentDetails: completeStudentInfo,
       };
       
       await saveDocToFirestore('schoolUsers', newUser.id, newUser);
@@ -1750,6 +1751,7 @@ export default function App() {
                             role: loggedInUser?.role || 'student',
                             status: loggedInUser?.status || 'unverified',
                             department: loggedInUser?.department || 'Student Body',
+                            studentDetails: studentInfo,
                           };
                           await saveDocToFirestore('schoolUsers', currentUserId, updatedUser);
                           setLoggedInUser(updatedUser);

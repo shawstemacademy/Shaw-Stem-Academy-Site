@@ -62,11 +62,12 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
   onDeleteLocation,
 }) => {
   const staffMembers = users.filter((u) => u.role !== 'student');
-  const defaultInstructor = staffMembers[0]?.name || 'Unassigned';
+  const defaultInstructor = staffMembers[0]?.name || 'Vacant';
   const getValidInstructor = (name?: string) => {
-    if (!name) return defaultInstructor;
+    if (!name) return 'Vacant';
+    if (name === 'Vacant' || name === 'Unassigned') return 'Vacant';
     if (name === 'Staff Instructor' || name === 'Staff SBA Lead') {
-      return defaultInstructor;
+      return defaultInstructor || 'Vacant';
     }
     return name;
   };
@@ -267,6 +268,8 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
   ]);
   const [isLocationsModalOpen, setIsLocationsModalOpen] = useState(false);
   const [newLocNameInput, setNewLocNameInput] = useState('');
+  const [newLocBuildingInput, setNewLocBuildingInput] = useState('');
+  const [newLocRoomNumberInput, setNewLocRoomNumberInput] = useState('');
   const [isAddingNewLocation, setIsAddingNewLocation] = useState(false);
   const [customLocationInput, setCustomLocationInput] = useState('');
 
@@ -288,13 +291,15 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
     ? locations.map((l) => l.name)
     : Array.from(new Set([...defaultLocations, ...departmentRooms, ...customLocations]));
 
-  const handleAddCustomLocation = (locationName: string) => {
+  const handleAddCustomLocation = (locationName: string, building?: string, roomNumber?: string) => {
     const trimmed = locationName.trim();
     if (!trimmed) return;
     if (onSaveLocation) {
       onSaveLocation({
         id: `loc-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         name: trimmed,
+        building: building?.trim() || undefined,
+        roomNumber: roomNumber?.trim() || undefined,
       });
     } else if (!customLocations.includes(trimmed)) {
       setCustomLocations((prev) => [...prev, trimmed]);
@@ -1054,7 +1059,8 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                           }}
                           className="px-2 py-0.5 text-[10px] font-bold rounded-lg border border-slate-200 bg-white text-slate-700 cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-purple-500"
                         >
-                          {!staffMembers.some((u) => u.name === getValidInstructor(cls.instructor)) && getValidInstructor(cls.instructor) && (
+                          <option value="Vacant">Vacant (Unassigned)</option>
+                          {!staffMembers.some((u) => u.name === getValidInstructor(cls.instructor)) && getValidInstructor(cls.instructor) && getValidInstructor(cls.instructor) !== 'Vacant' && (
                             <option value={getValidInstructor(cls.instructor)}>{getValidInstructor(cls.instructor)}</option>
                           )}
                           {staffMembers.map((u) => (
@@ -1181,7 +1187,8 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                             }}
                             className="px-2 py-0.5 text-[10px] font-bold rounded-lg border border-slate-200 bg-white text-slate-700 cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-purple-500"
                           >
-                            {!staffMembers.some((u) => u.name === getValidInstructor(sba.instructor)) && getValidInstructor(sba.instructor) && (
+                            <option value="Vacant">Vacant (Unassigned)</option>
+                            {!staffMembers.some((u) => u.name === getValidInstructor(sba.instructor)) && getValidInstructor(sba.instructor) && getValidInstructor(sba.instructor) !== 'Vacant' && (
                               <option value={getValidInstructor(sba.instructor)}>{getValidInstructor(sba.instructor)}</option>
                             )}
                             {staffMembers.map((u) => (
@@ -1348,7 +1355,8 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                       onChange={(e) => setInstructor(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-semibold"
                     >
-                      {!staffMembers.some((u) => u.name === instructor) && instructor && (
+                      <option value="Vacant">Vacant (Unassigned)</option>
+                      {!staffMembers.some((u) => u.name === instructor) && instructor && instructor !== 'Vacant' && (
                         <option value={instructor}>{instructor}</option>
                       )}
                       {staffMembers.map((u) => (
@@ -1729,13 +1737,22 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                     key={locItem.id}
                     className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3"
                   >
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-purple-600 shrink-0" />
-                      <span className="text-xs font-bold text-slate-900">{locItem.name}</span>
-                      {isDeptRoom && (
-                        <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-semibold">
-                          Dept Room
-                        </span>
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-purple-600 shrink-0" />
+                        <span className="text-xs font-bold text-slate-900">{locItem.name}</span>
+                        {isDeptRoom && (
+                          <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-semibold">
+                            Dept Room
+                          </span>
+                        )}
+                      </div>
+                      {(locItem.building || locItem.roomNumber) && (
+                        <div className="pl-6 text-[10px] text-slate-500 font-medium">
+                          {locItem.building ? `Building: ${locItem.building}` : ''}
+                          {locItem.building && locItem.roomNumber ? ' | ' : ''}
+                          {locItem.roomNumber ? `Room: ${locItem.roomNumber}` : ''}
+                        </div>
                       )}
                     </div>
 
@@ -1763,8 +1780,10 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
               onSubmit={(e) => {
                 e.preventDefault();
                 if (newLocNameInput.trim()) {
-                  handleAddCustomLocation(newLocNameInput.trim());
+                  handleAddCustomLocation(newLocNameInput.trim(), newLocBuildingInput, newLocRoomNumberInput);
                   setNewLocNameInput('');
+                  setNewLocBuildingInput('');
+                  setNewLocRoomNumberInput('');
                 }
               }}
               className="p-4 bg-purple-50/50 border border-purple-200 rounded-xl space-y-3"
@@ -1772,21 +1791,39 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
               <div className="text-xs font-bold text-purple-900 uppercase tracking-wider">
                 Add New Campus Location / Room
               </div>
-              <div className="flex items-center gap-2">
+              <div className="space-y-3">
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Physics Lab 3, Robotics Arena B"
+                  placeholder="Location Name (e.g. Physics Lab 3)"
                   value={newLocNameInput}
                   onChange={(e) => setNewLocNameInput(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-medium bg-white"
                 />
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl transition-colors shrink-0 shadow-xs"
-                >
-                  Add Location
-                </button>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    placeholder="Building (Optional)"
+                    value={newLocBuildingInput}
+                    onChange={(e) => setNewLocBuildingInput(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-medium bg-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Room (Optional)"
+                    value={newLocRoomNumberInput}
+                    onChange={(e) => setNewLocRoomNumberInput(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-medium bg-white"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl transition-colors shadow-xs"
+                  >
+                    Add Location
+                  </button>
+                </div>
               </div>
             </form>
           </div>

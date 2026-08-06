@@ -305,7 +305,8 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
 
   // Filtered lists for HOD vs Admin
   const scopedUsers = users.filter((u) => {
-    if (!isHOD) return true; // Admins see everyone
+    if (u.role === 'student') return false; // Never show students in the staff directory
+    if (!isHOD) return true; // Admins see everyone else
     // HOD sees ONLY teachers in their department
     if (u.role === 'admin') return false;
     if (hodDepartmentId) {

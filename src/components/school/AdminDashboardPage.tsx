@@ -1194,6 +1194,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           onDeleteDepartment={onDeleteDepartment}
           onAssignUserToDepartment={onAssignUserToDepartment}
           logoUrl={landingPageSettings.logoUrl}
+          locations={locations}
+          onSaveLocation={onSaveLocation}
+          onDeleteLocation={onDeleteLocation}
         />
       )}
 

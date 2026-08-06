@@ -368,6 +368,7 @@ export interface SchoolUser {
   assignedClassIds?: string[];
   permissions?: string[];
   password?: string;
+  studentDetails?: StudentInfo;
 }
 
 export interface RolePermission {
