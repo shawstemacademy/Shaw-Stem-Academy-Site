@@ -11,7 +11,7 @@ import {
   signOut,
   sendPasswordResetEmail,
   setPersistence,
-  browserLocalPersistence
+  browserSessionPersistence
 } from 'firebase/auth';
 import { 
   initializeFirestore,
@@ -50,8 +50,8 @@ const firebaseConfig = {
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-// Explicitly enable local session persistence for Vercel & Firebase Hosting deployments
-setPersistence(auth, browserLocalPersistence).catch((err) => {
+// Use session persistence so user session expires when browser tab/window is closed or left open too long
+setPersistence(auth, browserSessionPersistence).catch((err) => {
   console.warn('Firebase setPersistence warning:', err);
 });
 

@@ -1494,6 +1494,8 @@ export default function App() {
     setCurrentRole('student');
     setStudentStatus('prospective');
     setActiveTab('login');
+    sessionStorage.clear();
+    localStorage.removeItem('pending_registration_info');
     logSystemAction('login', 'User signed out of portal');
   }
 
