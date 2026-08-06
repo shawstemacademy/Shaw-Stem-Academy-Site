@@ -323,9 +323,28 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
                           <Award className="w-3.5 h-3.5 text-purple-600" />
                           Dept. Head:
                         </span>
-                        <span className="font-bold text-slate-900">
-                          {users.find((u) => u.id === dept.headOfDepartment)?.name || dept.headOfDepartment || 'Vacant'}
-                        </span>
+                        <select
+                          value={dept.headOfDepartment || 'Vacant'}
+                          onChange={(e) => {
+                            onUpdateDepartment({
+                              ...dept,
+                              headOfDepartment: e.target.value,
+                            });
+                          }}
+                          className="px-2 py-1 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:ring-2 focus:ring-purple-500 max-w-[170px] truncate"
+                        >
+                          <option value="Vacant">Vacant (Unassigned)</option>
+                          {!users.some((u) => u.id === dept.headOfDepartment || u.name === dept.headOfDepartment) &&
+                            dept.headOfDepartment &&
+                            dept.headOfDepartment !== 'Vacant' && (
+                              <option value={dept.headOfDepartment}>{dept.headOfDepartment}</option>
+                          )}
+                          {users.filter(u => u.role !== 'student').map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.name} ({u.title || u.role})
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       {/* Location selector / display */}
