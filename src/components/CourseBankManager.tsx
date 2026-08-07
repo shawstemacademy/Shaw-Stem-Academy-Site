@@ -120,7 +120,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
 
     const newSbaHubOptions: SbaHubOption[] = classesToDuplicate.map((c, idx) => ({
       id: `sba-dup-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
-      name: `${c.title} (SBA Copy)`,
+      name: c.title,
       classType: c.classType || 'CSEC',
       yearlyPrice: c.price,
       pricePeriod: c.pricePeriod || 'yr',
@@ -198,7 +198,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
 
       return {
         id: `cls-dup-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
-        title: `${s.name} (Class Copy)`,
+        title: s.name,
         category: departments[0]?.name || 'STEM & Robotics',
         classType: s.classType || 'CSEC',
         instructor: s.instructor || defaultInstructor,
@@ -1070,7 +1070,28 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                           ))}
                         </select>
                         <span className="text-slate-300">•</span>
-                        <span className="text-[11px]">{cls.location}</span>
+                        <span className="text-[11px] font-semibold text-slate-600">Loc:</span>
+                        <select
+                          value={cls.location || 'Vacant'}
+                          onChange={(e) => {
+                            const newLocation = e.target.value;
+                            const updated = classList.map((item) =>
+                              item.id === cls.id ? { ...item, location: newLocation } : item
+                            );
+                            onUpdateClassList(updated);
+                          }}
+                          className="px-2 py-0.5 text-[10px] font-bold rounded-lg border border-slate-200 bg-white text-slate-700 cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-purple-500 max-w-[120px] truncate"
+                        >
+                          <option value="Vacant">TBA</option>
+                          {!availableLocations.includes(cls.location || '') && cls.location && cls.location !== 'Vacant' && cls.location !== 'TBA' && (
+                            <option value={cls.location}>{cls.location}</option>
+                          )}
+                          {availableLocations.map((loc) => (
+                            <option key={loc} value={loc}>
+                              {loc}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
@@ -1198,7 +1219,28 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                             ))}
                           </select>
                           <span className="text-slate-300">•</span>
-                          <span className="text-[11px]">{sba.location || 'Online SBA Hub'}</span>
+                          <span className="text-[11px] font-semibold text-slate-600">Loc:</span>
+                          <select
+                            value={sba.location || 'Vacant'}
+                            onChange={(e) => {
+                              const newLocation = e.target.value;
+                              const updated = sbaHubOptions.map((item) =>
+                                item.id === sba.id ? { ...item, location: newLocation } : item
+                              );
+                              onUpdateSbaHubOptions(updated);
+                            }}
+                            className="px-2 py-0.5 text-[10px] font-bold rounded-lg border border-slate-200 bg-white text-slate-700 cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-purple-500 max-w-[120px] truncate"
+                          >
+                            <option value="Vacant">Online SBA Hub</option>
+                            {!availableLocations.includes(sba.location || '') && sba.location && sba.location !== 'Vacant' && sba.location !== 'Online SBA Hub' && (
+                              <option value={sba.location}>{sba.location}</option>
+                            )}
+                            {availableLocations.map((loc) => (
+                              <option key={loc} value={loc}>
+                                {loc}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
                     </div>

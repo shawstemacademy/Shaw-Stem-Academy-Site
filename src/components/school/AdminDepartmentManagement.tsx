@@ -730,7 +730,7 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
                         headOfDepartment !== 'Vacant' && (
                           <option value={headOfDepartment}>{headOfDepartment}</option>
                       )}
-                      {users.map((u) => (
+                      {users.filter(u => u.role !== 'student').map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.name} ({u.title || u.role})
                         </option>
