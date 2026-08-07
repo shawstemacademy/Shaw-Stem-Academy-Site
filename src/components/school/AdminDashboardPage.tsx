@@ -446,8 +446,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const totalStudentsEnrolled = (registrationLogs || []).length;
   const totalRevenueLogged = (registrationLogs || []).reduce((sum, r) => sum + (r?.totalPrice ?? 0), 0);
 
-  const activeUsers = (users || []).filter((u) => u && u.status !== 'disabled');
-  const disabledUsers = (users || []).filter((u) => u && u.status === 'disabled');
+  const activeUsers = (users || []).filter((u) => u && u.status !== 'disabled' && u.role !== 'student');
+  const disabledUsers = (users || []).filter((u) => u && u.status === 'disabled' && u.role !== 'student');
 
   const teacherCount = activeUsers.filter((u) => u && u.role === 'teacher').length;
   const adminCount = activeUsers.filter((u) => u && u.role === 'admin').length;
