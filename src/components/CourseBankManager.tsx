@@ -226,6 +226,20 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
     setSelectedIds([]);
   };
 
+  const handleDeleteSelected = () => {
+    if (selectedIds.length === 0) return;
+    
+    if (activeTab === 'classes') {
+      const updatedClassList = classList.filter((c) => !selectedIds.includes(c.id));
+      onUpdateClassList(updatedClassList);
+    } else {
+      const updatedSbaHubOptions = sbaHubOptions.filter((s) => !selectedIds.includes(s.id));
+      onUpdateSbaHubOptions(updatedSbaHubOptions);
+    }
+    
+    setSelectedIds([]);
+  };
+
   const [statusFilter, setStatusFilter] = useState<'all' | 'offered' | 'bank'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'alpha-asc' | 'alpha-desc' | 'price-asc' | 'price-desc'>('alpha-asc');
@@ -923,6 +937,19 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                     <Copy className="w-3.5 h-3.5" />
                     <span>Duplicate to SBA Hub ({selectedIds.length})</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to delete ${selectedIds.length} selected classes?`)) {
+                        handleDeleteSelected();
+                      }
+                    }}
+                    className="px-3.5 py-1.5 bg-white border border-red-300 text-red-600 hover:bg-red-50 text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+                    title="Delete selected classes"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete ({selectedIds.length})</span>
+                  </button>
                 </>
               ) : (
                 <>
@@ -943,6 +970,19 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                   >
                     <Copy className="w-3.5 h-3.5" />
                     <span>Duplicate to Regular ({selectedIds.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to delete ${selectedIds.length} selected SBA options?`)) {
+                        handleDeleteSelected();
+                      }
+                    }}
+                    className="px-3.5 py-1.5 bg-white border border-red-300 text-red-600 hover:bg-red-50 text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+                    title="Delete selected SBA options"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete ({selectedIds.length})</span>
                   </button>
                 </>
               )}
