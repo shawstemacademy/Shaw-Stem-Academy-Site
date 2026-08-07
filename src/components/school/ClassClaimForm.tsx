@@ -137,10 +137,10 @@ export const ClassClaimForm: React.FC<ClassClaimFormProps> = ({
 
     const sbaItems = sbaHubOptions.map((s) => ({
       id: s.id,
-      title: s.title,
-      code: s.code || 'SBA-HUB',
+      title: s.name || (s as any).title || 'SBA Hub Course',
+      code: (s as any).code || s.classType || 'SBA-HUB',
       type: 'sba_hub' as const,
-      days: s.scheduleDays || ['Tuesday', 'Thursday'],
+      days: s.days || (s as any).scheduleDays || ['Tuesday', 'Thursday'],
       startTime: s.startTime || '15:30',
       endTime: s.endTime || '17:00',
       instructor: s.instructor,

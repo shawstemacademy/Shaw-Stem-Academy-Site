@@ -1020,8 +1020,8 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                                 }`}
                               >
                                 <div className="min-w-0">
-                                  <div className="truncate font-bold">{sba.title}</div>
-                                  <div className="text-[10px] text-purple-600">{sba.code} • SBA Hub Lab</div>
+                                  <div className="truncate font-bold">{sba.name || (sba as any).title || 'SBA Hub Course'}</div>
+                                  <div className="text-[10px] text-purple-600">{(sba as any).code || sba.classType || 'SBA'} • SBA Hub Lab</div>
                                 </div>
                                 {isAssigned ? (
                                   <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0 ml-1.5" />

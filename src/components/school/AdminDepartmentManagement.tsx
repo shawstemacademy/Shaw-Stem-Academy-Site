@@ -27,6 +27,8 @@ interface AdminDepartmentManagementProps {
   locations?: LocationOption[];
   onSaveLocation?: (location: LocationOption) => void;
   onDeleteLocation?: (id: string) => void;
+  readOnly?: boolean;
+  currentRole?: string;
 }
 
 const COLOR_OPTIONS = [
@@ -63,7 +65,10 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
   locations = [],
   onSaveLocation,
   onDeleteLocation,
+  readOnly = false,
+  currentRole,
 }) => {
+  const isReadOnly = readOnly || currentRole === 'registrar';
   const [activeSubTab, setActiveSubTab] = useState<'departments' | 'locations'>('departments');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
@@ -216,22 +221,28 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0 self-start md:self-center">
-          <button
-            onClick={() => setIsAddLocationModalOpen(true)}
-            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-all flex items-center gap-2"
-          >
-            <MapPin className="w-4 h-4 text-purple-600" />
-            <span>Add Campus Location</span>
-          </button>
-          <button
-            onClick={openAddModal}
-            className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create Department</span>
-          </button>
-        </div>
+        {!isReadOnly ? (
+          <div className="flex items-center gap-3 shrink-0 self-start md:self-center">
+            <button
+              onClick={() => setIsAddLocationModalOpen(true)}
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-all flex items-center gap-2"
+            >
+              <MapPin className="w-4 h-4 text-purple-600" />
+              <span>Add Campus Location</span>
+            </button>
+            <button
+              onClick={openAddModal}
+              className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Department</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold shrink-0 self-start md:self-center">
+            <span>View-Only Mode (Registrar)</span>
+          </div>
+        )}
       </div>
 
       {/* Navigation Sub-Tabs */}
@@ -283,32 +294,34 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
                       </span>
                       <h3 className="text-lg font-bold mt-1">{dept.name}</h3>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openEditModal(dept)}
-                        className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                        title="Edit Department"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (
-                            deptMembers.length > 0 &&
-                            !confirm(
-                              `There are ${deptMembers.length} staff members assigned to ${dept.name}. Are you sure you want to delete this department?`
-                            )
-                          ) {
-                            return;
-                          }
-                          onDeleteDepartment(dept.id);
-                        }}
-                        className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                        title="Delete Department"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {!isReadOnly && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openEditModal(dept)}
+                          className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                          title="Edit Department"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (
+                              deptMembers.length > 0 &&
+                              !confirm(
+                                `There are ${deptMembers.length} staff members assigned to ${dept.name}. Are you sure you want to delete this department?`
+                              )
+                            ) {
+                              return;
+                            }
+                            onDeleteDepartment(dept.id);
+                          }}
+                          className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                          title="Delete Department"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Body Content */}
@@ -323,28 +336,34 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
                           <Award className="w-3.5 h-3.5 text-purple-600" />
                           Dept. Head:
                         </span>
-                        <select
-                          value={dept.headOfDepartment || 'Vacant'}
-                          onChange={(e) => {
-                            onUpdateDepartment({
-                              ...dept,
-                              headOfDepartment: e.target.value,
-                            });
-                          }}
-                          className="px-2 py-1 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:ring-2 focus:ring-purple-500 max-w-[170px] truncate"
-                        >
-                          <option value="Vacant">Vacant (Unassigned)</option>
-                          {!users.some((u) => u.id === dept.headOfDepartment || u.name === dept.headOfDepartment) &&
-                            dept.headOfDepartment &&
-                            dept.headOfDepartment !== 'Vacant' && (
-                              <option value={dept.headOfDepartment}>{dept.headOfDepartment}</option>
-                          )}
-                          {users.filter(u => u.role !== 'student').map((u) => (
-                            <option key={u.id} value={u.id}>
-                              {u.name} ({u.title || u.role})
-                            </option>
-                          ))}
-                        </select>
+                        {!isReadOnly ? (
+                          <select
+                            value={dept.headOfDepartment || 'Vacant'}
+                            onChange={(e) => {
+                              onUpdateDepartment({
+                                ...dept,
+                                headOfDepartment: e.target.value,
+                              });
+                            }}
+                            className="px-2 py-1 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:ring-2 focus:ring-purple-500 max-w-[170px] truncate"
+                          >
+                            <option value="Vacant">Vacant (Unassigned)</option>
+                            {!users.some((u) => u.id === dept.headOfDepartment || u.name === dept.headOfDepartment) &&
+                              dept.headOfDepartment &&
+                              dept.headOfDepartment !== 'Vacant' && (
+                                <option value={dept.headOfDepartment}>{dept.headOfDepartment}</option>
+                            )}
+                            {users.filter(u => u.role !== 'student').map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.name} ({u.title || u.role})
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="px-2.5 py-1 text-xs font-semibold bg-slate-100 rounded-lg text-slate-800">
+                            {users.find(u => u.id === dept.headOfDepartment || u.name === dept.headOfDepartment)?.name || dept.headOfDepartment || 'Vacant'}
+                          </span>
+                        )}
                       </div>
 
                       {/* Location selector / display */}
@@ -353,30 +372,36 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
                           <MapPin className="w-3.5 h-3.5 text-blue-600" />
                           Location:
                         </span>
-                        <select
-                          value={dept.room || ''}
-                          onChange={(e) => {
-                            const newLocation = e.target.value;
-                            if (newLocation === '__add_new__') {
-                              openEditModal(dept);
-                              setIsAddingInlineLocation(true);
-                            } else {
-                              onUpdateDepartment({
-                                ...dept,
-                                room: newLocation,
-                              });
-                            }
-                          }}
-                          className="px-2 py-1 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:ring-2 focus:ring-purple-500 max-w-[170px] truncate"
-                        >
-                          <option value="">-- Choose Location --</option>
-                          {effectiveLocations.map((loc) => (
-                            <option key={loc.id} value={loc.name}>
-                              {loc.name}
-                            </option>
-                          ))}
-                          <option value="__add_new__">+ Create New Location...</option>
-                        </select>
+                        {!isReadOnly ? (
+                          <select
+                            value={dept.room || ''}
+                            onChange={(e) => {
+                              const newLocation = e.target.value;
+                              if (newLocation === '__add_new__') {
+                                openEditModal(dept);
+                                setIsAddingInlineLocation(true);
+                              } else {
+                                onUpdateDepartment({
+                                  ...dept,
+                                  room: newLocation,
+                                });
+                              }
+                            }}
+                            className="px-2 py-1 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:ring-2 focus:ring-purple-500 max-w-[170px] truncate"
+                          >
+                            <option value="">-- Choose Location --</option>
+                            {effectiveLocations.map((loc) => (
+                              <option key={loc.id} value={loc.name}>
+                                {loc.name}
+                              </option>
+                            ))}
+                            <option value="__add_new__">+ Create New Location...</option>
+                          </select>
+                        ) : (
+                          <span className="px-2.5 py-1 text-xs font-semibold bg-slate-100 rounded-lg text-slate-800">
+                            {dept.room || 'Unassigned Location'}
+                          </span>
+                        )}
                       </div>
 
                     <div className="flex items-center justify-between">
@@ -432,15 +457,17 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
               </div>
 
               {/* Card Footer: Quick Assign */}
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
-                <button
-                  onClick={() => openAssignModal(dept)}
-                  className="w-full py-2 bg-white hover:bg-slate-100 border border-slate-200 text-xs font-bold text-purple-700 rounded-xl transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Assign Staff to {dept.code}</span>
-                </button>
-              </div>
+              {!isReadOnly && (
+                <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
+                  <button
+                    onClick={() => openAssignModal(dept)}
+                    className="w-full py-2 bg-white hover:bg-slate-100 border border-slate-200 text-xs font-bold text-purple-700 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Assign Staff to {dept.code}</span>
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
@@ -461,13 +488,15 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
               </p>
             </div>
 
-            <button
-              onClick={() => setIsAddLocationModalOpen(true)}
-              className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 self-start md:self-center"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add New Location</span>
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={() => setIsAddLocationModalOpen(true)}
+                className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 self-start md:self-center"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add New Location</span>
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -496,7 +525,7 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
                         </div>
                       </div>
 
-                      {onDeleteLocation && (
+                      {!isReadOnly && onDeleteLocation && (
                         <button
                           onClick={() => onDeleteLocation(loc.id)}
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"

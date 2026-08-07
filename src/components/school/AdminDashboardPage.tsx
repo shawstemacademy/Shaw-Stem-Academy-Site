@@ -378,11 +378,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const filteredLogs = (registrationLogs || []).filter((log) => {
     // 1. Class Type Filter
     if (filterClassType !== 'all') {
-      if (filterClassType === 'sba_hub') {
-        const hasSba = (log.studentInfo?.selectedSbaHubIds && log.studentInfo.selectedSbaHubIds.length > 0) || log.studentInfo?.enrolledSbaHub;
+      if (filterClassType === 'sba_hub' || filterClassType.toLowerCase().includes('sba')) {
+        const hasSba = (log.studentInfo?.selectedSbaHubIds && log.studentInfo.selectedSbaHubIds.length > 0) || 
+                       log.studentInfo?.enrolledSbaHub || 
+                       log.selectedClasses?.some(c => c.classType === 'sba_hub' || c.classType?.toLowerCase().includes('sba'));
         if (!hasSba) return false;
       } else {
-        const hasMatchingClass = log.selectedClasses?.some(c => c.classType === filterClassType);
+        const hasMatchingClass = log.selectedClasses?.some(c => 
+          c.classType === filterClassType || 
+          c.classType?.toLowerCase() === filterClassType.toLowerCase()
+        );
         if (!hasMatchingClass) return false;
       }
     }
@@ -572,7 +577,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           </div>
 
           {/* Quick Action Buttons */}
-          {currentRole !== 'registrar' && (
+          {currentRole !== 'registrar' ? (
             <div className="flex flex-wrap items-center gap-3 shrink-0">
               <button
                 onClick={() => setActiveAdminTab('users')}
@@ -598,13 +603,42 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 <span>Discount Rules</span>
               </button>
             </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <button
+                onClick={() => setActiveAdminTab('departments')}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2"
+              >
+                <Building2 className="w-4 h-4 text-blue-400" />
+                <span>View Departments</span>
+              </button>
+              <button
+                onClick={() => setActiveAdminTab('student_search')}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2"
+              >
+                <Users className="w-4 h-4 text-purple-400" />
+                <span>Student Directory</span>
+              </button>
+              <button
+                onClick={() => setActiveAdminTab('claims')}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
+              >
+                <FileText className="w-4 h-4 text-white" />
+                <span>Teaching Claims</span>
+              </button>
+            </div>
           )}
         </div>
 
         {/* Sub-navigation Tab Bar */}
         <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center gap-2">
           {adminTabs
-            .filter((tab) => (currentRole === 'registrar' ? (tab.id === 'overview' || tab.id === 'student_search' || tab.id === 'claims') : true))
+            .filter((tab) => {
+              if (currentRole === 'registrar') {
+                return tab.id !== 'users' && tab.id !== 'disabled' && tab.id !== 'roles';
+              }
+              return true;
+            })
             .map((tab) => {
               const isActive = activeAdminTab === tab.id;
               return (
@@ -662,58 +696,115 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             </div>
           </div>
 
-          {/* Quick Cards to switch to User & Department management */}
+          {/* Quick Cards to switch to Department & Directory management */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div
-              onClick={() => setActiveAdminTab('users')}
-              className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:border-blue-500/50 hover:shadow-md transition-all cursor-pointer group space-y-3"
-            >
-              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Users className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-slate-900 text-base">User & Staff Directory</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Create new teachers and administrators, edit faculty biographies, and assign staff members to academic departments.
-              </p>
-              <div className="text-xs font-bold text-blue-600 pt-1 flex items-center gap-1">
-                <span>Manage {(users || []).length} Staff Members</span>
-                <span>→</span>
-              </div>
-            </div>
+            {currentRole !== 'registrar' ? (
+              <>
+                <div
+                  onClick={() => setActiveAdminTab('users')}
+                  className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:border-blue-500/50 hover:shadow-md transition-all cursor-pointer group space-y-3"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base">User & Staff Directory</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Create new teachers and administrators, edit faculty biographies, and assign staff members to academic departments.
+                  </p>
+                  <div className="text-xs font-bold text-blue-600 pt-1 flex items-center gap-1">
+                    <span>Manage {(users || []).length} Staff Members</span>
+                    <span>→</span>
+                  </div>
+                </div>
 
-            <div
-              onClick={() => setActiveAdminTab('departments')}
-              className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:border-blue-500/50 hover:shadow-md transition-all cursor-pointer group space-y-3"
-            >
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-slate-900 text-base">Academic Departments</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Organize STEM, Robotics, AI, Arts, Music, and Admin departments. Set department heads and lab locations.
-              </p>
-              <div className="text-xs font-bold text-blue-600 pt-1 flex items-center gap-1">
-                <span>Manage {(departments || []).length} Departments</span>
-                <span>→</span>
-              </div>
-            </div>
+                <div
+                  onClick={() => setActiveAdminTab('departments')}
+                  className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:border-blue-500/50 hover:shadow-md transition-all cursor-pointer group space-y-3"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Building2 className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base">Academic Departments</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Organize STEM, Robotics, AI, Arts, Music, and Admin departments. Set department heads and lab locations.
+                  </p>
+                  <div className="text-xs font-bold text-blue-600 pt-1 flex items-center gap-1">
+                    <span>Manage {(departments || []).length} Departments</span>
+                    <span>→</span>
+                  </div>
+                </div>
 
-            <div
-              onClick={() => setActiveAdminTab('roles')}
-              className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:border-blue-500/50 hover:shadow-md transition-all cursor-pointer group space-y-3"
-            >
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Key className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-slate-900 text-base">Role Privileges & Permissions</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Inspect permission matrix comparing Teacher and Admin capabilities across course editing, billing, and forms.
-              </p>
-              <div className="text-xs font-bold text-blue-600 pt-1 flex items-center gap-1">
-                <span>Audit Role Matrix</span>
-                <span>→</span>
-              </div>
-            </div>
+                <div
+                  onClick={() => setActiveAdminTab('roles')}
+                  className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:border-blue-500/50 hover:shadow-md transition-all cursor-pointer group space-y-3"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Key className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base">Role Privileges & Permissions</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Inspect permission matrix comparing Teacher and Admin capabilities across course editing, billing, and forms.
+                  </p>
+                  <div className="text-xs font-bold text-blue-600 pt-1 flex items-center gap-1">
+                    <span>Audit Role Matrix</span>
+                    <span>→</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div
+                  onClick={() => setActiveAdminTab('student_search')}
+                  className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:border-blue-500/50 hover:shadow-md transition-all cursor-pointer group space-y-3"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base">Student Directory & Review</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Inspect enrolled student profiles, review active class selections, print official registration receipts, and track student contact info.
+                  </p>
+                  <div className="text-xs font-bold text-blue-600 pt-1 flex items-center gap-1">
+                    <span>Review Student Records</span>
+                    <span>→</span>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setActiveAdminTab('departments')}
+                  className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:border-blue-500/50 hover:shadow-md transition-all cursor-pointer group space-y-3"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Building2 className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base">Academic Departments (View Only)</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    View active STEM, Robotics, AI, Arts, Music, and Admin department structures, assigned department heads, and campus lab locations.
+                  </p>
+                  <div className="text-xs font-bold text-blue-600 pt-1 flex items-center gap-1">
+                    <span>View {(departments || []).length} Departments</span>
+                    <span>→</span>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setActiveAdminTab('claims')}
+                  className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs hover:border-emerald-500/50 hover:shadow-md transition-all cursor-pointer group space-y-3"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base">Teaching Claims & Payroll</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Review faculty teaching claims, verify logged class sessions, and inspect claim verification histories for payroll processing.
+                  </p>
+                  <div className="text-xs font-bold text-emerald-600 pt-1 flex items-center gap-1">
+                    <span>Verify Payroll Claims</span>
+                    <span>→</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Primary Admin Controls: Discount Rules */}
@@ -915,11 +1006,22 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 >
                   <option value="all">All Class Types</option>
                   <option value="sba_hub">SBA Hub Classes</option>
-                  {(classTypes || []).map((ct) => (
-                    <option key={ct.id} value={ct.code || ct.id}>
-                      {ct.name} ({ct.code})
-                    </option>
-                  ))}
+                  {(() => {
+                    const seenCodes = new Set<string>(['sba_hub', 'sba']);
+                    return (classTypes || []).filter((ct) => {
+                      const codeKey = (ct.code || ct.id || '').toLowerCase().trim();
+                      const nameKey = (ct.name || '').toLowerCase().trim();
+                      if (codeKey === 'sba_hub' || codeKey === 'sba' || nameKey.includes('sba hub') || nameKey === 'sba' || seenCodes.has(codeKey)) {
+                        return false;
+                      }
+                      seenCodes.add(codeKey);
+                      return true;
+                    }).map((ct) => (
+                      <option key={ct.id} value={ct.code || ct.id}>
+                        {ct.name} ({ct.code})
+                      </option>
+                    ));
+                  })()}
                 </select>
               </div>
 
@@ -1229,6 +1331,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           locations={locations}
           onSaveLocation={onSaveLocation}
           onDeleteLocation={onDeleteLocation}
+          currentRole={currentRole}
+          readOnly={currentRole === 'registrar'}
         />
       )}
 
