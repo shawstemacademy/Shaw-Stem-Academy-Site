@@ -57,8 +57,9 @@ import { AdminFaqManagement } from './AdminFaqManagement';
 import { AdminNewsManagement } from './AdminNewsManagement';
 import { AdminAcademyInfoManagement } from './AdminAcademyInfoManagement';
 import { StudentSearchDashboard } from './StudentSearchDashboard';
+import { ClassClaimForm } from './ClassClaimForm';
 import { HelpCircle, Newspaper } from 'lucide-react';
-import { ClassItem, SbaHubOption, ScheduleClash, ClashAdmissibility, ClassType, LocationOption } from '../../types';
+import { ClassItem, SbaHubOption, ScheduleClash, ClashAdmissibility, ClassType, LocationOption, ClassClaimItem, TeacherHourlyRate } from '../../types';
 
 interface AdminDashboardPageProps {
   registrationLogs: RegistrationRecord[];
@@ -108,6 +109,10 @@ interface AdminDashboardPageProps {
   onSaveLocation?: (loc: LocationOption) => void;
   onDeleteLocation?: (id: string) => void;
   onDeleteAllData?: () => Promise<boolean>;
+  claims?: ClassClaimItem[];
+  onUpdateClaims?: (updated: ClassClaimItem[]) => void;
+  hourlyRates?: TeacherHourlyRate[];
+  onUpdateHourlyRates?: (updated: TeacherHourlyRate[]) => void;
 }
 
 export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
@@ -158,8 +163,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   onSaveLocation,
   onDeleteLocation,
   onDeleteAllData,
+  claims = [],
+  onUpdateClaims = () => {},
+  hourlyRates = [],
+  onUpdateHourlyRates = () => {},
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search'>(
+  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search'>(
     currentRole === 'hod' ? 'users' : 'overview'
   );
 
@@ -502,8 +511,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       badge: `${teacherCount}T • ${adminCount}A`,
     },
     {
+      id: 'claims' as const,
+      label: 'Teaching Claims & Payroll',
+      icon: <FileText className="w-4 h-4 text-emerald-400" />,
+      badge: `${(claims || []).filter((c) => c.status === 'claimed').length} Pending`,
+    },
+    {
       id: 'news' as const,
       label: 'Academy News & Press',
+
       icon: <Newspaper className="w-4 h-4 text-purple-400" />,
       badge: `${(schoolNews || []).length} News`,
     },
@@ -588,7 +604,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         {/* Sub-navigation Tab Bar */}
         <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center gap-2">
           {adminTabs
-            .filter((tab) => (currentRole === 'registrar' ? (tab.id === 'overview' || tab.id === 'student_search') : true))
+            .filter((tab) => (currentRole === 'registrar' ? (tab.id === 'overview' || tab.id === 'student_search' || tab.id === 'claims') : true))
             .map((tab) => {
               const isActive = activeAdminTab === tab.id;
               return (
@@ -1086,6 +1102,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           users={users}
           departments={departments}
           classList={classList}
+          sbaHubOptions={sbaHubOptions}
           loggedInUser={loggedInUser}
           currentRole={currentRole}
           onAddUser={onAddUser}
@@ -1182,6 +1199,21 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {/* TEACHING CLAIMS & PAYROLL VERIFICATION TAB */}
+      {activeAdminTab === 'claims' && (
+        <ClassClaimForm
+          currentUser={loggedInUser}
+          currentRole={currentRole}
+          classList={classList}
+          sbaHubOptions={sbaHubOptions}
+          claims={claims}
+          onUpdateClaims={onUpdateClaims}
+          hourlyRates={hourlyRates}
+          onUpdateHourlyRates={onUpdateHourlyRates}
+          users={users}
+        />
       )}
 
       {/* 3. DEPARTMENT MANAGEMENT TAB */}

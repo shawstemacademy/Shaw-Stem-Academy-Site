@@ -23,13 +23,14 @@ import {
   FileText,
   Lock
 } from 'lucide-react';
-import { SchoolUser, Department, TeacherProfile, UserRole, ClassItem } from '../../types';
+import { SchoolUser, Department, TeacherProfile, UserRole, ClassItem, SbaHubOption } from '../../types';
 import { sendUserPasswordResetEmail } from '../../lib/firebase';
 
 interface AdminUserManagementProps {
   users: SchoolUser[];
   departments: Department[];
   classList?: ClassItem[];
+  sbaHubOptions?: SbaHubOption[];
   loggedInUser?: SchoolUser | null;
   currentRole?: UserRole;
   onAddUser: (user: SchoolUser) => void;
@@ -46,6 +47,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   users = [],
   departments = [],
   classList = [],
+  sbaHubOptions = [],
   loggedInUser,
   currentRole,
   onAddUser,
@@ -949,43 +951,89 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                     Assigned Classes & Courses Taught ({assignedClassIds.length} Selected)
                   </label>
                   <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider">
-                    {isHOD ? 'Department Course Assignment' : 'Course Catalog Assignment'}
+                    {isHOD ? 'Department & SBA Hub Assignment' : 'Course Bank & SBA Hub Assignment'}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Select the classes this teacher is responsible for instructing. Updates sync to the class schedule.
+                  Select all classes (Regular & SBA Hub) this staff member or HOD is assigned to teach or manage.
                 </p>
-                {classList.length === 0 ? (
+                {classList.length === 0 && sbaHubOptions.length === 0 ? (
                   <p className="text-xs text-slate-400 italic p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    No classes available in the course catalog.
+                    No classes available in the course bank or SBA hub.
                   </p>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
-                    {classList.map((c, cIdx) => {
-                      const isAssigned = assignedClassIds.includes(c.id);
-                      return (
-                        <button
-                          key={c.id || `cls-${cIdx}`}
-                          type="button"
-                          onClick={() => toggleClassAssignment(c.id)}
-                          className={`p-2.5 rounded-xl text-left text-xs transition-all flex items-center justify-between border cursor-pointer ${
-                            isAssigned
-                              ? 'bg-purple-50 border-purple-300 text-purple-900 shadow-2xs font-bold'
-                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 font-medium'
-                          }`}
-                        >
-                          <div className="min-w-0">
-                            <div className="truncate font-bold">{c.title}</div>
-                            <div className="text-[10px] text-slate-500">{c.code} • {c.category || 'STEM Course'}</div>
-                          </div>
-                          {isAssigned ? (
-                            <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0 ml-1.5" />
-                          ) : (
-                            <div className="w-4 h-4 rounded-full border border-slate-300 shrink-0 ml-1.5" />
-                          )}
-                        </button>
-                      );
-                    })}
+                  <div className="space-y-3 max-h-60 overflow-y-auto p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                    {/* Regular Classes */}
+                    {classList.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5 px-1">
+                          Regular Classes ({classList.length})
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {classList.map((c, cIdx) => {
+                            const isAssigned = assignedClassIds.includes(c.id);
+                            return (
+                              <button
+                                key={c.id || `cls-${cIdx}`}
+                                type="button"
+                                onClick={() => toggleClassAssignment(c.id)}
+                                className={`p-2.5 rounded-xl text-left text-xs transition-all flex items-center justify-between border cursor-pointer ${
+                                  isAssigned
+                                    ? 'bg-purple-50 border-purple-300 text-purple-900 shadow-2xs font-bold'
+                                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 font-medium'
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <div className="truncate font-bold">{c.title}</div>
+                                  <div className="text-[10px] text-slate-500">{c.code} • {c.category || 'Regular'}</div>
+                                </div>
+                                {isAssigned ? (
+                                  <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0 ml-1.5" />
+                                ) : (
+                                  <div className="w-4 h-4 rounded-full border border-slate-300 shrink-0 ml-1.5" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SBA Hub Classes */}
+                    {sbaHubOptions.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-purple-600 mb-1.5 px-1">
+                          SBA Hub Classes ({sbaHubOptions.length})
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {sbaHubOptions.map((sba, sIdx) => {
+                            const isAssigned = assignedClassIds.includes(sba.id);
+                            return (
+                              <button
+                                key={sba.id || `sba-${sIdx}`}
+                                type="button"
+                                onClick={() => toggleClassAssignment(sba.id)}
+                                className={`p-2.5 rounded-xl text-left text-xs transition-all flex items-center justify-between border cursor-pointer ${
+                                  isAssigned
+                                    ? 'bg-purple-50 border-purple-300 text-purple-900 shadow-2xs font-bold'
+                                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 font-medium'
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <div className="truncate font-bold">{sba.title}</div>
+                                  <div className="text-[10px] text-purple-600">{sba.code} • SBA Hub Lab</div>
+                                </div>
+                                {isAssigned ? (
+                                  <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0 ml-1.5" />
+                                ) : (
+                                  <div className="w-4 h-4 rounded-full border border-slate-300 shrink-0 ml-1.5" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

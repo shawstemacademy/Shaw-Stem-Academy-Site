@@ -22,10 +22,14 @@ import {
   UserRole,
   SchoolNewsItem,
   Department,
-  ResourceCategory
+  ResourceCategory,
+  SbaHubOption,
+  ClassClaimItem,
+  TeacherHourlyRate
 } from '../../types';
 import { AdminNewsManagement } from './AdminNewsManagement';
 import { HodResourceCategoryManager } from './HodResourceCategoryManager';
+import { ClassClaimForm } from './ClassClaimForm';
 
 interface TeacherDashboardPageProps {
   teachers: TeacherProfile[];
@@ -42,6 +46,12 @@ interface TeacherDashboardPageProps {
   schoolNews?: SchoolNewsItem[];
   departments?: Department[];
   resourceCategories?: ResourceCategory[];
+  sbaHubOptions?: SbaHubOption[];
+  claims?: ClassClaimItem[];
+  onUpdateClaims?: (updated: ClassClaimItem[]) => void;
+  hourlyRates?: TeacherHourlyRate[];
+  onUpdateHourlyRates?: (updated: TeacherHourlyRate[]) => void;
+  schoolUsers?: SchoolUser[];
 }
 
 export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
@@ -59,7 +69,15 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   schoolNews = [],
   departments = [],
   resourceCategories = [],
+  sbaHubOptions = [],
+  claims = [],
+  onUpdateClaims = () => {},
+  hourlyRates = [],
+  onUpdateHourlyRates = () => {},
+  schoolUsers = [],
 }) => {
+  const [activeSection, setActiveSection] = useState<'classes' | 'claims' | 'resources'>('classes');
+
   // If logged in as a specific teacher user, default to their profile
   const matchedTeacher = teachers.find(
     (t) => loggedInUser && (t.id === loggedInUser.id || (t?.email || '').toLowerCase() === (loggedInUser?.email || '').toLowerCase())
@@ -219,8 +237,62 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
         </div>
       </div>
 
-      {/* Assigned Classes & Google Classroom Links */}
-      <div className="space-y-4">
+      {/* Section Switcher Tabs */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
+        <button
+          onClick={() => setActiveSection('classes')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 ${
+            activeSection === 'classes'
+              ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <BookOpen className="w-4 h-4 text-blue-600" />
+          <span>Assigned Courses & Links</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSection('claims')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 ${
+            activeSection === 'claims'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Clock className="w-4 h-4 text-emerald-400" />
+          <span>Teaching Claim Form & Calendar</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSection('resources')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 ${
+            activeSection === 'resources'
+              ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <FileText className="w-4 h-4 text-purple-600" />
+          <span>Announcements & Materials</span>
+        </button>
+      </div>
+
+      {activeSection === 'claims' && (
+        <ClassClaimForm
+          currentUser={loggedInUser || currentTeacher}
+          currentRole={currentRole}
+          classList={classes}
+          sbaHubOptions={sbaHubOptions}
+          claims={claims}
+          onUpdateClaims={onUpdateClaims}
+          hourlyRates={hourlyRates}
+          onUpdateHourlyRates={onUpdateHourlyRates}
+          users={schoolUsers}
+        />
+      )}
+
+      {activeSection === 'classes' && (
+        <div className="space-y-4">
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h2 className="text-xl font-bold text-slate-900">My Assigned Courses & Google Classroom Links</h2>
@@ -373,9 +445,13 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
           })}
         </div>
       </div>
+      )}
 
       {/* PUBLISH SECTION: Announcement Form & Resource Form */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {(activeSection === 'resources' || activeSection === 'classes') && (
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
         {/* Form 1: Publish Class Announcement */}
         <form
           onSubmit={handlePublishAnnouncement}
@@ -653,6 +729,8 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
             currentRole={currentRole}
           />
         </div>
+      )}
+      </div>
       )}
     </div>
   );

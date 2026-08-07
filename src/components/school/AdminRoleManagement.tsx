@@ -40,9 +40,10 @@ export const AdminRoleManagement: React.FC<AdminRoleManagementProps> = ({
   );
 
   const filteredStaff = users.filter((u) =>
-    (u?.name || '').toLowerCase().includes((searchStaff || '').toLowerCase()) ||
+    u.role !== 'student' &&
+    ((u?.name || '').toLowerCase().includes((searchStaff || '').toLowerCase()) ||
     (u?.email || '').toLowerCase().includes((searchStaff || '').toLowerCase()) ||
-    (u?.title || '').toLowerCase().includes((searchStaff || '').toLowerCase())
+    (u?.title || '').toLowerCase().includes((searchStaff || '').toLowerCase()))
   );
 
   return (

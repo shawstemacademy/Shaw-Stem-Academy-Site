@@ -51,6 +51,8 @@ import {
   FeatureCard,
   ClassType,
   LocationOption,
+  ClassClaimItem,
+  TeacherHourlyRate,
 } from './types';
 import { detectScheduleClashes } from './lib/scheduleClashUtils';
 import {
@@ -150,6 +152,62 @@ export default function App() {
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
   const [academyInfo, setAcademyInfo] = useState<AcademyInfo | null>(DEFAULT_ACADEMY_INFO);
   const [featureCards, setFeatureCards] = useState<FeatureCard[]>(DEFAULT_FEATURE_CARDS);
+
+  // Teaching Claims & Payroll System State
+  const [claims, setClaims] = useState<ClassClaimItem[]>([
+    {
+      id: 'claim-101-20260805',
+      classId: 'cls-101',
+      className: 'Advanced Robotics & Automation',
+      classCode: 'ROB-301',
+      classType: 'regular',
+      teacherId: 'usr-1',
+      teacherName: 'Dr. Marcus Vance',
+      teacherEmail: 'm.vance@shawstemacademy.edu',
+      date: '2026-08-05',
+      dayOfWeek: 'Wednesday',
+      startTime: '16:00',
+      endTime: '17:30',
+      durationHours: 1.5,
+      hourlyRate: 40,
+      calculatedPayout: 60,
+      status: 'verified',
+      claimedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+      verifiedAt: new Date(Date.now() - 86400000).toISOString(),
+      verifiedBy: 'Clara Rodriguez',
+    },
+    {
+      id: 'claim-sba1-20260806',
+      classId: 'sba-1',
+      className: 'CSEC Physics SBA Practical Lab',
+      classCode: 'PHY-SBA',
+      classType: 'sba_hub',
+      teacherId: 'usr-1',
+      teacherName: 'Dr. Marcus Vance',
+      teacherEmail: 'm.vance@shawstemacademy.edu',
+      date: '2026-08-06',
+      dayOfWeek: 'Thursday',
+      startTime: '15:30',
+      endTime: '17:00',
+      durationHours: 1.5,
+      hourlyRate: 40,
+      calculatedPayout: 60,
+      status: 'claimed',
+      claimedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+    }
+  ]);
+  const [hourlyRates, setHourlyRates] = useState<TeacherHourlyRate[]>([
+    { userId: 'usr-1', userName: 'Dr. Marcus Vance', hourlyRate: 40.00 },
+    { userId: 'usr-2', userName: 'Sarah Jenkins', hourlyRate: 45.00 },
+  ]);
+
+  const handleUpdateClaims = (updatedClaims: ClassClaimItem[]) => {
+    setClaims(updatedClaims);
+  };
+
+  const handleUpdateHourlyRates = (updatedRates: TeacherHourlyRate[]) => {
+    setHourlyRates(updatedRates);
+  };
 
   // Registration Auth States
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -1500,6 +1558,16 @@ export default function App() {
     logSystemAction('login', 'User signed out of portal');
   }
 
+  const handleTabSelect = (tab: PortalTab) => {
+    const isLoggedIn = !!user || !!loggedInUser;
+    if ((tab === 'student-portal' || tab === 'registration') && !isLoggedIn) {
+      alert('Authentication required: Please log in to your student account to access the Student Portal or Class Registration.');
+      setActiveTab('login');
+      return;
+    }
+    setActiveTab(tab);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 font-sans selection:bg-blue-200 flex flex-col justify-between">
       <div>
@@ -1520,7 +1588,7 @@ export default function App() {
         {/* Top School Navbar with Role & Status Switcher */}
         <SchoolHeaderNav
           activeTab={activeTab}
-          onSelectTab={setActiveTab}
+          onSelectTab={handleTabSelect}
           currentRole={currentRole}
           onChangeRole={setCurrentRole}
           studentStatus={studentStatus}
@@ -1576,15 +1644,36 @@ export default function App() {
           )}
 
           {activeTab === 'student-portal' && (
-            <StudentPortalPage
-              status={studentStatus}
-              onChangeStatus={setStudentStatus}
-              classes={enrolledClasses}
-              resources={resources}
-              announcements={announcements}
-              faqs={faqs}
-              onOpenRegistration={() => setActiveTab('registration')}
-            />
+            (!user && !loggedInUser) ? (
+              <div className="bg-white rounded-3xl p-8 max-w-xl mx-auto border border-slate-200 shadow-xl text-center space-y-5 my-12">
+                <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto">
+                  <Lock className="w-8 h-8 text-amber-600" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-extrabold text-slate-900">Authentication Required</h2>
+                  <p className="text-sm text-slate-600">
+                    You must be logged in to access the Student Portal or Class Registration. Please sign in to view your enrolled courses, schedules, and lab materials.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('login')}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md transition-all inline-flex items-center gap-2 cursor-pointer"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>Log In to Access Portal</span>
+                </button>
+              </div>
+            ) : (
+              <StudentPortalPage
+                status={studentStatus}
+                onChangeStatus={setStudentStatus}
+                classes={enrolledClasses}
+                resources={resources}
+                announcements={announcements}
+                faqs={faqs}
+                onOpenRegistration={() => handleTabSelect('registration')}
+              />
+            )
           )}
 
           {activeTab === 'teacher-dashboard' && (
@@ -1602,6 +1691,12 @@ export default function App() {
               onUpdateClassList={handleUpdateClassList}
               schoolNews={schoolNews}
               departments={departments}
+              sbaHubOptions={sbaHubOptions}
+              claims={claims}
+              onUpdateClaims={handleUpdateClaims}
+              hourlyRates={hourlyRates}
+              onUpdateHourlyRates={handleUpdateHourlyRates}
+              schoolUsers={schoolUsers}
             />
           )}
 
@@ -1656,6 +1751,10 @@ export default function App() {
               onDeleteClassType={handleDeleteClassType}
               onSaveLocation={handleSaveLocation}
               onDeleteLocation={handleDeleteLocation}
+              claims={claims}
+              onUpdateClaims={handleUpdateClaims}
+              hourlyRates={hourlyRates}
+              onUpdateHourlyRates={handleUpdateHourlyRates}
               onDeleteAllData={async () => {
                 const ok = await deleteAllSiteData();
                 if (ok) {

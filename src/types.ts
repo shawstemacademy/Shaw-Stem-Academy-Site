@@ -389,4 +389,34 @@ export interface SystemActionLog {
   metadata?: any;
 }
 
+export interface ClassClaimItem {
+  id: string; // unique claim ID e.g. claim-cls101-20260807
+  classId: string;
+  className: string;
+  classCode?: string;
+  classType: 'regular' | 'sba_hub';
+  teacherId: string;
+  teacherName: string;
+  teacherEmail?: string;
+  date: string; // 'YYYY-MM-DD'
+  dayOfWeek: string; // 'Monday', 'Tuesday', etc.
+  startTime?: string;
+  endTime?: string;
+  durationHours: number;
+  hourlyRate: number;
+  calculatedPayout: number;
+  status: 'claimed' | 'verified' | 'rejected';
+  claimedAt: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
+  rejectionNotes?: string;
+}
+
+export interface TeacherHourlyRate {
+  userId: string;
+  userName: string;
+  hourlyRate: number; // e.g. 35.00
+}
+
+
 
