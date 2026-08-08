@@ -1747,7 +1747,7 @@ export default function App() {
       setActiveTab(targetTab);
     } else {
       if (role === 'student') {
-        setActiveTab(status === 'prospective' ? 'registration' : 'student-portal');
+        setActiveTab(status === 'prospective' ? 'academics' : 'student-portal');
       } else if (role === 'teacher') {
         setActiveTab('teacher-dashboard');
       } else if (role === 'admin') {
@@ -2203,6 +2203,8 @@ export default function App() {
                     (loggedInUser?.permissions || []).includes('manage_form_options')
                   }
                   onOpenManageOptions={() => setIsManageListOptionsOpen(true)}
+                  departments={departments}
+                  classTypes={classTypes}
                 />
 
                 <ClassSelectionCatalog

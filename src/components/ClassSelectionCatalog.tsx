@@ -47,6 +47,7 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedClassType, setSelectedClassType] = useState<string>('All');
+  const [sortOrder, setSortOrder] = useState<'alpha-asc' | 'alpha-desc' | 'price-asc' | 'price-desc'>('alpha-asc');
 
   // ONLY show courses where isOffered !== false and student is NOT currently registered for
   const safeClassList = classList || [];
@@ -93,6 +94,20 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
       })();
 
     return matchesSearch && matchesCategory && matchesClassType;
+  });
+
+  // Sort classes
+  const sortedClasses = [...filteredClasses].sort((a, b) => {
+    if (sortOrder === 'alpha-asc') {
+      return (a.title || '').localeCompare(b.title || '');
+    } else if (sortOrder === 'alpha-desc') {
+      return (b.title || '').localeCompare(a.title || '');
+    } else if (sortOrder === 'price-asc') {
+      return (a.price || 0) - (b.price || 0);
+    } else if (sortOrder === 'price-desc') {
+      return (b.price || 0) - (a.price || 0);
+    }
+    return 0;
   });
 
   // Check selected classes for schedule clashes
@@ -196,7 +211,7 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
 
             {/* Class Type Dropdown */}
             {classTypes && classTypes.length > 0 && (
-              <div className="relative w-full sm:w-48">
+              <div className="relative w-full sm:w-44">
                 <Filter className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
                 <select
                   value={selectedClassType}
@@ -217,6 +232,26 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Sort Dropdown */}
+            <div className="relative w-full sm:w-44">
+              <select
+                value={sortOrder}
+                aria-label="Sort classes"
+                onChange={(e) => setSortOrder(e.target.value as any)}
+                className="w-full pl-3 pr-8 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-hidden bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 appearance-none cursor-pointer font-semibold"
+              >
+                <option value="alpha-asc">Sort: A to Z</option>
+                <option value="alpha-desc">Sort: Z to A</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-gray-500">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+              </div>
+            </div>
           </div>
 
           {/* Category Chips Container with Left/Right Scroll Buttons */}
@@ -269,7 +304,7 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
 
         {/* Classes List (Checkbox Style) */}
         <div className="space-y-4">
-          {filteredClasses.length === 0 ? (
+          {sortedClasses.length === 0 ? (
             <div className="p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
               <Info className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-sm font-medium text-gray-600">No classes found matching your criteria.</p>
@@ -278,6 +313,7 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
                   setSearchTerm('');
                   setSelectedCategory('All');
                   setSelectedClassType('All');
+                  setSortOrder('alpha-asc');
                 }}
                 className="mt-2 text-xs font-semibold text-purple-600 hover:underline"
               >
@@ -285,7 +321,7 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
               </button>
             </div>
           ) : (
-            filteredClasses.map((cls) => {
+            sortedClasses.map((cls) => {
               const isSelected = selectedClassIds.includes(cls.id);
               const availableSeats = cls.capacity - cls.enrolled;
 

@@ -97,9 +97,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       setIsSuccessMessage(true);
 
       setTimeout(() => {
+        const isProspective = matchedUser.status === 'prospective';
         const targetTab = 
           resolvedRole === 'student'
-            ? 'student-portal'
+            ? (isProspective ? 'academics' : 'student-portal')
             : resolvedRole === 'teacher' || resolvedRole === 'hod'
             ? 'teacher-dashboard'
             : 'admin-dashboard';
