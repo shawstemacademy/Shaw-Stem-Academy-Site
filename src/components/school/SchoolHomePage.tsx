@@ -199,37 +199,37 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {cards.map((card, idx) => {
           const colorClasses = {
-            blue: 'bg-blue-50 text-blue-600',
-            purple: 'bg-purple-50 text-purple-600',
-            emerald: 'bg-emerald-50 text-emerald-600',
-            amber: 'bg-amber-50 text-amber-600',
-          }[card.color || 'blue'] || 'bg-blue-50 text-blue-600';
+            blue: 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400',
+            purple: 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400',
+            emerald: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400',
+            amber: 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400',
+          }[card.color || 'blue'] || 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400';
 
           return (
-            <div key={card.id || `fcard-${idx}`} className="p-6 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-2">
+            <div key={card.id || `fcard-${idx}`} className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorClasses}`}>
                 {renderCardIcon(card.icon)}
               </div>
-              <div className="text-3xl font-extrabold text-slate-900">{renderCardMetricValue(card)}</div>
-              <div className="font-bold text-slate-900 text-xs">{card.title}</div>
-              <p className="text-[11px] font-medium text-slate-500">{card.description}</p>
+              <div className="text-3xl font-extrabold text-slate-900 dark:text-slate-100">{renderCardMetricValue(card)}</div>
+              <div className="font-bold text-slate-900 dark:text-slate-100 text-xs">{card.title}</div>
+              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{card.description}</p>
             </div>
           );
         })}
       </div>
 
       {/* General Information Section */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-8 sm:p-10 shadow-xs space-y-8">
-        <div className="border-b border-slate-100 pb-6 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider">
-            <Building2 className="w-3.5 h-3.5 text-blue-600" />
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 sm:p-10 shadow-xs space-y-8">
+        <div className="border-b border-slate-100 dark:border-slate-800 pb-6 space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider">
+            <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             <span>General Academy Information</span>
           </div>
-          <h2 className="text-3xl font-bold text-slate-900">Welcome to {info.schoolName}</h2>
-          <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Welcome to {info.schoolName}</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400 max-w-3xl leading-relaxed">
             {info.aboutText}
           </p>
-          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 pt-2 font-medium">
+          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 dark:text-slate-400 pt-2 font-medium">
             <span>📍 {info.address}</span>
             <span>📞 {info.contactPhone}</span>
             <span>✉️ {info.contactEmail}</span>
@@ -237,77 +237,77 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
         </div>
 
         {/* Application Purpose & OAuth Verification Panel */}
-        <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100 space-y-4">
-          <div className="flex items-center gap-2 text-blue-800">
-            <ShieldCheck className="w-5 h-5 text-blue-600" />
-            <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Application Purpose & Authentication Notice</h3>
+        <div className="p-6 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 space-y-4">
+          <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300">
+            <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-xs uppercase tracking-wider">Application Purpose & Authentication Notice</h3>
           </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
             The <strong>Shaw STEM Academy</strong> online portal is a dedicated platform designed to manage STEM course catalogs, student profile registries, and term class registration for parents, students, and academic staff. Our portal provides a seamless digital experience to:
           </p>
-          <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-4 list-disc text-xs text-slate-600">
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-4 list-disc text-xs text-slate-600 dark:text-slate-300">
             <li><strong>Secure Student Portal:</strong> Allows enrolled and prospective students to view active course resources, class schedules, and academic announcements in real time.</li>
             <li><strong>Class Registration & Enrollments:</strong> Enables parents to register students for multiple hands-on laboratory classes, track total tuition fees, and apply eligible bundle discounts.</li>
             <li><strong>Faculty & Course Administration:</strong> Empower teachers to publish lectures, syllabi, class files, and manage student attendance registries.</li>
             <li><strong>Academic Performance Tracking:</strong> Aids school administrators in processing admissions and verifying course enrollment states securely.</li>
           </ul>
-          <div className="border-t border-blue-100/60 pt-3">
-            <p className="text-xs text-slate-600 leading-relaxed">
-              <strong>Google OAuth Integration:</strong> We utilize Google Sign-In exclusively for secure user authentication. When you log in with your Google Account, we access only your basic profile information (such as your name, email address, and avatar). This is used to safely map your school portal identity to your student record, authenticate access permissions for classrooms and dashboards, prevent unauthorized account registrations, and securely persist your class enrollment logs in our database. Your data is strictly used for portal access and is never shared with third parties. For more information, please read our <a href="?tab=privacy" onClick={(e) => { e.preventDefault(); onNavigate('privacy'); }} className="text-blue-600 font-bold hover:underline">Privacy Policy</a>.
+          <div className="border-t border-blue-100/60 dark:border-blue-900/40 pt-3">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <strong>Google OAuth Integration:</strong> We utilize Google Sign-In exclusively for secure user authentication. When you log in with your Google Account, we access only your basic profile information (such as your name, email address, and avatar). This is used to safely map your school portal identity to your student record, authenticate access permissions for classrooms and dashboards, prevent unauthorized account registrations, and securely persist your class enrollment logs in our database. Your data is strictly used for portal access and is never shared with third parties. For more information, please read our <a href="?tab=privacy" onClick={(e) => { e.preventDefault(); onNavigate('privacy'); }} className="text-blue-600 dark:text-blue-400 font-bold hover:underline">Privacy Policy</a>.
             </p>
           </div>
         </div>
 
         {/* 3 Information Pillars */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 flex items-center justify-center font-bold">
               <Cpu className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-slate-900 text-base">{info.pillar1Title}</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">{info.pillar1Title}</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
               {info.pillar1Desc}
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 flex items-center justify-center font-bold">
               <GraduationCap className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-slate-900 text-base">{info.pillar2Title}</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">{info.pillar2Title}</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
               {info.pillar2Desc}
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+          <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold">
               <Sparkles className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-slate-900 text-base">{info.pillar3Title}</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">{info.pillar3Title}</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
               {info.pillar3Desc}
             </p>
           </div>
         </div>
 
         {/* Frequently Asked Questions */}
-        <div className="pt-6 border-t border-slate-100 space-y-4">
-          <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-blue-600" />
+        <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             <span>Frequently Asked Questions</span>
           </h3>
 
           {faqs.length === 0 ? (
-            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 text-center space-y-1">
-              <p className="text-xs text-slate-500 font-medium">No FAQs currently published. Administrators can add questions in the Admin Suite.</p>
+            <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">No FAQs currently published. Administrators can add questions in the Admin Suite.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               {faqs.map((faq) => (
-                <div key={faq.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                  <div className="font-bold text-slate-900">{faq.question}</div>
-                  <p className="text-slate-600 leading-relaxed">{faq.answer}</p>
+                <div key={faq.id} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
+                  <div className="font-bold text-slate-900 dark:text-slate-100">{faq.question}</div>
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{faq.answer}</p>
                 </div>
               ))}
             </div>
@@ -319,16 +319,16 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Latest Academy News</h2>
-            <p className="text-sm text-slate-500">Stay updated on STEM lab events, competitions, and admissions.</p>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Latest Academy News</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Stay updated on STEM lab events, competitions, and admissions.</p>
           </div>
         </div>
 
         {news.length === 0 ? (
-          <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center space-y-2 shadow-xs">
-            <Newspaper className="w-8 h-8 text-slate-300 mx-auto" />
-            <h3 className="text-xs font-bold text-slate-800">No News Published Yet</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+          <div className="p-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-2 shadow-xs">
+            <Newspaper className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200">No News Published Yet</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
               News posts created by Administrators, Department Heads, and Leaders will appear here in real-time.
             </p>
           </div>
@@ -337,10 +337,10 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
             {news.map((item) => (
               <div
                 key={item.id}
-                className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
               >
                 {(item.imageUrl || settings.logoUrl) && (
-                  <div className="h-44 overflow-hidden bg-slate-100">
+                  <div className="h-44 overflow-hidden bg-slate-100 dark:bg-slate-950">
                     <img
                       src={item.imageUrl || settings.logoUrl}
                       alt={item.title}
@@ -353,27 +353,27 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
                 <div className="p-6 space-y-3 flex-1 flex flex-col justify-between">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/30">
                         {item.category}
                       </span>
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {item.date}
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-slate-900 leading-snug hover:text-blue-600 transition-colors">
+                    <h3 className="font-bold text-slate-900 dark:text-slate-100 leading-snug hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                       {item.title}
                     </h3>
 
-                    <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-3 leading-relaxed">
                       {item.summary}
                     </p>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
                     <span>By {item.author}</span>
-                    {item.departmentName && <span className="font-semibold text-purple-600">{item.departmentName}</span>}
+                    {item.departmentName && <span className="font-semibold text-purple-600 dark:text-purple-400">{item.departmentName}</span>}
                   </div>
                 </div>
               </div>
@@ -385,10 +385,10 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
       {/* Edit Logo Modal */}
       {isEditingLogo && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full border border-slate-200 p-6 shadow-2xl space-y-4 animate-in fade-in-50 zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-slate-950 text-base flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-blue-600" />
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4 animate-in fade-in-50 zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="font-bold text-slate-950 dark:text-slate-50 text-base flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <span>Update Academy Logo</span>
               </h3>
               <button
@@ -396,14 +396,14 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
                   setIsEditingLogo(false);
                   setTempLogoUrl('');
                 }}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors"
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="flex justify-center p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800">
                 <img
                   src={tempLogoUrl || settings.logoUrl || 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png'}
                   alt="Logo Preview"
@@ -423,14 +423,14 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
               />
             </div>
 
-            <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+            <div className="flex items-center gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => {
                   setIsEditingLogo(false);
                   setTempLogoUrl('');
                 }}
-                className="flex-1 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                className="flex-1 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 rounded-xl transition-colors cursor-pointer"
               >
                 Cancel
               </button>

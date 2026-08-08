@@ -1,6 +1,6 @@
 import React from 'react';
 import { FormTheme } from '../types';
-import { Sparkles, Palette, Settings2, FileOutput, HelpCircle } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 interface FormHeaderProps {
   title: string;
@@ -45,35 +45,6 @@ export const FormHeader: React.FC<FormHeaderProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Theme selector dropdown */}
-            <div className="relative group">
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
-                title="Change Theme Color"
-              >
-                <Palette className="w-3.5 h-3.5" />
-                <span>Theme</span>
-              </button>
-              <div className="absolute right-0 top-full mt-1 hidden group-hover:flex group-focus-within:flex flex-col bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-20 min-w-[200px]">
-                <div className="text-[11px] font-semibold text-gray-400 px-2 py-1 uppercase tracking-wider">
-                  Select Theme Palette
-                </div>
-                {themes.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setTheme(t)}
-                    className={`flex items-center gap-2 w-full text-left px-2 py-1.5 rounded text-xs transition-colors ${
-                      theme.id === t.id ? 'bg-purple-50 text-purple-800 font-semibold' : 'hover:bg-gray-50 text-gray-700'
-                    }`}
-                  >
-                    <span className={`w-3.5 h-3.5 rounded-full ${t.headerBg}`} />
-                    <span>{t.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
           </div>
         </div>
 
@@ -134,18 +105,7 @@ export const FormHeader: React.FC<FormHeaderProps> = ({
           </div>
         )}
 
-        {/* Live Running Total Notice Box */}
-        <div className="mt-6 p-3.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs text-slate-700">
-          <div className="flex items-center gap-2">
-            <HelpCircle className="w-4 h-4 text-purple-600 flex-shrink-0" />
-            <span>
-              <strong>Live Cost Calculator Active:</strong> Select your desired classes below. Your running total and applied discounts update instantly!
-            </span>
-          </div>
-          <span className="hidden sm:inline-block px-2 py-0.5 bg-emerald-100 text-emerald-800 font-semibold text-[11px] rounded-full">
-            Auto-Discounts Enabled
-          </span>
-        </div>
+
       </div>
     </div>
   );

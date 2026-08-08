@@ -10,7 +10,11 @@ import {
   Calculator, 
   Settings2,
   User as UserIcon,
-  LogOut
+  LogOut,
+  Bell,
+  BellOff,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { PortalTab, UserRole, StudentStatus, SchoolUser } from '../../types';
 
@@ -29,6 +33,8 @@ interface SchoolHeaderNavProps {
   onSignOut: () => void;
   onOpenDiscountConfig: () => void;
   onOpenGoogleExport: () => void;
+  themeMode: 'light' | 'dark';
+  onToggleThemeMode: () => void;
 }
 
 export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
@@ -46,7 +52,33 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
   onSignOut,
   onOpenDiscountConfig,
   onOpenGoogleExport,
+  themeMode,
+  onToggleThemeMode,
 }) => {
+  const [notifPerm, setNotifPerm] = React.useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  );
+
+  const handleToggleNotifications = async () => {
+    if (typeof Notification === 'undefined') {
+      alert("System notifications are not supported by this browser.");
+      return;
+    }
+    
+    const { requestNotificationPermission, sendDesktopNotification } = await import('../../lib/notifications');
+    const perm = await requestNotificationPermission();
+    setNotifPerm(perm);
+
+    if (perm === 'granted') {
+      await sendDesktopNotification(
+        "🔔 Notifications Activated!",
+        "You have enabled high-priority desktop notifications for Shaw STEM Academy."
+      );
+    } else if (perm === 'denied') {
+      alert("Notifications have been blocked. Please click the padlock or settings icon next to the URL bar in your browser to change permissions to 'Allow' and receive live portal updates.");
+    }
+  };
+
   // Resolve current user display name and role
   const resolvedUserName = loggedInUser 
     ? loggedInUser.name 
@@ -160,6 +192,47 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
 
           {/* Top Right User Profile & Logout Button */}
           <div className="flex items-center gap-2">
+            {/* Desktop Notification Toggle Icon */}
+            <button
+              onClick={handleToggleNotifications}
+              className={`p-2 rounded-xl border transition-all flex items-center justify-center relative ${
+                notifPerm === 'granted'
+                  ? 'bg-blue-600/10 border-blue-500/30 text-blue-400 hover:bg-blue-600/20'
+                  : notifPerm === 'denied'
+                  ? 'bg-slate-800/50 border-slate-700/40 text-slate-500 opacity-60'
+                  : 'bg-amber-600/10 border-amber-500/30 text-amber-400 hover:bg-amber-600/20'
+              }`}
+              title={
+                notifPerm === 'granted'
+                  ? 'Desktop Notifications Enabled'
+                  : notifPerm === 'denied'
+                  ? 'Notifications Blocked by Browser'
+                  : 'Click to Enable Desktop Notifications'
+              }
+            >
+              {notifPerm === 'granted' ? (
+                <Bell className="w-4 h-4 text-blue-400 animate-bounce" style={{ animationIterationCount: 1, animationDuration: '1s' }} />
+              ) : (
+                <BellOff className="w-4 h-4 text-slate-400" />
+              )}
+              {notifPerm === 'default' && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping" />
+              )}
+            </button>
+
+            {/* Theme Toggle Button */}
+            <button
+              onClick={onToggleThemeMode}
+              className="p-2 rounded-xl border border-slate-700/40 bg-slate-800/50 text-slate-300 hover:text-white hover:bg-slate-800 transition-all flex items-center justify-center cursor-pointer"
+              title={themeMode === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {themeMode === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-blue-400" />
+              )}
+            </button>
+
             {!loggedInUser && !user ? (
               <button
                 onClick={onSignIn}

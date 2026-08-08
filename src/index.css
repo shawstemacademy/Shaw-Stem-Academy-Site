@@ -1,5 +1,127 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
+/* High Contrast Global Dark Mode Overrides */
+.dark {
+  color-scheme: dark;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  color: #f8fafc !important; /* text-slate-50 */
+  border-color: #334155 !important; /* border-slate-700 */
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #94a3b8 !important; /* text-slate-400 */
+}
+
+.dark option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+.dark .text-slate-900,
+.dark .text-gray-900 {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-slate-800,
+.dark .text-gray-800 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-slate-700,
+.dark .text-gray-700 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-600,
+.dark .text-gray-600 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-slate-500,
+.dark .text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+.dark .bg-white {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  border-color: #1e293b !important; /* border-slate-800 */
+}
+
+.dark .bg-slate-50,
+.dark .bg-gray-50 {
+  background-color: #020617 !important; /* bg-slate-950 */
+  border-color: #1e293b !important; /* border-slate-800 */
+}
+
+.dark .border-slate-200,
+.dark .border-gray-200,
+.dark .border-slate-100,
+.dark .border-gray-100 {
+  border-color: #1e293b !important; /* border-slate-800 */
+}
+
+/* Semi-transparent adaptive colored backgrounds for dark mode cards */
+.dark .bg-purple-50,
+.dark .bg-purple-50\/50,
+.dark .bg-purple-100 {
+  background-color: rgba(147, 51, 234, 0.15) !important;
+  border-color: rgba(147, 51, 234, 0.3) !important;
+}
+
+.dark .bg-blue-50,
+.dark .bg-blue-50\/50,
+.dark .bg-blue-100 {
+  background-color: rgba(37, 99, 235, 0.15) !important;
+  border-color: rgba(37, 99, 235, 0.3) !important;
+}
+
+.dark .bg-emerald-50,
+.dark .bg-emerald-50\/50,
+.dark .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.dark .bg-amber-50,
+.dark .bg-amber-50\/50,
+.dark .bg-amber-100 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+/* Semantic text contrasts in dark mode */
+.dark .text-purple-600,
+.dark .text-purple-700,
+.dark .text-purple-800 {
+  color: #d8b4fe !important; /* purple-300 */
+}
+
+.dark .text-blue-600,
+.dark .text-blue-700,
+.dark .text-blue-800 {
+  color: #93c5fd !important; /* blue-300 */
+}
+
+.dark .text-emerald-600,
+.dark .text-emerald-700,
+.dark .text-emerald-800 {
+  color: #6ee7b7 !important; /* emerald-300 */
+}
+
+.dark .text-amber-600,
+.dark .text-amber-700,
+.dark .text-amber-800 {
+  color: #fde047 !important; /* yellow-300 */
+}
+
 @media print {
   /* Hide non-printable UI elements */
   nav,

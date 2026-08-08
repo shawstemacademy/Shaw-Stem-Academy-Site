@@ -19,7 +19,11 @@ import {
   Clock,
   Check,
   FolderOpen,
-  User
+  User,
+  CreditCard,
+  DollarSign,
+  ChevronRight,
+  Info
 } from 'lucide-react';
 import { 
   StudentStatus, 
@@ -34,6 +38,7 @@ import {
   FormTheme
 } from '../../types';
 import { StudentInfoForm } from '../StudentInfoForm';
+import { RegistrationReceiptModal } from '../RegistrationReceiptModal';
 
 interface StudentPortalPageProps {
   status: StudentStatus;
@@ -44,6 +49,7 @@ interface StudentPortalPageProps {
   categories?: ResourceCategory[];
   studentUser?: SchoolUser | null;
   registrationRecord?: RegistrationRecord | null;
+  allRegistrations?: RegistrationRecord[];
   onUpdateRegistration?: (updated: RegistrationRecord) => void;
   onUpdateUserProfile?: (updated: SchoolUser) => void;
   onOpenRegistration: () => void;
@@ -58,6 +64,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   categories = [],
   studentUser,
   registrationRecord,
+  allRegistrations = [],
   onUpdateRegistration,
   onUpdateUserProfile,
   onOpenRegistration,
@@ -65,6 +72,21 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editingStudentInfo, setEditingStudentInfo] = useState<StudentInfo | null>(null);
+  const [selectedReceiptRecord, setSelectedReceiptRecord] = useState<RegistrationRecord | null>(null);
+  const [activePaymentMethod, setActivePaymentMethod] = useState<'zelle' | 'wire' | 'check'>('zelle');
+
+  // Calculate outstanding balances dynamically using real database records
+  const outstandingRegistrations = allRegistrations.map((r) => {
+    if (r.isPaid || r.status === 'completed' || r.status === 'verified') {
+      return { ...r, outstandingBalance: 0 };
+    }
+    const rPayments = r.payments || [];
+    const rPaid = rPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    return { ...r, outstandingBalance: Math.max(0, (r.totalPrice || 0) - rPaid) };
+  });
+
+  const totalOutstandingBalance = outstandingRegistrations.reduce((sum, r) => sum + r.outstandingBalance, 0);
+  const outstandingCount = outstandingRegistrations.filter((r) => r.outstandingBalance > 0).length;
 
   const handleEditProfileClick = () => {
     const defaultStudentInfo: StudentInfo = {
@@ -444,6 +466,282 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
             )}
           </div>
 
+          {/* Quick Pay Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Quick Pay Dashboard</h2>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Outstanding Balance Summary Card */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Current Outstanding Balance
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                      totalOutstandingBalance > 0
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                    }`}>
+                      {totalOutstandingBalance > 0 ? 'Action Required' : 'Paid in Full'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                      ${totalOutstandingBalance.toFixed(2)}
+                    </span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">USD</span>
+                  </div>
+
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                    {totalOutstandingBalance > 0
+                      ? `You have ${outstandingCount} registration record${outstandingCount > 1 ? 's' : ''} with outstanding tuition. Use the instructions on the right to complete payment.`
+                      : 'All tuition fees are completely paid. No pending dues found! Thank you.'}
+                  </p>
+                </div>
+
+                {totalOutstandingBalance > 0 && (
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300">Pending Registrations:</div>
+                    <div className="max-h-24 overflow-y-auto space-y-2 pr-1" id="category-scroll-container">
+                      {outstandingRegistrations
+                        .filter((r) => r.outstandingBalance > 0)
+                        .map((r) => (
+                          <div key={r.id} className="flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-950 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                            <span className="font-semibold text-slate-600 dark:text-slate-400 truncate max-w-[120px]">
+                              {r.id}
+                            </span>
+                            <span className="font-extrabold text-amber-600 dark:text-amber-400">
+                              ${r.outstandingBalance.toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Interactive Payment Instructions Column */}
+              <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="space-y-0.5">
+                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Tuition Payment Instructions</h3>
+                    <p className="text-[11px] text-slate-400">Choose your preferred transfer method to settle balance</p>
+                  </div>
+
+                  {/* Payment Method Selector Tabs */}
+                  <div className="flex bg-slate-100 dark:bg-slate-955 p-1 rounded-xl border border-slate-200/50 dark:border-slate-800/80 gap-1">
+                    <button
+                      onClick={() => setActivePaymentMethod('zelle')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        activePaymentMethod === 'zelle'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                      }`}
+                    >
+                      Zelle
+                    </button>
+                    <button
+                      onClick={() => setActivePaymentMethod('wire')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        activePaymentMethod === 'wire'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                      }`}
+                    >
+                      Wire / ACH
+                    </button>
+                    <button
+                      onClick={() => setActivePaymentMethod('check')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        activePaymentMethod === 'check'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                      }`}
+                    >
+                      Mail Check
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tab Contents */}
+                <div className="min-h-36 flex flex-col justify-between">
+                  {activePaymentMethod === 'zelle' && (
+                    <div className="space-y-3 animate-fade-in text-xs">
+                      <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-extrabold">
+                        <span>Instant Zelle Transfer</span>
+                      </div>
+                      <p className="text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                        Send payment directly through your banking app using Zelle. Transactions are verified on the same business day.
+                      </p>
+                      <div className="bg-slate-50 dark:bg-slate-955 p-3 rounded-2xl border border-slate-105 dark:border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500 font-medium">Zelle Recipient Email:</span>
+                          <span className="font-extrabold text-slate-800 dark:text-slate-200 select-all">billing@shawstemacademy.edu</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500 font-medium">Memo / Reference Note:</span>
+                          <span className="font-extrabold text-blue-600 dark:text-blue-400">
+                            {studentUser?.name ? `${studentUser.name} - Tuition` : 'Student Tuition'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activePaymentMethod === 'wire' && (
+                    <div className="space-y-3 animate-fade-in text-xs">
+                      <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-extrabold">
+                        <span>Bank Wire or ACH Transfer</span>
+                      </div>
+                      <p className="text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                        Perfect for direct deposit, electronic checks, or commercial banking transfers. Processing takes 1-2 business days.
+                      </p>
+                      <div className="bg-slate-50 dark:bg-slate-955 p-3 rounded-2xl border border-slate-105 dark:border-slate-800 space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 font-medium">Bank Name:</span>
+                          <span className="font-extrabold text-slate-800 dark:text-slate-200">Chase Bank, N.A.</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 font-medium">Account Number:</span>
+                          <span className="font-extrabold text-slate-800 dark:text-slate-200 select-all">XXXX-XXXX-XXXX-8924</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 font-medium">Routing Transit Number (RTN):</span>
+                          <span className="font-extrabold text-slate-800 dark:text-slate-200 select-all">121000248</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activePaymentMethod === 'check' && (
+                    <div className="space-y-3 animate-fade-in text-xs">
+                      <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-extrabold">
+                        <span>Physical Check Mailing</span>
+                      </div>
+                      <p className="text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                        Mail physical checks or dropped off directly at our campus business office counter. Verified upon deposit clearing.
+                      </p>
+                      <div className="bg-slate-50 dark:bg-slate-955 p-3 rounded-2xl border border-slate-105 dark:border-slate-800 space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 font-medium">Payable To:</span>
+                          <span className="font-extrabold text-slate-800 dark:text-slate-200">Shaw STEM Academy</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 font-medium">Mailing Address:</span>
+                          <span className="font-extrabold text-slate-800 dark:text-slate-200 text-right">
+                            100 Innovation Way, Suite 400<br />Seattle, WA 98101
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    <Info className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                    <span>Once payment is sent, the Registrar verifies the transaction inside the Ledger to unlock your full course links.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Enrollment & Registration History */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <FolderOpen className="w-5 h-5 text-purple-600" />
+              <h2 className="text-2xl font-bold text-slate-900">Enrollment & Payment History</h2>
+            </div>
+
+            {(!allRegistrations || allRegistrations.length === 0) ? (
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-medium">
+                No historical registration records found for your account.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {allRegistrations.map((record) => {
+                  const recordDate = record.timestamp
+                    ? new Date(record.timestamp).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })
+                    : 'N/A';
+                  
+                  return (
+                    <div
+                      key={record.id}
+                      className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-slate-300"
+                    >
+                      <div className="space-y-2 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-extrabold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
+                            Receipt ID: #{record.id.slice(-8).toUpperCase()}
+                          </span>
+                          <span className="text-xs text-slate-500">• {recordDate}</span>
+                          
+                          {/* Payment status badge */}
+                          {record.isPaid ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              Paid
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                              Awaiting Verification
+                            </span>
+                          )}
+
+                          {/* Approval status badge */}
+                          {record.status === 'verified' || record.status === 'completed' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              Approved
+                            </span>
+                          ) : record.status === 'rejected' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                              Rejected
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                              Pending Review
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-slate-800">
+                            Registered STEM Courses:
+                          </p>
+                          <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                            {record.selectedClasses?.map((c) => c.title).join(', ') || 'None selected'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-row sm:flex-col items-start sm:items-end justify-between sm:justify-center gap-3 shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                        <div className="text-left sm:text-right">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Tuition</p>
+                          <p className="text-lg font-black text-slate-900">${record.totalPrice}</p>
+                        </div>
+
+                        <button
+                          onClick={() => setSelectedReceiptRecord(record)}
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>View Receipt</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Teacher Announcements Feed */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
@@ -643,6 +941,25 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Receipt Modal */}
+      {selectedReceiptRecord && (
+        <RegistrationReceiptModal
+          registration={selectedReceiptRecord}
+          onClose={() => setSelectedReceiptRecord(null)}
+          theme={{
+            primary: 'bg-purple-600',
+            primaryHover: 'hover:bg-purple-700',
+            secondary: 'bg-purple-50 text-purple-700',
+            headerBg: 'bg-slate-900',
+            headerText: 'text-white',
+            headerAccent: 'text-purple-400',
+            cardBorderTop: 'border-t-purple-500',
+            buttonBg: 'bg-purple-600 hover:bg-purple-700 text-white',
+            badgeBg: 'bg-purple-100 text-purple-800'
+          }}
+        />
       )}
     </div>
   );

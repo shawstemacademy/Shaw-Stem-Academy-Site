@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { Lock } from 'lucide-react';
+import { requestNotificationPermission, sendDesktopNotification, playNotificationSound } from './lib/notifications';
 import {
   auth,
   initAuth,
@@ -95,6 +96,17 @@ import { DiscountRulesModal } from './components/DiscountRulesModal';
 import { RegistrationReceiptModal } from './components/RegistrationReceiptModal';
 
 export default function App() {
+  // Refs for tracking changes and triggering PWA/Desktop notifications
+  const prevNewsRef = useRef<any[]>([]);
+  const prevAnnouncementsRef = useRef<any[]>([]);
+  const prevRegistrationsRef = useRef<any[]>([]);
+  const prevUserStatusRef = useRef<{[userId: string]: string}>({});
+
+  const isInitialNewsRef = useRef(true);
+  const isInitialAnnouncementsRef = useRef(true);
+  const isInitialRegistrationsRef = useRef(true);
+  const isInitialUsersRef = useRef(true);
+
   // Google Auth User
   const [user, setUser] = useState<User | null>(null);
 
@@ -105,6 +117,23 @@ export default function App() {
   const [loggedInUser, setLoggedInUser] = useState<SchoolUser | null>(null);
   const [resourceCategories, setResourceCategories] = useState<ResourceCategory[]>([]);
   const [dbError, setDbError] = useState<string | null>(null);
+
+  // Auto request notification permission on login
+  useEffect(() => {
+    if (loggedInUser || user) {
+      const timer = setTimeout(() => {
+        requestNotificationPermission().then((perm) => {
+          if (perm === 'granted') {
+            sendDesktopNotification(
+              "🔔 Notifications Enabled", 
+              `Welcome back, ${loggedInUser?.name || user?.displayName || 'User'}! You will receive live desktop alerts on Shaw STEM Academy.`
+            );
+          }
+        });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [loggedInUser, user]);
 
   useEffect(() => {
     const handleFirestoreErrorEvent = (event: Event) => {
@@ -287,6 +316,49 @@ export default function App() {
   );
   const [theme, setTheme] = useState<FormTheme>(FORM_THEMES[0]);
   const [isEditingHeader, setIsEditingHeader] = useState(false);
+
+  // State for Entire Portal Light/Dark Theme Mode
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('portalThemeMode');
+      if (saved === 'light' || saved === 'dark') {
+        return saved;
+      }
+    }
+    return 'light';
+  });
+
+  // Apply dark mode class to document HTML element
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (themeMode === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('portalThemeMode', themeMode);
+  }, [themeMode]);
+
+  // Sync themeMode with loggedInUser preference from Firestore
+  useEffect(() => {
+    if (loggedInUser && loggedInUser.themeMode && loggedInUser.themeMode !== themeMode) {
+      setThemeMode(loggedInUser.themeMode);
+    }
+  }, [loggedInUser?.id]);
+
+  const handleToggleThemeMode = async () => {
+    const nextTheme = themeMode === 'light' ? 'dark' : 'light';
+    setThemeMode(nextTheme);
+    localStorage.setItem('portalThemeMode', nextTheme);
+
+    if (loggedInUser && loggedInUser.id) {
+      const updatedUser: SchoolUser = {
+        ...loggedInUser,
+        themeMode: nextTheme,
+      };
+      await saveDocToFirestore('schoolUsers', loggedInUser.id, updatedUser);
+    }
+  };
 
   // Catalog & Selections
   const [classList, setClassList] = useState<ClassItem[]>([]);
@@ -503,7 +575,26 @@ export default function App() {
         }
       }),
       subscribeToCollection<TeacherProfile>('teachers', (data) => setTeacherProfiles(data || [])),
-      subscribeToCollection<any>('schoolNews', (data) => setSchoolNews(data || [])),
+      subscribeToCollection<any>('schoolNews', (data) => {
+        setSchoolNews(data || []);
+        if (data && data.length > 0) {
+          if (isInitialNewsRef.current) {
+            prevNewsRef.current = data;
+            isInitialNewsRef.current = false;
+          } else {
+            const newItems = data.filter(
+              (item) => !prevNewsRef.current.some((prev) => prev.id === item.id)
+            );
+            newItems.forEach((item) => {
+              sendDesktopNotification(
+                `📰 New School Announcement`,
+                item.title || 'A new announcement has been published.'
+              );
+            });
+            prevNewsRef.current = data;
+          }
+        }
+      }),
       subscribeToCollection<Department>('departments', (data) => {
         if (data && data.length > 0) {
           setDepartments(data);
@@ -573,8 +664,80 @@ export default function App() {
       subscribeToCollection<SchoolUser>('schoolUsers', (data) => {
         setSchoolUsers(data || []);
         setSchoolUsersLoaded(true);
+        if (data && data.length > 0) {
+          const userStatusMap: {[userId: string]: string} = {};
+          data.forEach((u) => {
+            userStatusMap[u.id] = u.status || 'pending';
+          });
+          if (isInitialUsersRef.current) {
+            prevUserStatusRef.current = userStatusMap;
+            isInitialUsersRef.current = false;
+          } else {
+            if (loggedInUser) {
+              const currentStatus = userStatusMap[loggedInUser.id];
+              const prevStatus = prevUserStatusRef.current[loggedInUser.id];
+              if (currentStatus && prevStatus && currentStatus !== prevStatus) {
+                sendDesktopNotification(
+                  `🎓 Account Status Changed`,
+                  `Your account verification status has been updated to "${currentStatus.toUpperCase()}"!`
+                );
+              }
+            }
+            prevUserStatusRef.current = userStatusMap;
+          }
+        }
       }),
-      subscribeToCollection<RegistrationRecord>('registrations', (data) => setRegistrationLogs(data || [])),
+      subscribeToCollection<RegistrationRecord>('registrations', (data) => {
+        setRegistrationLogs(data || []);
+        if (data && data.length > 0) {
+          if (isInitialRegistrationsRef.current) {
+            prevRegistrationsRef.current = data;
+            isInitialRegistrationsRef.current = false;
+          } else {
+            const newRegs = data.filter(
+              (item) => !prevRegistrationsRef.current.some((prev) => prev.id === item.id)
+            );
+            newRegs.forEach((reg) => {
+              const isMine = loggedInUser && reg.studentInfo?.email === loggedInUser.email;
+              const isStaff = loggedInUser?.role === 'admin' || loggedInUser?.role === 'teacher';
+              const classNamesStr = reg.selectedClasses?.map((c) => c.title).join(', ') || 'Selected Class';
+              if (isMine) {
+                sendDesktopNotification(
+                  `📝 Class Registered`,
+                  `You have requested registration for: ${classNamesStr}.`
+                );
+              } else if (isStaff) {
+                sendDesktopNotification(
+                  `📝 New Student Registration`,
+                  `${reg.studentInfo?.firstName || 'Student'} registered for: ${classNamesStr}.`
+                );
+              }
+            });
+
+            data.forEach((reg) => {
+              const prevReg = prevRegistrationsRef.current.find((prev) => prev.id === reg.id);
+              if (prevReg && prevReg.status !== reg.status) {
+                const isMine = loggedInUser && reg.studentInfo?.email === loggedInUser.email;
+                const isStaff = loggedInUser?.role === 'admin' || loggedInUser?.role === 'teacher';
+                const classNamesStr = reg.selectedClasses?.map((c) => c.title).join(', ') || 'Selected Class';
+                const newStatus = reg.status || 'pending_review';
+                if (isMine) {
+                  sendDesktopNotification(
+                    `🎉 Registration Updated`,
+                    `Your status for ${classNamesStr} has been updated to "${newStatus.toUpperCase()}".`
+                  );
+                } else if (isStaff) {
+                  sendDesktopNotification(
+                    `🔄 Registration Status Changed`,
+                    `${reg.studentInfo?.firstName || 'Student'}'s registration status for ${classNamesStr} is now "${newStatus.toUpperCase()}".`
+                  );
+                }
+              }
+            });
+            prevRegistrationsRef.current = data;
+          }
+        }
+      }),
       subscribeToCollection<ResourceCategory>('resourceCategories', (data) => {
         if (data && data.length > 0) {
           setResourceCategories(data);
@@ -595,7 +758,26 @@ export default function App() {
         }
       }),
       subscribeToCollection<TeacherResource>('resources', (data) => setResources(data || [])),
-      subscribeToCollection<ClassAnnouncement>('announcements', (data) => setAnnouncements(data || [])),
+      subscribeToCollection<ClassAnnouncement>('announcements', (data) => {
+        setAnnouncements(data || []);
+        if (data && data.length > 0) {
+          if (isInitialAnnouncementsRef.current) {
+            prevAnnouncementsRef.current = data;
+            isInitialAnnouncementsRef.current = false;
+          } else {
+            const newAnnouncements = data.filter(
+              (item) => !prevAnnouncementsRef.current.some((prev) => prev.id === item.id)
+            );
+            newAnnouncements.forEach((ann) => {
+              sendDesktopNotification(
+                `📣 Class Announcement: ${ann.title || 'New Post'}`,
+                `${ann.className || 'Class'}: ${ann.content || 'A new update was posted.'}`
+              );
+            });
+            prevAnnouncementsRef.current = data;
+          }
+        }
+      }),
     ];
 
     return () => {
@@ -616,7 +798,26 @@ export default function App() {
     console.log(`User logged in: ${user.email}, subscribing to authenticated collections...`);
     const authUnsubs = [
       subscribeToCollection<TeacherResource>('resources', (data) => setResources(data || [])),
-      subscribeToCollection<ClassAnnouncement>('announcements', (data) => setAnnouncements(data || [])),
+      subscribeToCollection<ClassAnnouncement>('announcements', (data) => {
+        setAnnouncements(data || []);
+        if (data && data.length > 0) {
+          if (isInitialAnnouncementsRef.current) {
+            prevAnnouncementsRef.current = data;
+            isInitialAnnouncementsRef.current = false;
+          } else {
+            const newAnnouncements = data.filter(
+              (item) => !prevAnnouncementsRef.current.some((prev) => prev.id === item.id)
+            );
+            newAnnouncements.forEach((ann) => {
+              sendDesktopNotification(
+                `📣 Class Announcement: ${ann.title || 'New Post'}`,
+                `${ann.className || 'Class'}: ${ann.content || 'A new update was posted.'}`
+              );
+            });
+            prevAnnouncementsRef.current = data;
+          }
+        }
+      }),
       subscribeToCollection<RolePermission>('rolePermissions', (data) => setRolePermissions(data || [])),
     ];
 
@@ -1577,17 +1778,27 @@ export default function App() {
     setActiveTab(tab);
   };
 
-  const studentRegistrationRecord = user 
+  const studentEmail = user?.email || loggedInUser?.email;
+  const studentRegistrationRecord = studentEmail
     ? registrationLogs.find(
         (log) => 
-          log.studentInfo.parentEmail === user.email || 
-          log.studentInfo.email === user.email || 
-          log.studentInfo.gmailAddress === user.email
+          (log.studentInfo?.parentEmail || '').toLowerCase() === studentEmail.toLowerCase() || 
+          (log.studentInfo?.email || '').toLowerCase() === studentEmail.toLowerCase() || 
+          (log.studentInfo?.gmailAddress || '').toLowerCase() === studentEmail.toLowerCase()
       ) 
     : null;
 
+  const allStudentRegistrations = studentEmail
+    ? registrationLogs.filter(
+        (log) => 
+          (log.studentInfo?.parentEmail || '').toLowerCase() === studentEmail.toLowerCase() || 
+          (log.studentInfo?.email || '').toLowerCase() === studentEmail.toLowerCase() || 
+          (log.studentInfo?.gmailAddress || '').toLowerCase() === studentEmail.toLowerCase()
+      ) 
+    : [];
+
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 font-sans selection:bg-blue-200 flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-200 flex flex-col justify-between transition-colors duration-300">
       <div>
         {dbError && (
           <div className="bg-red-50 border-b border-red-200 p-4">
@@ -1619,6 +1830,8 @@ export default function App() {
           onSignOut={handleLogout}
           onOpenDiscountConfig={() => setIsDiscountConfigOpen(true)}
           onOpenGoogleExport={() => {}}
+          themeMode={themeMode}
+          onToggleThemeMode={handleToggleThemeMode}
         />
 
         {/* Main Portal Content */}
@@ -1668,13 +1881,13 @@ export default function App() {
 
           {activeTab === 'student-portal' && (
             (!user && !loggedInUser) ? (
-              <div className="bg-white rounded-3xl p-8 max-w-xl mx-auto border border-slate-200 shadow-xl text-center space-y-5 my-12">
-                <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto">
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-xl mx-auto border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-5 my-12">
+                <div className="w-16 h-16 bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 rounded-2xl flex items-center justify-center mx-auto">
                   <Lock className="w-8 h-8 text-amber-600" />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-extrabold text-slate-900">Authentication Required</h2>
-                  <p className="text-sm text-slate-600">
+                  <h2 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">Authentication Required</h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
                     You must be logged in to access the Student Portal or Class Registration. Please sign in to view your enrolled courses, schedules, and lab materials.
                   </p>
                 </div>
@@ -1691,6 +1904,7 @@ export default function App() {
                 status={studentStatus}
                 studentUser={loggedInUser}
                 registrationRecord={studentRegistrationRecord}
+                allRegistrations={allStudentRegistrations}
                 onUpdateRegistration={handleUpdateRegistration}
                 onUpdateUserProfile={handleUpdateUserProfile}
                 classes={enrolledClasses}
@@ -1942,11 +2156,11 @@ export default function App() {
           {activeTab === 'registration' && (
             (!user && !loggedInUser) ? (
               <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-6">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Lock className="w-8 h-8 text-blue-600" />
+                <div className="w-16 h-16 bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center">
+                  <Lock className="w-8 h-8" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-900">Please Log In to Register</h2>
-                <p className="text-slate-500 text-center max-w-md">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Please Log In to Register</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-center max-w-md">
                   You must be logged into your student account to register for classes and view your schedule.
                 </p>
                 <button
@@ -2144,22 +2358,22 @@ export default function App() {
       {/* Interactive Student Registration Auth Modal */}
       {isAuthModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 shadow-2xl space-y-6 relative">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-6 relative">
             <button
               onClick={() => setIsAuthModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 font-bold text-lg cursor-pointer"
             >
               ×
             </button>
 
             <div className="text-center space-y-2">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto">
-                <Lock className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-950/40 rounded-full flex items-center justify-center mx-auto">
+                <Lock className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
-              <h3 className="text-xl font-bold text-slate-900">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                 {authModalType === 'google' ? 'Account Authentication' : 'Create Account Password'}
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {authModalType === 'google'
                   ? `Please verify your identity for ${studentInfo.email} to secure your student portal account.`
                   : `Please set a password to secure your account for email ${studentInfo.email}.`}
@@ -2167,7 +2381,7 @@ export default function App() {
             </div>
 
             {authError && (
-              <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-700 text-xs font-semibold">
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/30 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-semibold">
                 {authError}
               </div>
             )}
@@ -2178,7 +2392,7 @@ export default function App() {
                   type="button"
                   disabled={authLoading}
                   onClick={handleGoogleAuthRegistration}
-                  className="w-full py-3 px-4 bg-slate-950 hover:bg-slate-800 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
+                  className="w-full py-3 px-4 bg-slate-950 dark:bg-slate-850 hover:bg-slate-800 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
                 >
                   <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24">
                     <path
@@ -2202,9 +2416,9 @@ export default function App() {
                 </button>
 
                 <div className="relative flex py-0.5 items-center">
-                  <div className="flex-grow border-t border-slate-200"></div>
+                  <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
                   <span className="flex-shrink mx-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">or direct sign-in</span>
-                  <div className="flex-grow border-t border-slate-200"></div>
+                  <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
                 </div>
 
                 <button
@@ -2219,7 +2433,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setIsAuthModalOpen(false)}
-                  className="w-full py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                  className="w-full py-2 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -2227,30 +2441,30 @@ export default function App() {
             ) : (
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-gray-700">Choose Password</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-slate-300">Choose Password</label>
                   <input
                     type="password"
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
                     placeholder="Min 6 characters"
-                    className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden text-slate-900 dark:text-slate-100"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-gray-700">Confirm Password</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-slate-300">Confirm Password</label>
                   <input
                     type="password"
                     value={regConfirmPassword}
                     onChange={(e) => setRegConfirmPassword(e.target.value)}
                     placeholder="Confirm your password"
-                    className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden text-slate-900 dark:text-slate-100"
                   />
                 </div>
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setIsAuthModalOpen(false)}
-                    className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                    className="flex-1 py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs transition-all cursor-pointer"
                   >
                     Cancel
                   </button>

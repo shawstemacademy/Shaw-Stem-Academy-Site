@@ -369,6 +369,7 @@ export interface SchoolUser {
   permissions?: string[];
   password?: string;
   studentDetails?: StudentInfo;
+  themeMode?: 'light' | 'dark';
 }
 
 export interface RolePermission {
