@@ -34,6 +34,8 @@ interface StudentSearchDashboardProps {
   onUpdateRegistration: (updated: RegistrationRecord) => void;
   classList: ClassItem[];
   theme: any;
+  onUpdateUser?: (user: SchoolUser) => void;
+  onDeleteUser?: (userId: string) => void;
 }
 
 export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
@@ -42,6 +44,8 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
   onUpdateRegistration,
   classList = [],
   theme,
+  onUpdateUser,
+  onDeleteUser,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -520,51 +524,89 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                 </div>
               </div>
 
-              {/* Action Tabs */}
-              <div className="flex border border-slate-200 rounded-xl p-1 bg-slate-50 self-start md:self-auto">
-                <button
-                  onClick={() => setActiveTab('info')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                    activeTab === 'info'
-                      ? 'bg-white text-blue-600 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  Review Profile
-                </button>
-                <button
-                  onClick={() => setActiveTab('financial')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-                    activeTab === 'financial'
-                      ? 'bg-white text-blue-600 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <DollarSign className="w-3.5 h-3.5" />
-                  Financial & Tuition
-                </button>
-                <button
-                  onClick={() => setActiveTab('classes')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-                    activeTab === 'classes'
-                      ? 'bg-white text-blue-600 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  Course Status
-                </button>
-                <button
-                  onClick={() => setActiveTab('grades')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-                    activeTab === 'grades'
-                      ? 'bg-white text-blue-600 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <Award className="w-3.5 h-3.5" />
-                  Grades & Classrooms
-                </button>
+              {/* Action Tabs and Account Actions */}
+              <div className="flex flex-col items-end gap-2 self-start md:self-auto">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to ${selectedStudent.status === 'disabled' ? 'enable' : 'disable'} this student account?`)) {
+                        if (onUpdateUser) {
+                          onUpdateUser({
+                            ...selectedStudent,
+                            status: selectedStudent.status === 'disabled' ? 'active' : 'disabled'
+                          });
+                        }
+                      }
+                    }}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 ${
+                      selectedStudent.status === 'disabled'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                        : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                    }`}
+                  >
+                    {selectedStudent.status === 'disabled' ? <CheckCircle className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                    {selectedStudent.status === 'disabled' ? 'Enable Account' : 'Disable Account'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to permanently delete this student account? This cannot be undone.')) {
+                        if (onDeleteUser) {
+                          onDeleteUser(selectedStudent.id);
+                          setSelectedStudentId(null);
+                        }
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-all flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete Account
+                  </button>
+                </div>
+                <div className="flex border border-slate-200 rounded-xl p-1 bg-slate-50 w-full sm:w-auto">
+                  <button
+                    onClick={() => setActiveTab('info')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                      activeTab === 'info'
+                        ? 'bg-white text-blue-600 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Review Profile
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('financial')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                      activeTab === 'financial'
+                        ? 'bg-white text-blue-600 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <DollarSign className="w-3.5 h-3.5" />
+                    Financial & Tuition
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('classes')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                      activeTab === 'classes'
+                        ? 'bg-white text-blue-600 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    Course Status
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('grades')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                      activeTab === 'grades'
+                        ? 'bg-white text-blue-600 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Award className="w-3.5 h-3.5" />
+                    Grades & Classrooms
+                  </button>
+                </div>
               </div>
             </div>
 

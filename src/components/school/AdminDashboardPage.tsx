@@ -1195,6 +1195,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           onUpdateRegistration={onUpdateRegistration || (() => {})}
           classList={classList}
           theme={currentTheme}
+          onUpdateUser={onUpdateUser}
+          onDeleteUser={onDeleteUser}
         />
       )}
 

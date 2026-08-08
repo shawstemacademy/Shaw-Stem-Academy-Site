@@ -2404,6 +2404,8 @@ export default function App() {
         locations={locations}
         onSaveLocation={handleSaveLocation}
         onDeleteLocation={handleDeleteLocation}
+        onUpdateDepartment={handleUpdateDepartment}
+        onSaveClassType={handleSaveClassType}
       />
 
       <RegistrationReceiptModal

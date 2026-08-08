@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ClassItem, SbaHubOption, ClassType, Department } from '../types';
-import { X, Plus, Edit3, Trash2, CheckSquare, BookOpen, Save, MapPin } from 'lucide-react';
+import { X, Plus, Edit3, Trash2, CheckSquare, BookOpen, Save, MapPin, Filter } from 'lucide-react';
 
 interface ManageListOptionsModalProps {
   isOpen: boolean;
@@ -11,6 +11,12 @@ interface ManageListOptionsModalProps {
   onUpdateSbaHubOptions: (options: SbaHubOption[]) => void;
   classTypes?: ClassType[];
   departments?: Department[];
+  locations?: any[];
+  onSaveLocation?: (loc: any) => void;
+  onDeleteLocation?: (id: string) => void;
+  onUpdateDepartment?: (dept: Department) => void;
+  onSaveClassType?: (ct: ClassType) => void;
+  onDeleteClassType?: (id: string) => void;
 }
 
 export const ManageListOptionsModal: React.FC<ManageListOptionsModalProps> = ({
@@ -27,8 +33,14 @@ export const ManageListOptionsModal: React.FC<ManageListOptionsModalProps> = ({
     { id: 'ct-lower-sec', name: 'Lower Secondary', code: 'Lower Secondary' },
   ],
   departments = [],
+  locations = [],
+  onSaveLocation,
+  onDeleteLocation,
+  onUpdateDepartment,
+  onSaveClassType,
+  onDeleteClassType,
 }) => {
-  const [activeTab, setActiveTab] = useState<'classes' | 'sbaHub'>('classes');
+  const [activeTab, setActiveTab] = useState<'classes' | 'sbaHub' | 'filters'>('classes');
 
   // Editing Class Item state
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
@@ -224,6 +236,18 @@ export const ManageListOptionsModal: React.FC<ManageListOptionsModalProps> = ({
             <BookOpen className="w-4 h-4" />
             <span>Available SBA Hub Aid ({sbaHubOptions.length})</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('filters')}
+            className={`py-3 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+              activeTab === 'filters'
+                ? 'border-purple-600 text-purple-700 bg-white'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Edit3 className="w-4 h-4" />
+            <span>Filters Control</span>
+          </button>
         </div>
 
         {/* Modal Body */}
@@ -357,7 +381,7 @@ export const ManageListOptionsModal: React.FC<ManageListOptionsModalProps> = ({
                 </div>
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'sbaHub' ? (
             <div className="space-y-6">
               {/* Add New SBA Hub Form */}
               <form onSubmit={handleAddSbaOption} className="p-4 bg-purple-50/60 border border-purple-100 rounded-2xl space-y-3">
@@ -458,7 +482,63 @@ export const ManageListOptionsModal: React.FC<ManageListOptionsModalProps> = ({
                 </div>
               </div>
             </div>
-          )}
+          ) : activeTab === 'filters' ? (
+            <div className="space-y-6">
+              <div className="p-4 bg-blue-50/60 border border-blue-100 rounded-2xl space-y-4">
+                <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Filter className="w-4 h-4 text-blue-600" />
+                  Edit Filters Displayed to Students
+                </h4>
+                <p className="text-xs text-slate-600">
+                  Select which departments and class types are shown as options in the dropdown filters on the student class registration form.
+                </p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h5 className="text-sm font-semibold text-slate-800 mb-2">Departments / Categories</h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                      {departments.map(dept => (
+                        <label key={dept.id} className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                          <input 
+                            type="checkbox" 
+                            checked={dept.isVisibleToStudents !== false} 
+                            onChange={(e) => {
+                              if (onUpdateDepartment) {
+                                onUpdateDepartment({...dept, isVisibleToStudents: e.target.checked});
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"
+                          />
+                          <span className="text-xs font-medium text-slate-700 truncate">{dept.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h5 className="text-sm font-semibold text-slate-800 mb-2">Class Types</h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                      {classTypes.map(ct => (
+                        <label key={ct.id} className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                          <input 
+                            type="checkbox" 
+                            checked={ct.isVisibleToStudents !== false} 
+                            onChange={(e) => {
+                              if (onSaveClassType) {
+                                onSaveClassType({...ct, isVisibleToStudents: e.target.checked});
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"
+                          />
+                          <span className="text-xs font-medium text-slate-700 truncate">{ct.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Modal Footer */}
