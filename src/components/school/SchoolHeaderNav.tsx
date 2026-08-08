@@ -111,6 +111,10 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
       return currentRole !== 'teacher' && currentRole !== 'hod';
     }
     if (tab.id === 'admissions') {
+      const isLoggedIn = !!user || !!loggedInUser;
+      if (isLoggedIn) {
+        return false;
+      }
       return currentRole !== 'teacher' && currentRole !== 'hod';
     }
     // Everyone sees Home, Academics

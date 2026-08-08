@@ -18,7 +18,8 @@ import {
   Plus,
   Clock,
   Check,
-  FolderOpen
+  FolderOpen,
+  User
 } from 'lucide-react';
 import { 
   StudentStatus, 
@@ -27,8 +28,12 @@ import {
   ClassItem,
   FaqItem,
   ResourceCategory,
-  SchoolUser
+  SchoolUser,
+  RegistrationRecord,
+  StudentInfo,
+  FormTheme
 } from '../../types';
+import { StudentInfoForm } from '../StudentInfoForm';
 
 interface StudentPortalPageProps {
   status: StudentStatus;
@@ -38,6 +43,9 @@ interface StudentPortalPageProps {
   faqs?: FaqItem[];
   categories?: ResourceCategory[];
   studentUser?: SchoolUser | null;
+  registrationRecord?: RegistrationRecord | null;
+  onUpdateRegistration?: (updated: RegistrationRecord) => void;
+  onUpdateUserProfile?: (updated: SchoolUser) => void;
   onOpenRegistration: () => void;
 }
 
@@ -49,9 +57,47 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   faqs = [],
   categories = [],
   studentUser,
+  registrationRecord,
+  onUpdateRegistration,
+  onUpdateUserProfile,
   onOpenRegistration,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editingStudentInfo, setEditingStudentInfo] = useState<StudentInfo | null>(null);
+
+  const handleEditProfileClick = () => {
+    if (registrationRecord) {
+      setEditingStudentInfo(registrationRecord.studentInfo);
+      setIsEditingProfile(true);
+    } else if (studentUser?.studentDetails) {
+      setEditingStudentInfo(studentUser.studentDetails);
+      setIsEditingProfile(true);
+    }
+  };
+
+  const handleSaveProfile = () => {
+    if (editingStudentInfo) {
+      if (registrationRecord && onUpdateRegistration) {
+        onUpdateRegistration({
+          ...registrationRecord,
+          studentInfo: editingStudentInfo
+        });
+      }
+      if (studentUser && onUpdateUserProfile) {
+        onUpdateUserProfile({
+          ...studentUser,
+          studentDetails: editingStudentInfo
+        });
+      }
+      setIsEditingProfile(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingProfile(false);
+    setEditingStudentInfo(null);
+  };
 
   // Filter resources based on student enrolled classes (if registered in 6 courses, only show resources for those courses)
   const registeredClassIds = new Set(classes.map((c) => c.id));
@@ -147,6 +193,18 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 : 'Browse our academic offerings and school guidelines. Complete registration to unlock course materials.'}
             </p>
           </div>
+          
+          {(registrationRecord || studentUser?.studentDetails) && (
+            <div className="flex-shrink-0">
+              <button
+                onClick={handleEditProfileClick}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2 border border-slate-700"
+              >
+                <User className="w-4 h-4 text-purple-400" />
+                <span>Edit Profile</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -556,6 +614,65 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {isEditingProfile && editingStudentInfo && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-white/90 backdrop-blur-md px-8 py-5 border-b border-slate-100 flex items-center justify-between z-10">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <User className="w-5 h-5 text-purple-600" />
+                Edit Student Profile
+              </h2>
+              <button
+                onClick={handleCancelEdit}
+                className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-lg hover:bg-slate-50"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-8">
+              <StudentInfoForm
+                studentInfo={editingStudentInfo}
+                onChange={(field, value) => {
+                  setEditingStudentInfo(prev => prev ? { ...prev, [field]: value } : null);
+                }}
+                theme={{
+                  primary: 'bg-purple-600',
+                  primaryHover: 'hover:bg-purple-700',
+                  secondary: 'bg-purple-50 text-purple-700',
+                  headerBg: 'bg-slate-900',
+                  headerText: 'text-white',
+                  headerAccent: 'text-purple-400',
+                  cardBorderTop: 'border-t-purple-500',
+                  buttonBg: 'bg-purple-600 hover:bg-purple-700 text-white',
+                  badgeBg: 'bg-purple-100 text-purple-800'
+                }}
+                isSiblingSelected={false}
+                setIsSiblingSelected={() => {}}
+                siblingDiscountAmount={0}
+              />
+            </div>
+            
+            <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-8 py-5 flex justify-end gap-3 rounded-b-3xl z-10">
+              <button
+                onClick={handleCancelEdit}
+                className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveProfile}
+                className="px-6 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-md transition-colors flex items-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                <span>Save Changes</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

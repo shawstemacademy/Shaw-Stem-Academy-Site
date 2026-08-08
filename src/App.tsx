@@ -1274,7 +1274,16 @@ export default function App() {
         return log;
       })
     );
-    logSystemAction('registration', `Registration log ${updatedLog.id} updated by registrar/admin`);
+    logSystemAction('registration', `Registration profile for ${updatedLog.studentInfo.studentName || updatedLog.studentInfo.firstName} updated`);
+  };
+
+  const handleUpdateUserProfile = (updatedUser: SchoolUser) => {
+    setLoggedInUser(updatedUser);
+    setSchoolUsers((prev) =>
+      prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
+    );
+    saveDocToFirestore('schoolUsers', updatedUser.id, updatedUser);
+    logSystemAction('user_updated', `User profile for ${updatedUser.name} updated`);
   };
 
   const handleDeleteRegistration = (logId: string) => {
@@ -1568,6 +1577,15 @@ export default function App() {
     setActiveTab(tab);
   };
 
+  const studentRegistrationRecord = user 
+    ? registrationLogs.find(
+        (log) => 
+          log.studentInfo.parentEmail === user.email || 
+          log.studentInfo.email === user.email || 
+          log.studentInfo.gmailAddress === user.email
+      ) 
+    : null;
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 font-sans selection:bg-blue-200 flex flex-col justify-between">
       <div>
@@ -1666,7 +1684,10 @@ export default function App() {
             ) : (
               <StudentPortalPage
                 status={studentStatus}
-                onChangeStatus={setStudentStatus}
+                studentUser={loggedInUser}
+                registrationRecord={studentRegistrationRecord}
+                onUpdateRegistration={handleUpdateRegistration}
+                onUpdateUserProfile={handleUpdateUserProfile}
                 classes={enrolledClasses}
                 resources={resources}
                 announcements={announcements}
