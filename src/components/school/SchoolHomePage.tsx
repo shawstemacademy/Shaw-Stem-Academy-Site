@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Award, 
   Cpu, 
@@ -14,7 +14,9 @@ import {
   GraduationCap,
   Building2,
   HelpCircle,
-  Newspaper
+  Newspaper,
+  Edit3,
+  X
 } from 'lucide-react';
 import { 
   SchoolNewsItem, 
@@ -29,6 +31,7 @@ import {
   RegistrationRecord 
 } from '../../types';
 import { DEFAULT_ACADEMY_INFO, DEFAULT_FEATURE_CARDS } from '../../data/schoolDemoData';
+import { ImageUploadInput } from '../common/ImageUploadInput';
 
 interface SchoolHomePageProps {
   news: SchoolNewsItem[];
@@ -43,6 +46,8 @@ interface SchoolHomePageProps {
   isLoggedIn?: boolean;
   onNavigate: (tab: PortalTab) => void;
   onOpenRegistration: () => void;
+  loggedInUser?: SchoolUser | null;
+  onUpdateLandingPageSettings?: (newSettings: LandingPageSettings) => Promise<void> | void;
 }
 
 export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
@@ -58,9 +63,16 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
   isLoggedIn = false,
   onNavigate,
   onOpenRegistration,
+  loggedInUser = null,
+  onUpdateLandingPageSettings,
 }) => {
   const info = academyInfo || DEFAULT_ACADEMY_INFO;
   const cards = featureCards.length >= 4 ? featureCards.slice(0, 4) : DEFAULT_FEATURE_CARDS;
+  
+  const [isEditingLogo, setIsEditingLogo] = useState(false);
+  const [tempLogoUrl, setTempLogoUrl] = useState('');
+
+  const isAdmin = loggedInUser?.role === 'admin';
 
   const renderCardIcon = (iconName: string) => {
     switch (iconName) {
@@ -144,6 +156,40 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
                 <BookOpen className="w-4 h-4" />
                 <span>Browse Course Catalog</span>
               </button>
+            </div>
+          </div>
+
+          {/* Centered Logo with Admin Edit Overlay */}
+          <div className="flex-1 flex flex-col items-center justify-center min-h-[250px]">
+            <div className="relative group flex flex-col items-center">
+              <div className="relative w-56 h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 flex items-center justify-center rounded-full bg-slate-800/10 p-4 border border-slate-800/50 shadow-2xl backdrop-blur-xs overflow-hidden">
+                <img
+                  src={settings.logoUrl || 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png'}
+                  alt="Shaw STEM Academy Logo"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-contain transition-all duration-300 group-hover:scale-105"
+                />
+                
+                {isAdmin && (
+                  <button
+                    onClick={() => setIsEditingLogo(true)}
+                    className="absolute inset-0 bg-slate-950/75 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer text-white"
+                  >
+                    <Edit3 className="w-6 h-6 text-blue-400" />
+                    <span className="text-xs font-bold">Edit Academy Logo</span>
+                  </button>
+                )}
+              </div>
+              
+              {isAdmin && (
+                <button
+                  onClick={() => setIsEditingLogo(true)}
+                  className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-wider rounded-xl border border-blue-500/20 transition-all cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Update Logo</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -335,6 +381,80 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
           </div>
         )}
       </div>
+
+      {/* Edit Logo Modal */}
+      {isEditingLogo && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full border border-slate-200 p-6 shadow-2xl space-y-4 animate-in fade-in-50 zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-950 text-base flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-blue-600" />
+                <span>Update Academy Logo</span>
+              </h3>
+              <button
+                onClick={() => {
+                  setIsEditingLogo(false);
+                  setTempLogoUrl('');
+                }}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <img
+                  src={tempLogoUrl || settings.logoUrl || 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png'}
+                  alt="Logo Preview"
+                  referrerPolicy="no-referrer"
+                  className="h-32 object-contain"
+                />
+              </div>
+
+              <ImageUploadInput
+                value={tempLogoUrl || settings.logoUrl}
+                onChange={(val) => setTempLogoUrl(val)}
+                label="Academy Logo Picture"
+                description="Upload a high-resolution image from your device or paste a web URL."
+                placeholder="Upload logo file or paste direct image URL..."
+                aspectRatio="square"
+                darkBg={false}
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditingLogo(false);
+                  setTempLogoUrl('');
+                }}
+                className="flex-1 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (onUpdateLandingPageSettings) {
+                    const finalLogo = tempLogoUrl || settings.logoUrl;
+                    await onUpdateLandingPageSettings({
+                      ...settings,
+                      logoUrl: finalLogo
+                    });
+                  }
+                  setIsEditingLogo(false);
+                  setTempLogoUrl('');
+                }}
+                className="flex-1 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-xl shadow-md transition-colors cursor-pointer"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

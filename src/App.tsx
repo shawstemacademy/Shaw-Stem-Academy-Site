@@ -1637,6 +1637,11 @@ export default function App() {
               isLoggedIn={!!user || !!loggedInUser}
               onNavigate={setActiveTab}
               onOpenRegistration={() => setActiveTab('admissions')}
+              loggedInUser={loggedInUser}
+              onUpdateLandingPageSettings={async (newSettings) => {
+                setLandingPageSettings(newSettings);
+                await saveDocToFirestore('landingPageSettings', 'general', newSettings);
+              }}
             />
           )}
 
