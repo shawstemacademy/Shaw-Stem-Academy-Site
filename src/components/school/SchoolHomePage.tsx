@@ -100,21 +100,7 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
       <div className="relative overflow-hidden rounded-3xl bg-slate-900 text-white shadow-2xl border border-slate-800">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/40 via-slate-900 to-slate-950 -z-10" />
         
-        {/* Top Right Quick Bar inside Hero */}
-        <div className="p-6 sm:p-8 flex items-center justify-between border-b border-slate-800/80">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{info.schoolName || settings.title}</span>
-          </div>
 
-          <button
-            onClick={() => onNavigate('login')}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center gap-2 border border-blue-400/30 cursor-pointer"
-          >
-            <LogIn className="w-4 h-4" />
-            <span>Log In</span>
-          </button>
-        </div>
 
         <div className="p-8 sm:p-12 md:p-16 flex flex-col md:flex-row items-center gap-12">
           <div className="flex-1 max-w-2xl space-y-6">

@@ -132,7 +132,6 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
           </span>
         );
       case 'pending_verification':
-      case 'unverified':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30">
             <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
@@ -146,6 +145,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
             <span>Paid & Enrolled</span>
           </span>
         );
+      case 'unverified':
       case 'awaiting_acceptance':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold border border-blue-500/30">
@@ -184,11 +184,11 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
             <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
               {status === 'enrolled_paid'
                 ? 'Your enrollment and tuition payment are verified. Access your enrolled class Zoom links, Google Classroom materials, and teacher lab files below.'
-                : status === 'pending_verification' || status === 'unverified'
+                : status === 'pending_verification'
                 ? 'Your course selections have been submitted and are currently pending registrar verification. Your class schedule is active below.'
                 : status === 'accepted'
                 ? '🎉 You have been accepted to Shaw STEM Academy! Please select your courses in the Class Registration portal to complete your enrollment.'
-                : status === 'awaiting_acceptance'
+                : status === 'awaiting_acceptance' || status === 'unverified'
                 ? 'Your student account registration has been received and is currently being reviewed by admissions officers.'
                 : 'Browse our academic offerings and school guidelines. Complete registration to unlock course materials.'}
             </p>
@@ -225,42 +225,15 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 Congratulations, {studentUser?.name || 'Student'}! You Have Been Accepted!
               </h2>
               <p className="text-emerald-50 text-sm max-w-2xl leading-relaxed font-medium">
-                We are thrilled to welcome you to Shaw STEM Academy. Your student application has been officially accepted by school administration! To finalize your schedule, please proceed to Class Registration to choose your STEM courses.
-              </p>
-              <div className="pt-3">
-                <button
-                  onClick={onOpenRegistration}
-                  className="px-6 py-3 bg-white hover:bg-emerald-50 text-emerald-950 font-black text-xs sm:text-sm rounded-xl shadow-lg transition-all flex items-center gap-2.5"
-                >
-                  <span>Select Courses & Complete Enrollment</span>
-                  <ArrowRight className="w-4 h-4 text-emerald-700" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. NOTIFICATION BANNER: AWAITING ACCEPTANCE */}
-      {status === 'awaiting_acceptance' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-3xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
-          <div className="flex items-start gap-3">
-            <Clock className="w-6 h-6 text-blue-600 shrink-0 mt-0.5 animate-pulse" />
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-blue-900">
-                Application Under Admissions Review
-              </h3>
-              <p className="text-xs text-blue-800 leading-relaxed">
-                Your student profile registration has been received. Our Admissions Board is reviewing your profile.
-                You will receive a notification right here once your account is accepted.
+                We are thrilled to welcome you to Shaw STEM Academy. Your student application has been officially accepted by school administration! To finalize your schedule, please proceed to select your STEM courses below.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* 3. NOTIFICATION BANNER: PENDING VERIFICATION */}
-      {(status === 'pending_verification' || status === 'unverified') && (
+      {/* 2. NOTIFICATION BANNER: PENDING VERIFICATION */}
+      {status === 'pending_verification' && (
         <div className="bg-amber-50 border border-amber-200 rounded-3xl p-6 flex items-start gap-4 shadow-xs">
           <AlertCircle className="w-6 h-6 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
           <div className="space-y-1">
@@ -269,66 +242,6 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               Your registration form and selected STEM courses have been submitted to the school office.
               Our Registrar is currently verifying your tuition payment. Once verified, full course resources and live Zoom rooms will unlock!
             </p>
-          </div>
-        </div>
-      )}
-
-      {/* PROSPECTIVE / UNACCEPTED VIEW */}
-      {(status === 'prospective' || status === 'awaiting_acceptance') && (
-        <div className="space-y-8">
-          {/* Admissions Step Card */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-3">
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-800 font-bold flex items-center justify-center text-sm">
-                1
-              </div>
-              <h3 className="font-bold text-slate-900">Admissions & Account Review</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Create your student profile and submit basic information for admissions acceptance.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-3">
-              <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-800 font-bold flex items-center justify-center text-sm">
-                2
-              </div>
-              <h3 className="font-bold text-slate-900">Select Enrolled Courses</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Once accepted, select up to 6 STEM, CSEC, CAPE, or Robotics courses with automatic bundle discounts.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-sm">
-                3
-              </div>
-              <h3 className="font-bold text-slate-900">Unlock Course Resources</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Access course-specific lecture notes, lab schematics, and live Google Meet links for your courses!
-              </p>
-            </div>
-          </div>
-
-          {/* Frequently Asked Questions */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 text-blue-600" />
-              <h2 className="text-2xl font-bold text-slate-900">Admissions & Student FAQ</h2>
-            </div>
-            {faqs.length === 0 ? (
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center space-y-1 shadow-xs">
-                <p className="text-xs text-slate-500 font-medium">No FAQs currently available. Contact school administration for details.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {faqs.map((item) => (
-                  <div key={item.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-                    <h4 className="font-bold text-slate-900 text-sm">{item.question}</h4>
-                    <p className="text-xs text-slate-600 leading-relaxed">{item.answer}</p>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}

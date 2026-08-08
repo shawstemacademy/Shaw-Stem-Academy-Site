@@ -676,7 +676,7 @@ export default function App() {
             name: sName,
             email: user.email,
             role: 'student',
-            status: 'unverified',
+            status: 'accepted',
             avatar: user.photoURL || undefined,
             department: 'Student Body',
           };
@@ -684,7 +684,7 @@ export default function App() {
           setSchoolUsers((prev) => [...prev.filter((u) => u.id !== newGUser.id), newGUser]);
           setLoggedInUser(newGUser);
           setCurrentRole(newGUser.role);
-          setStudentStatus('unverified');
+          setStudentStatus('accepted');
           setActiveTab('registration');
           alert(`Welcome to Shaw STEM Academy, ${sName}! A student profile has been created for you under ${user.email}. Please fill out the registration form below to complete your class enrollment.`);
         }
@@ -791,7 +791,7 @@ export default function App() {
         name: sName,
         email: gUser.email!,
         role: 'student',
-        status: 'unverified',
+        status: 'accepted',
         avatar: gUser.photoURL || undefined,
         department: 'Student Body',
         studentDetails: completeStudentInfo,
@@ -806,7 +806,7 @@ export default function App() {
       setSchoolUsers(prev => [...prev.filter(u => u.id !== newUser.id), newUser]);
       setLoggedInUser(newUser);
       setCurrentRole('student');
-      setStudentStatus('unverified');
+      setStudentStatus('accepted');
       setActiveTab('registration');
       localStorage.removeItem('pending_registration_info');
       
@@ -874,7 +874,7 @@ export default function App() {
         name: sName,
         email: email,
         role: 'student',
-        status: 'unverified',
+        status: 'accepted',
         department: 'Student Body',
       };
 
@@ -883,7 +883,7 @@ export default function App() {
       setIsAuthModalOpen(false);
       setLoggedInUser(newUser);
       setCurrentRole('student');
-      setStudentStatus('unverified');
+      setStudentStatus('accepted');
       setActiveTab('registration');
       alert(`School Account Created Successfully!\nWelcome to Shaw STEM Academy, ${newUser.name} (${newUser.email}). You are now logged in. Please select your classes below to complete your Class Registration.`);
     } catch (err: any) {
@@ -924,7 +924,7 @@ export default function App() {
         email: studentInfo.email || '',
         password: regPassword,
         role: 'student',
-        status: 'unverified',
+        status: 'accepted',
         department: 'Student Body',
       };
       
@@ -933,7 +933,7 @@ export default function App() {
       setIsAuthModalOpen(false);
       setLoggedInUser(newUser);
       setCurrentRole('student');
-      setStudentStatus('unverified');
+      setStudentStatus('accepted');
       setActiveTab('registration');
       alert(`School Account Created Successfully!\nWelcome to Shaw STEM Academy, ${newUser.name} (${newUser.email}). You are now logged in. Please select your classes below to complete your Class Registration.`);
     } catch (err: any) {
@@ -1252,7 +1252,7 @@ export default function App() {
             saveDocToFirestore('schoolUsers', matchingUser.id, updatedUser);
             // We update the local state manually if we don't want to wait for snapshot
           } else if (matchingUser && !isPaid) {
-            const updatedUser: SchoolUser = { ...matchingUser, status: 'unverified' };
+            const updatedUser: SchoolUser = { ...matchingUser, status: 'accepted' };
             saveDocToFirestore('schoolUsers', matchingUser.id, updatedUser);
           }
           
