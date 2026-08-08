@@ -60,14 +60,6 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
       </div>
 
       <div className="p-6 space-y-5">
-        {/* SBA Hub Description Callout from PDF */}
-        <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
-          <p className="font-semibold text-sm">About Our SBA Hub</p>
-          <p className="leading-relaxed">
-            Our SBA Hub is a segment of the S.H.A.W STEM Academy which deals with providing aid to students with SBA's. The cost of the SBA Hub is <strong>$150.00 USD</strong> for the entire year per subject selection.
-          </p>
-        </div>
-
         <div>
           <h3 className="text-sm font-bold text-gray-900 flex items-center justify-between">
             <span>44. Available SBA Hub aid <span className="text-red-500">*</span></span>

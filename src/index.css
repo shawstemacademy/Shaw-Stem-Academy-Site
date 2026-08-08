@@ -100,26 +100,34 @@
 /* Semantic text contrasts in dark mode */
 .dark .text-purple-600,
 .dark .text-purple-700,
-.dark .text-purple-800 {
-  color: #d8b4fe !important; /* purple-300 */
+.dark .text-purple-800,
+.dark .text-purple-900,
+.dark .text-purple-950 {
+  color: #e9d5ff !important; /* purple-200 */
 }
 
 .dark .text-blue-600,
 .dark .text-blue-700,
-.dark .text-blue-800 {
-  color: #93c5fd !important; /* blue-300 */
+.dark .text-blue-800,
+.dark .text-blue-900,
+.dark .text-blue-950 {
+  color: #bfdbfe !important; /* blue-200 */
 }
 
 .dark .text-emerald-600,
 .dark .text-emerald-700,
-.dark .text-emerald-800 {
-  color: #6ee7b7 !important; /* emerald-300 */
+.dark .text-emerald-800,
+.dark .text-emerald-900,
+.dark .text-emerald-950 {
+  color: #a7f3d0 !important; /* emerald-200 */
 }
 
 .dark .text-amber-600,
 .dark .text-amber-700,
-.dark .text-amber-800 {
-  color: #fde047 !important; /* yellow-300 */
+.dark .text-amber-800,
+.dark .text-amber-900,
+.dark .text-amber-950 {
+  color: #fef08a !important; /* yellow-200 */
 }
 
 @media print {

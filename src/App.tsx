@@ -2222,7 +2222,7 @@ export default function App() {
               </div>
 
               {/* Right Column: Live Running Total Card */}
-              <div className="lg:col-span-4">
+              <div className="lg:col-span-4 lg:sticky lg:top-6 self-start">
                 <RunningTotalCard
                   selectedClasses={selectedClasses}
                   sbaHubOptions={sbaHubOptions}
