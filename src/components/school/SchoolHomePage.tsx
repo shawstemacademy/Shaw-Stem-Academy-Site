@@ -138,48 +138,13 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
               )}
 
               <button
-                onClick={() => onNavigate('courses')}
+                onClick={() => onNavigate('academics')}
                 className="px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm rounded-2xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer"
               >
                 <BookOpen className="w-4 h-4" />
                 <span>Browse Course Catalog</span>
               </button>
             </div>
-          </div>
-
-          {/* Quick Stat Pill */}
-          <div className="w-full md:w-80 p-6 rounded-2xl bg-slate-800/80 border border-slate-700/80 backdrop-blur-md space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-blue-500/20 text-blue-400">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="text-xs text-slate-400 uppercase font-bold tracking-wider">Tuition Savings</div>
-                <div className="text-sm font-bold text-white">Automatic Bundle Discounts</div>
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Register for 2+ classes to automatically receive 15% off total tuition, plus instant promo code validation!
-            </p>
-
-            {isLoggedIn ? (
-              <button
-                onClick={onOpenRegistration}
-                className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span>Calculate Your Savings</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <button
-                onClick={() => onNavigate('login')}
-                className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span>Log In to View Savings</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
         </div>
       </div>

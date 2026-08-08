@@ -67,13 +67,68 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   const [editingStudentInfo, setEditingStudentInfo] = useState<StudentInfo | null>(null);
 
   const handleEditProfileClick = () => {
-    if (registrationRecord) {
-      setEditingStudentInfo(registrationRecord.studentInfo);
-      setIsEditingProfile(true);
-    } else if (studentUser?.studentDetails) {
-      setEditingStudentInfo(studentUser.studentDetails);
-      setIsEditingProfile(true);
-    }
+    const defaultStudentInfo: StudentInfo = {
+      email: studentUser?.email || '',
+      firstName: studentUser?.name?.split(' ')[0] || '',
+      lastName: studentUser?.name?.split(' ').slice(1).join(' ') || '',
+      middleName: '',
+      formGrade: '',
+      currentSchool: '',
+      age: '',
+      dateOfBirth: '',
+      cellPhone: '',
+      homePhone: '',
+      address: '',
+      gmailAddress: studentUser?.email || '',
+      gender: '',
+      livesWith: '',
+      motherFirstName: '',
+      motherMiddleName: '',
+      motherLastName: '',
+      motherAge: '',
+      motherDob: '',
+      motherEmail: '',
+      motherCellPhone: '',
+      motherHomePhone: '',
+      motherAddress: '',
+      fatherFirstName: '',
+      fatherMiddleName: '',
+      fatherLastName: '',
+      fatherAge: '',
+      fatherDob: '',
+      fatherEmail: '',
+      fatherCellPhone: '',
+      fatherHomePhone: '',
+      fatherAddress: '',
+      guardianFirstName: '',
+      guardianMiddleName: '',
+      guardianLastName: '',
+      guardianAge: '',
+      guardianDob: '',
+      guardianEmail: '',
+      guardianCellPhone: '',
+      guardianHomePhone: '',
+      guardianAddress: '',
+      guardianGender: '',
+      guardianRelation: '',
+      parentName: '',
+      parentEmail: '',
+      parentPhone: '',
+      studentName: studentUser?.name || '',
+      studentAge: '',
+      gradeLevel: '',
+      emergencyContact: '',
+      medicalNotes: ''
+    };
+
+    const merged = {
+      ...defaultStudentInfo,
+      ...(studentUser?.studentDetails || {}),
+      ...(registrationRecord?.studentInfo || {})
+    };
+
+    setEditingStudentInfo(merged);
+    setIsEditingProfile(true);
   };
 
   const handleSaveProfile = () => {
@@ -194,7 +249,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
             </p>
           </div>
           
-          {(registrationRecord || studentUser?.studentDetails) && (
+          {studentUser && (
             <div className="flex-shrink-0">
               <button
                 onClick={handleEditProfileClick}
