@@ -94,14 +94,14 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
                 <div
                   key={opt.id}
                   onClick={() => onToggleSbaHubOption(opt.id)}
-                  className={`p-3 rounded-lg border transition-all cursor-pointer select-none flex items-center justify-between gap-3 ${
+                  className={`p-3 rounded-lg border transition-all cursor-pointer select-none flex items-start justify-between gap-3 ${
                     isSelected
                       ? 'bg-purple-50 border-purple-400 ring-1 ring-purple-500 text-purple-900 shadow-2xs font-semibold'
                       : 'bg-white border-gray-200 hover:border-purple-300 text-gray-800'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="flex-shrink-0">
+                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                    <div className="flex-shrink-0 mt-0.5">
                       {isSelected ? (
                         <div className="w-4 h-4 rounded bg-purple-700 text-white flex items-center justify-center">
                           <CheckSquare className="w-3.5 h-3.5" />
@@ -110,14 +110,14 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
                         <div className="w-4 h-4 rounded border border-gray-300 bg-white" />
                       )}
                     </div>
-                    <span className="text-xs truncate">{opt.name}</span>
+                    <span className="text-xs whitespace-normal break-words leading-tight font-medium">{opt.name}</span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[10px] font-black text-purple-900 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                  <div className="flex flex-col items-end gap-1 shrink-0 mt-0.5">
+                    <span className="text-[10px] font-black text-purple-900 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 whitespace-nowrap">
                       ${opt.yearlyPrice}/{opt.pricePeriod || 'yr'}
                     </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200 whitespace-nowrap">
                       {opt.classType || opt.discountType || opt.level || 'CSEC'}
                     </span>
                   </div>

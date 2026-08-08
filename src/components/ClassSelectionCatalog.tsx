@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ClassItem, FormTheme, ScheduleClash, Department } from '../types';
+import { ClassItem, FormTheme, ScheduleClash, Department, ClassType } from '../types';
 import { checkStudentSelectedClashes } from '../lib/scheduleClashUtils';
 import {
   CheckSquare,
@@ -29,6 +29,7 @@ interface ClassSelectionCatalogProps {
   onOpenManageOptions?: () => void;
   clashes?: ScheduleClash[];
   departments?: Department[];
+  classTypes?: ClassType[];
 }
 
 export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
@@ -41,9 +42,11 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
   onOpenManageOptions,
   clashes = [],
   departments = [],
+  classTypes = [],
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedClassType, setSelectedClassType] = useState<string>('All');
 
   // ONLY show courses where isOffered !== false and student is NOT currently registered for
   const safeClassList = classList || [];
@@ -74,7 +77,22 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
         cls?.category === selectedDeptObj.id
       ));
 
-    return matchesSearch && matchesCategory;
+    const matchesClassType =
+      selectedClassType === 'All' ||
+      cls?.classType === selectedClassType ||
+      (() => {
+        const found = classTypes?.find(
+          (ct) => ct.id === selectedClassType || ct.code === selectedClassType
+        );
+        if (!found) return false;
+        return (
+          cls?.classType === found.id ||
+          cls?.classType === found.code ||
+          cls?.classType?.toLowerCase() === found.name?.toLowerCase()
+        );
+      })();
+
+    return matchesSearch && matchesCategory && matchesClassType;
   });
 
   // Check selected classes for schedule clashes
@@ -160,18 +178,45 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
       )}
 
       <div className="p-6">
-        {/* Search & Category Filter Bar */}
+        {/* Search, Class Type & Category Filter Bar */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 mb-6">
-          {/* Search Input */}
-          <div className="relative w-full lg:w-72 shrink-0">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search classes or instructors..."
-              className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
-            />
+          {/* Search & Class Type Filters */}
+          <div className="flex flex-col sm:flex-row items-stretch gap-2.5 w-full lg:w-auto shrink-0">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search classes or instructors..."
+                className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-hidden bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+              />
+            </div>
+
+            {/* Class Type Dropdown */}
+            {classTypes && classTypes.length > 0 && (
+              <div className="relative w-full sm:w-48">
+                <Filter className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                <select
+                  value={selectedClassType}
+                  onChange={(e) => setSelectedClassType(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-hidden bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 appearance-none cursor-pointer font-semibold"
+                >
+                  <option value="All">All Class Types</option>
+                  {classTypes.map((ct) => (
+                    <option key={ct.id} value={ct.id || ct.code}>
+                      {ct.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-gray-500">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                  </svg>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Category Chips Container with Left/Right Scroll Buttons */}
@@ -232,6 +277,7 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
                 onClick={() => {
                   setSearchTerm('');
                   setSelectedCategory('All');
+                  setSelectedClassType('All');
                 }}
                 className="mt-2 text-xs font-semibold text-purple-600 hover:underline"
               >

@@ -2218,11 +2218,12 @@ export default function App() {
                   }
                   onOpenManageOptions={() => setIsManageListOptionsOpen(true)}
                   departments={departments}
+                  classTypes={classTypes}
                 />
               </div>
 
               {/* Right Column: Live Running Total Card */}
-              <div className="lg:col-span-4 lg:sticky lg:top-6 self-start">
+              <div className="lg:col-span-4 lg:sticky lg:top-24 self-start">
                 <RunningTotalCard
                   selectedClasses={selectedClasses}
                   sbaHubOptions={sbaHubOptions}
