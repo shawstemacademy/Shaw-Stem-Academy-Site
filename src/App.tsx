@@ -837,6 +837,35 @@ export default function App() {
         setLoggedInUser(matched);
         setCurrentRole(matched.role);
         sessionStorage.removeItem('just_registered_email');
+
+        if (activeTab === 'login') {
+          if (matched.role === 'admin' || matched.role === 'registrar') {
+            setActiveTab('admin-dashboard');
+          } else if (matched.role === 'teacher' || matched.role === 'hod') {
+            setActiveTab('teacher-dashboard');
+          } else if (matched.role === 'student') {
+            const studentEmail = matched.email.toLowerCase();
+            const hasRegistrationLog = registrationLogs.some(
+              (log) =>
+                (log.studentInfo?.email || '').toLowerCase() === studentEmail ||
+                (log.studentInfo?.parentEmail || '').toLowerCase() === studentEmail ||
+                (log.studentInfo?.gmailAddress || '').toLowerCase() === studentEmail
+            );
+            const hasRegisteredClasses =
+              hasRegistrationLog ||
+              (matched.registeredClassIds && matched.registeredClassIds.length > 0) ||
+              (matched.studentDetails?.selectedClassIds && matched.studentDetails.selectedClassIds.length > 0) ||
+              matched.status === 'enrolled_paid' ||
+              matched.status === 'pending_verification' ||
+              matched.status === 'accepted';
+
+            if (hasRegisteredClasses) {
+              setActiveTab('student-portal');
+            } else {
+              setActiveTab('registration');
+            }
+          }
+        }
       } else {
         const isAdminEmail = user.email.toLowerCase() === 'shawstemacademy@gmail.com';
         if (isAdminEmail) {
@@ -1732,7 +1761,7 @@ export default function App() {
     } else {
       const fallbackUser: SchoolUser = {
         id: `usr-${Date.now()}`,
-        name: role === 'student' ? 'Student User' : role === 'teacher' ? 'Staff Instructor' : 'Administrator',
+        name: role === 'student' ? 'Student User' : role === 'teacher' ? 'Staff Instructor' : role === 'registrar' ? 'Registrar' : 'Administrator',
         email: 'user@shawstemacademy.edu',
         role: role,
         status: status || 'enrolled_paid',
@@ -1743,15 +1772,40 @@ export default function App() {
     if (status) {
       setStudentStatus(status);
     }
+
     if (targetTab) {
       setActiveTab(targetTab);
     } else {
-      if (role === 'student') {
-        setActiveTab(status === 'prospective' ? 'academics' : 'student-portal');
-      } else if (role === 'teacher') {
-        setActiveTab('teacher-dashboard');
-      } else if (role === 'admin') {
+      if (role === 'admin' || role === 'registrar') {
         setActiveTab('admin-dashboard');
+      } else if (role === 'teacher' || role === 'hod') {
+        setActiveTab('teacher-dashboard');
+      } else if (role === 'student') {
+        const studentEmail = (userObj?.email || user?.email || '').toLowerCase();
+        const hasRegistrationLog = studentEmail
+          ? registrationLogs.some(
+              (log) => 
+                (log.studentInfo?.email || '').toLowerCase() === studentEmail ||
+                (log.studentInfo?.parentEmail || '').toLowerCase() === studentEmail ||
+                (log.studentInfo?.gmailAddress || '').toLowerCase() === studentEmail
+            )
+          : false;
+
+        const hasRegisteredClasses =
+          hasRegistrationLog ||
+          (userObj?.registeredClassIds && userObj.registeredClassIds.length > 0) ||
+          (userObj?.studentDetails?.selectedClassIds && userObj.studentDetails.selectedClassIds.length > 0) ||
+          userObj?.status === 'enrolled_paid' ||
+          userObj?.status === 'pending_verification' ||
+          userObj?.status === 'accepted';
+
+        if (hasRegisteredClasses) {
+          setActiveTab('student-portal');
+        } else {
+          setActiveTab('registration');
+        }
+      } else {
+        setActiveTab('home');
       }
     }
   };

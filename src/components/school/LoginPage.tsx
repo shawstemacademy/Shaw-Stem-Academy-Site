@@ -93,18 +93,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       }
 
       const resolvedRole = matchedUser.role;
-      setLoginMessage(`✅ Authenticated successfully! Logging into ${resolvedRole.toUpperCase()} dashboard...`);
+      let roleTitle = resolvedRole.toUpperCase();
+      if (resolvedRole === 'admin') roleTitle = 'ADMIN';
+      if (resolvedRole === 'registrar') roleTitle = 'REGISTRAR';
+      if (resolvedRole === 'teacher' || resolvedRole === 'hod') roleTitle = 'FACULTY';
+      if (resolvedRole === 'student') roleTitle = 'STUDENT';
+
+      setLoginMessage(`✅ Authenticated successfully! Logging into ${roleTitle} portal...`);
       setIsSuccessMessage(true);
 
       setTimeout(() => {
-        const isProspective = matchedUser.status === 'prospective';
-        const targetTab = 
-          resolvedRole === 'student'
-            ? (isProspective ? 'academics' : 'student-portal')
-            : resolvedRole === 'teacher' || resolvedRole === 'hod'
-            ? 'teacher-dashboard'
-            : 'admin-dashboard';
-        onLoginProfile(resolvedRole, matchedUser.status || 'unverified', matchedUser, targetTab);
+        onLoginProfile(resolvedRole, matchedUser.status || 'unverified', matchedUser);
       }, 600);
       return;
     } else {

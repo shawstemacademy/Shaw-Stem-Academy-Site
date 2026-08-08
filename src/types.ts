@@ -171,6 +171,7 @@ export interface StudentInfo {
   // SBA Hub Selection
   selectedSbaHubIds?: string[];
   enrolledSbaHub?: boolean;
+  selectedClassIds?: string[];
 
   // Backward compatibility fields
   parentName: string;
@@ -390,6 +391,7 @@ export interface SchoolUser {
   bio?: string;
   officeHours?: string;
   assignedClassIds?: string[];
+  registeredClassIds?: string[];
   permissions?: string[];
   password?: string;
   studentDetails?: StudentInfo;
