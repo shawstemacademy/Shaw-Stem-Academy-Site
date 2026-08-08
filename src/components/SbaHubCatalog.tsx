@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SbaHubOption, FormTheme, Department, ClassType } from '../types';
+import { SbaHubOption, FormTheme, Department, ClassType, isDepartmentVisibleToStudents } from '../types';
 import {
   BookOpen,
   CheckSquare,
@@ -88,9 +88,9 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
       return 'Information Technology';
     }
 
-    // Standard word matching
+    // Standard word matching against student-visible departments
     for (const dept of departments) {
-      if (nameLower.includes(dept.name.toLowerCase())) {
+      if (isDepartmentVisibleToStudents(dept) && nameLower.includes(dept.name.toLowerCase())) {
         return dept.name;
       }
     }
@@ -98,18 +98,25 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
     return 'STEM Support';
   };
 
-  // Dynamically compute category options strictly from departments currently in Firestore
-  const activeDeptNames = (departments || []).map((d) => d?.name).filter(Boolean);
+  // Dynamically compute category options strictly from student-visible departments
+  const activeDeptNames = (departments || [])
+    .filter((d) => isDepartmentVisibleToStudents(d))
+    .map((d) => d?.name)
+    .filter(Boolean);
   const categories = ['All', ...activeDeptNames];
 
   // Filtering Logic
   const filteredOptions = offeredOptions.filter((opt) => {
+    const sbaCategory = getSbaCategory(opt);
+    if (!isDepartmentVisibleToStudents(sbaCategory)) {
+      return false;
+    }
+
     const matchesSearch =
       (opt.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (opt.discountType || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (opt.instructor || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    const sbaCategory = getSbaCategory(opt);
     const matchesCategory =
       selectedCategory === 'All' ||
       sbaCategory === selectedCategory ||

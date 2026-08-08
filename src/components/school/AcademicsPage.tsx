@@ -17,7 +17,7 @@ import {
   Calendar,
   DollarSign
 } from 'lucide-react';
-import { TeacherProfile, ClassItem, Department } from '../../types';
+import { TeacherProfile, ClassItem, Department, isDepartmentVisibleToStudents } from '../../types';
 
 interface AcademicsPageProps {
   teachers: TeacherProfile[];
@@ -87,7 +87,7 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Academic Departments & Labs</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {departments.map((dept) => {
+          {departments.filter(d => isDepartmentVisibleToStudents(d)).map((dept) => {
             const bgClass = dept.color.replace('600', '50');
             const borderClass = dept.color.replace('bg-', 'border-').replace('600', '200');
             const textClass = dept.color.replace('bg-', 'text-');

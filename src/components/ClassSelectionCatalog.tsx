@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ClassItem, FormTheme, ScheduleClash, Department, ClassType } from '../types';
+import { ClassItem, FormTheme, ScheduleClash, Department, ClassType, isDepartmentVisibleToStudents } from '../types';
 import { checkStudentSelectedClashes } from '../lib/scheduleClashUtils';
 import {
   CheckSquare,
@@ -58,13 +58,25 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
     (cls) => !safeEnrolledIds.includes(cls.id)
   );
 
-  // Dynamically compute category options strictly from departments currently in Firestore
-  const activeDeptNames = (departments || []).map((d) => d?.name).filter(Boolean);
+  // Dynamically compute category options strictly from departments visible to students
+  const activeDeptNames = (departments || [])
+    .filter((d) => isDepartmentVisibleToStudents(d))
+    .map((d) => d?.name)
+    .filter(Boolean);
   const categories = ['All', ...activeDeptNames];
 
   const selectedDeptObj = departments.find((d) => d.name === selectedCategory);
 
   const filteredClasses = unregisteredOfferedClasses.filter((cls) => {
+    // Exclude classes belonging to hidden or administration/registrar departments
+    const deptObj = departments.find((d) => d.name === cls.category || d.id === cls.category || d.code === cls.category);
+    if (deptObj && !isDepartmentVisibleToStudents(deptObj)) {
+      return false;
+    }
+    if (!deptObj && cls.category && !isDepartmentVisibleToStudents(cls.category)) {
+      return false;
+    }
+
     const matchesSearch =
       (cls?.title || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
       (cls?.instructor || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||

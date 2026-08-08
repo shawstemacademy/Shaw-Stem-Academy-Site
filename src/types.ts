@@ -346,6 +346,30 @@ export interface Department {
   color: string;
   room?: string;
   defaultPicture?: string;
+  showToStudents?: boolean;
+}
+
+export function isDepartmentVisibleToStudents(dept: Department | string | null | undefined): boolean {
+  if (!dept) return false;
+  const deptName = typeof dept === 'string' ? dept : dept?.name || '';
+  const nameLower = deptName.toLowerCase();
+
+  // If the Department object explicitly sets showToStudents, respect the boolean flag
+  if (typeof dept !== 'string' && typeof dept?.showToStudents === 'boolean') {
+    return dept.showToStudents;
+  }
+
+  // Fallback default: exclude Administration, Registrar, Administrative, Management, System, Governance
+  if (
+    nameLower.includes('admin') ||
+    nameLower.includes('registrar') ||
+    nameLower.includes('management') ||
+    nameLower.includes('governance')
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 export interface SchoolUser {
