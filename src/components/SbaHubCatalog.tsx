@@ -5,6 +5,7 @@ import {
   CheckSquare,
   Search,
   Filter,
+  Building2,
   Clock,
   User,
   MapPin,
@@ -175,12 +176,11 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
       </div>
 
       <div className="p-6">
-        {/* Search, Class Type & Category Filter Bar */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 mb-6">
-          {/* Search, Class Type & Sort Filters */}
-          <div className="flex flex-col sm:flex-row items-stretch gap-2.5 w-full lg:w-auto shrink-0">
+        {/* Search, Department, Class Type & Sort Filters Bar */}
+        <div className="space-y-3 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 w-full">
             {/* Search Input */}
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full">
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
               <input
                 type="text"
@@ -191,9 +191,31 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
               />
             </div>
 
+            {/* Department Dropdown */}
+            <div className="relative w-full">
+              <Building2 className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-hidden bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 appearance-none cursor-pointer font-semibold"
+              >
+                <option value="All">All Departments</option>
+                {categories.filter(c => c !== 'All').map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-gray-500">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+              </div>
+            </div>
+
             {/* Class Type Dropdown */}
-            {classTypes && classTypes.length > 0 && (
-              <div className="relative w-full sm:w-44">
+            {classTypes && classTypes.length > 0 ? (
+              <div className="relative w-full">
                 <Filter className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
                 <select
                   value={selectedClassType}
@@ -213,10 +235,10 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
                   </svg>
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Sort Dropdown */}
-            <div className="relative w-full sm:w-44">
+            <div className="relative w-full">
               <select
                 value={sortOrder}
                 aria-label="Sort SBA Hub options"
@@ -236,51 +258,58 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
             </div>
           </div>
 
-          {/* Category Chips Container with Left/Right Scroll Buttons */}
-          <div className="relative flex items-center min-w-0 flex-1 bg-gray-50/80 p-1.5 rounded-2xl border border-gray-200">
-            <button
-              type="button"
-              onClick={() => {
-                const el = document.getElementById('sba-category-scroll-container');
-                if (el) el.scrollBy({ left: -180, behavior: 'smooth' });
-              }}
-              className="flex items-center justify-center w-7 h-7 bg-white border border-gray-200 rounded-full shadow-2xs text-gray-600 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-300 shrink-0 z-10 mr-1 transition-all"
-              title="Scroll left"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            <div
-              id="sba-category-scroll-container"
-              className="flex items-center gap-1.5 overflow-x-auto py-2 px-0.5 scroll-smooth max-w-full"
-              style={{ scrollbarWidth: 'thin' }}
-            >
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                    selectedCategory === cat
-                      ? 'bg-purple-700 text-white shadow-2xs ring-2 ring-purple-400/30'
-                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+          {/* Full-Width Department Category Chips Row */}
+          <div className="w-full bg-slate-50 dark:bg-slate-800/60 p-2 sm:p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0 px-1">
+              <Building2 className="w-4 h-4 text-purple-600 shrink-0" />
+              <span>Department:</span>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                const el = document.getElementById('sba-category-scroll-container');
-                if (el) el.scrollBy({ left: 180, behavior: 'smooth' });
-              }}
-              className="flex items-center justify-center w-7 h-7 bg-white border border-gray-200 rounded-full shadow-2xs text-gray-600 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-300 shrink-0 z-10 ml-1 transition-all"
-              title="Scroll right"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="relative flex items-center min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById('sba-category-scroll-container');
+                  if (el) el.scrollBy({ left: -200, behavior: 'smooth' });
+                }}
+                className="flex items-center justify-center w-7 h-7 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-full shadow-2xs text-gray-600 dark:text-gray-200 hover:bg-purple-50 hover:text-purple-700 shrink-0 z-10 mr-1 transition-all"
+                title="Scroll left"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <div
+                id="sba-category-scroll-container"
+                className="flex items-center gap-1.5 overflow-x-auto py-1 px-0.5 scroll-smooth max-w-full"
+                style={{ scrollbarWidth: 'thin' }}
+              >
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                      selectedCategory === cat
+                        ? 'bg-purple-700 text-white shadow-2xs ring-2 ring-purple-400/30'
+                        : 'bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById('sba-category-scroll-container');
+                  if (el) el.scrollBy({ left: 200, behavior: 'smooth' });
+                }}
+                className="flex items-center justify-center w-7 h-7 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-full shadow-2xs text-gray-600 dark:text-gray-200 hover:bg-purple-50 hover:text-purple-700 shrink-0 z-10 ml-1 transition-all"
+                title="Scroll right"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
