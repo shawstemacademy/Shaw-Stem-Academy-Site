@@ -13,6 +13,8 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Edit3
 } from 'lucide-react';
 
@@ -41,6 +43,7 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedClassType, setSelectedClassType] = useState<string>('All');
   const [sortOrder, setSortOrder] = useState<'alpha-asc' | 'alpha-desc' | 'price-asc' | 'price-desc'>('alpha-asc');
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const safeSbaHubOptions = sbaHubOptions || [];
   const offeredOptions = safeSbaHubOptions.filter((opt) => opt && opt.isOffered !== false);
@@ -157,7 +160,10 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
   return (
     <div className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden mb-6 transition-all">
       {/* Top Banner Header */}
-      <div className="px-6 py-4 bg-purple-900 text-white flex flex-wrap items-center justify-between gap-3">
+      <div 
+        className="px-6 py-4 bg-purple-900 text-white flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
         <div className="flex items-center gap-2.5">
           <BookOpen className="w-5 h-5 text-purple-300 flex-shrink-0" />
           <div>
@@ -169,7 +175,10 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
         <div className="flex items-center gap-2">
           {canEditList && onOpenManageOptions && (
             <button
-              onClick={onOpenManageOptions}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenManageOptions();
+              }}
               className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-lg border border-white/20 flex items-center gap-1.5 transition-colors"
             >
               <Edit3 className="w-3.5 h-3.5" />
@@ -179,11 +188,15 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
           <span className="text-xs font-bold px-3 py-1 bg-purple-800 text-purple-100 rounded-full border border-purple-700">
             {selectedSbaHubIds.length} SBA Aid Selected
           </span>
+          <div className="ml-2 text-purple-300 hover:text-purple-100 transition-colors">
+            {isCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+          </div>
         </div>
       </div>
 
-      <div className="p-6">
-        {/* Search, Department, Class Type & Sort Filters Bar */}
+      {!isCollapsed && (
+        <div className="p-6">
+          {/* Search, Department, Class Type & Sort Filters Bar */}
         <div className="space-y-3 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 w-full">
             {/* Search Input */}
@@ -427,6 +440,7 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };

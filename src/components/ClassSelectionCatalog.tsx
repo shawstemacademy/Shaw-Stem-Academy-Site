@@ -17,7 +17,9 @@ import {
   CheckCircle2,
   Calendar,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface ClassSelectionCatalogProps {
@@ -49,6 +51,7 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedClassType, setSelectedClassType] = useState<string>('All');
   const [sortOrder, setSortOrder] = useState<'alpha-asc' | 'alpha-desc' | 'price-asc' | 'price-desc'>('alpha-asc');
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // ONLY show courses where isOffered !== false and student is NOT currently registered for
   const safeClassList = classList || [];
@@ -129,7 +132,10 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
   return (
     <div className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden mb-6 transition-all">
       {/* Top Header */}
-      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
+      <div 
+        className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
         <div>
           <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
             <CheckSquare className="w-4 h-4 text-purple-600" />
@@ -142,7 +148,10 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
         <div className="flex items-center gap-2">
           {canEditList && onOpenManageOptions && (
             <button
-              onClick={onOpenManageOptions}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenManageOptions();
+              }}
               className="px-3 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-lg border border-purple-200 flex items-center gap-1.5 transition-colors"
             >
               <span>Course Bank & Settings</span>
@@ -151,10 +160,15 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
           <div className="text-xs font-semibold px-3 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-full">
             {selectedClassIds.length} {selectedClassIds.length === 1 ? 'Class' : 'Classes'} Selected
           </div>
+          <div className="ml-2 text-gray-400 hover:text-gray-600 transition-colors">
+            {isCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+          </div>
         </div>
       </div>
 
-      {/* Already Enrolled Filtering Notification */}
+      {!isCollapsed && (
+        <>
+          {/* Already Enrolled Filtering Notification */}
       {safeEnrolledIds.length > 0 && (
         <div className="px-6 pt-4">
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-xs text-blue-900">
@@ -449,6 +463,8 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };
