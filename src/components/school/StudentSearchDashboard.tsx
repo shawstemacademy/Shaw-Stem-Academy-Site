@@ -519,6 +519,17 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                     <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold">
                       Student Account
                     </span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      selectedStudent.status === 'accepted' || selectedStudent.status === 'enrolled_paid'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : selectedStudent.status === 'pending_verification'
+                        ? 'bg-amber-100 text-amber-800 animate-pulse'
+                        : selectedStudent.status === 'awaiting_acceptance'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-slate-100 text-slate-700'
+                    }`}>
+                      {selectedStudent.status ? selectedStudent.status.replace('_', ' ') : 'PROSPECTIVE'}
+                    </span>
                   </div>
                   <p className="text-xs text-slate-500">{selectedStudent.email}</p>
                 </div>
@@ -704,10 +715,14 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                     <button
                       onClick={() => {
                         if (selectedStudent) {
-                          saveDocToFirestore('schoolUsers', selectedStudent.id, {
+                          const updatedUser = {
                             ...selectedStudent,
-                            status: 'accepted'
-                          });
+                            status: 'accepted' as const
+                          };
+                          saveDocToFirestore('schoolUsers', selectedStudent.id, updatedUser);
+                          if (onUpdateUser) {
+                            onUpdateUser(updatedUser);
+                          }
                         }
                         if (currentRegistration) {
                           const updatedReg = { ...currentRegistration, status: 'completed' as const };
@@ -715,21 +730,49 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                         }
                         alert(`Student application for ${selectedStudent?.name || 'student'} approved! Status set to ACCEPTED.`);
                       }}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1.5"
+                      className={`px-4 py-2 font-bold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1.5 ${
+                        (selectedStudent?.status === 'accepted' || selectedStudent?.status === 'enrolled_paid')
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600'
+                          : 'bg-white hover:bg-emerald-50 text-emerald-600 border border-emerald-200 hover:border-emerald-300'
+                      }`}
                     >
                       <CheckCircle className="w-4 h-4" />
-                      Approve & Accept Student
+                      <span>
+                        {(selectedStudent?.status === 'accepted' || selectedStudent?.status === 'enrolled_paid')
+                          ? 'Approved & Accepted'
+                          : 'Approve & Accept Student'}
+                      </span>
                     </button>
                     <button
                       onClick={() => {
-                        if (!currentRegistration) return;
-                        const updatedReg = { ...currentRegistration, status: 'rejected' as const };
-                        onUpdateRegistration(updatedReg);
-                        alert('Student application is set to Rejected / Hold.');
+                        if (selectedStudent) {
+                          const updatedUser = {
+                            ...selectedStudent,
+                            status: 'awaiting_acceptance' as const
+                          };
+                          saveDocToFirestore('schoolUsers', selectedStudent.id, updatedUser);
+                          if (onUpdateUser) {
+                            onUpdateUser(updatedUser);
+                          }
+                        }
+                        if (currentRegistration) {
+                          const updatedReg = { ...currentRegistration, status: 'rejected' as const };
+                          onUpdateRegistration(updatedReg);
+                        }
+                        alert('Student application is set to Awaiting Acceptance / Hold.');
                       }}
-                      className="px-4 py-2 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 font-bold text-xs rounded-xl transition-all"
+                      className={`px-4 py-2 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 border ${
+                        selectedStudent?.status === 'awaiting_acceptance'
+                          ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-600'
+                          : 'bg-white hover:bg-rose-50 text-rose-700 border-rose-200 hover:border-rose-300'
+                      }`}
                     >
-                      Put on Hold
+                      <Clock className="w-4 h-4" />
+                      <span>
+                        {selectedStudent?.status === 'awaiting_acceptance'
+                          ? 'Application on Hold'
+                          : 'Put on Hold'}
+                      </span>
                     </button>
                   </div>
                 </div>

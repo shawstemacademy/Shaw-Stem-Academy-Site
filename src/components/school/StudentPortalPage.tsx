@@ -23,7 +23,8 @@ import {
   CreditCard,
   DollarSign,
   ChevronRight,
-  Info
+  Info,
+  ClipboardList
 } from 'lucide-react';
 import { 
   StudentStatus, 
@@ -223,11 +224,17 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
           </span>
         );
       case 'unverified':
-      case 'awaiting_acceptance':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold border border-blue-500/30">
             <Clock className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
             <span>Awaiting Application Review</span>
+          </span>
+        );
+      case 'awaiting_acceptance':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold border border-blue-500/30">
+            <Clock className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+            <span>Awaiting Acceptance</span>
           </span>
         );
       case 'prospective':
@@ -285,6 +292,54 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
         </div>
       </div>
 
+      {/* Registration Status Indicator Widget */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm animate-fade-in">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-blue-500/10 dark:bg-blue-500/5 rounded-2xl border border-blue-500/20 text-blue-500">
+            <ClipboardList className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">Registration Status</h3>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">The official review status of your Shaw STEM Academy enrollment application</p>
+          </div>
+        </div>
+
+        <div className="flex items-center self-start sm:self-auto shrink-0">
+          {status === 'awaiting_acceptance' ? (
+            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-extrabold border border-blue-500/20 uppercase tracking-wider shadow-inner select-none">
+              <Clock className="w-4 h-4 text-blue-500 animate-pulse" />
+              <span>Awaiting Acceptance</span>
+            </div>
+          ) : status === 'accepted' ? (
+            <div className="flex flex-col sm:items-end gap-1.5">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold border border-emerald-500/20 uppercase tracking-wider shadow-inner select-none">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span>Accepted</span>
+              </div>
+              <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 bg-rose-500/5 px-2.5 py-1 rounded-lg border border-rose-500/10">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                Payment Required
+              </span>
+            </div>
+          ) : status === 'enrolled_paid' ? (
+            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold border border-emerald-500/20 uppercase tracking-wider shadow-inner select-none">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span>Paid & Enrolled</span>
+            </div>
+          ) : status === 'pending_verification' ? (
+            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-extrabold border border-amber-500/20 uppercase tracking-wider shadow-inner select-none">
+              <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
+              <span>Awaiting Verification</span>
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-500/10 text-slate-600 dark:text-slate-400 text-xs font-extrabold border border-slate-500/20 uppercase tracking-wider shadow-inner select-none">
+              <Lock className="w-4 h-4 text-slate-500" />
+              <span>Prospective</span>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 1. NOTIFICATION BANNER: ACCEPTED STUDENT */}
       {status === 'accepted' && (
         <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 text-white p-6 sm:p-8 rounded-3xl shadow-xl space-y-4 border border-emerald-400/30 animate-fade-in relative overflow-hidden">
@@ -334,8 +389,36 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
         </div>
       )}
 
+      {/* 3. NOTIFICATION BANNER: AWAITING ACCEPTANCE */}
+      {(status === 'awaiting_acceptance' || status === 'unverified' || status === 'prospective') && (
+        <div className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 flex items-start gap-4 shadow-sm relative overflow-hidden animate-fade-in">
+          <Clock className="w-8 h-8 text-blue-500 shrink-0 mt-0.5 animate-pulse" />
+          <div className="space-y-3 flex-1">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-wider border border-blue-500/20">
+              <Clock className="w-3.5 h-3.5 animate-spin" />
+              <span>Awaiting Decision</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+              Application Under Review
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium max-w-2xl">
+              Thank you for choosing Shaw STEM Academy. Your student profile registration has been successfully received and is currently being reviewed by our admissions department.
+            </p>
+            <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl max-w-2xl">
+              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-blue-500 shrink-0 animate-pulse" />
+                Status: Awaiting Acceptance
+              </p>
+              <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-1">
+                Your profile is queued for administrative review. Once your account is approved and accepted, you will see your acceptance details here and be able to proceed with final class enrollment and payments.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ENROLLED / ACCEPTED / REGISTERED STUDENT VIEW */}
-      {(status === 'enrolled_paid' || status === 'pending_verification' || status === 'accepted' || status === 'awaiting_acceptance' || status === 'unverified') && (
+      {(status === 'enrolled_paid' || status === 'pending_verification' || status === 'accepted') && (
         <div className="space-y-10 animate-fade-in">
           {/* Enrolled Classes Bar */}
           <div className="space-y-4">

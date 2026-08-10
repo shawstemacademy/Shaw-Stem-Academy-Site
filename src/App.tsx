@@ -127,6 +127,13 @@ export default function App() {
     }
   }, [loggedInUser]);
 
+  // Synchronize studentStatus with loggedInUser status
+  useEffect(() => {
+    if (loggedInUser && loggedInUser.role === 'student' && loggedInUser.status) {
+      setStudentStatus(loggedInUser.status);
+    }
+  }, [loggedInUser]);
+
   // Auto request notification permission on login
   useEffect(() => {
     if (loggedInUser || user) {
@@ -1051,7 +1058,7 @@ export default function App() {
       setSchoolUsers(prev => [...prev.filter(u => u.id !== newUser.id), newUser]);
       setLoggedInUser(newUser);
       setCurrentRole('student');
-      setStudentStatus('accepted');
+      setStudentStatus('prospective');
       setActiveTab('registration');
       localStorage.removeItem('pending_registration_info');
       
@@ -1131,7 +1138,7 @@ export default function App() {
       setIsAuthModalOpen(false);
       setLoggedInUser(newUser);
       setCurrentRole('student');
-      setStudentStatus('accepted');
+      setStudentStatus('prospective');
       setActiveTab('registration');
       alert(`School Account Created Successfully!\nWelcome to Shaw STEM Academy, ${newUser.name} (${newUser.email}). You are now logged in. Please select your classes below to complete your Class Registration.`);
     } catch (err: any) {
@@ -1184,7 +1191,7 @@ export default function App() {
       setIsAuthModalOpen(false);
       setLoggedInUser(newUser);
       setCurrentRole('student');
-      setStudentStatus('accepted');
+      setStudentStatus('prospective');
       setActiveTab('registration');
       alert(`School Account Created Successfully!\nWelcome to Shaw STEM Academy, ${newUser.name} (${newUser.email}). You are now logged in. Please select your classes below to complete your Class Registration.`);
     } catch (err: any) {
@@ -1519,8 +1526,11 @@ export default function App() {
             saveDocToFirestore('schoolUsers', matchingUser.id, updatedUser);
             // We update the local state manually if we don't want to wait for snapshot
           } else if (matchingUser && !isPaid) {
-            const updatedUser: SchoolUser = { ...matchingUser, status: 'accepted' };
-            saveDocToFirestore('schoolUsers', matchingUser.id, updatedUser);
+            // Only revert to 'accepted' if they were already accepted or enrolled_paid
+            if (matchingUser.status === 'enrolled_paid' || matchingUser.status === 'accepted') {
+              const updatedUser: SchoolUser = { ...matchingUser, status: 'accepted' };
+              saveDocToFirestore('schoolUsers', matchingUser.id, updatedUser);
+            }
           }
           
           return updated;
@@ -1625,6 +1635,29 @@ export default function App() {
   };
 
   const handleDeleteUser = (userId: string) => {
+    const userToDel = schoolUsers.find(u => u.id === userId);
+    if (userToDel) {
+      const studentEmail = (userToDel.email || '').toLowerCase();
+      const studentName = (userToDel.name || '').toLowerCase();
+      
+      // Find all registration records in our state that match this student
+      const matchedRegs = registrationLogs.filter(
+        (log) =>
+          (log.studentInfo?.email || '').toLowerCase() === studentEmail ||
+          (log.studentInfo?.parentEmail || '').toLowerCase() === studentEmail ||
+          (log.studentInfo?.gmailAddress || '').toLowerCase() === studentEmail ||
+          (log.studentInfo?.studentName || '').toLowerCase() === studentName
+      );
+      
+      // Delete matched registration records from Firestore
+      matchedRegs.forEach(reg => {
+        deleteDocFromFirestore('registrations', reg.id);
+      });
+      
+      // Filter out deleted registration records from our state
+      setRegistrationLogs(prev => prev.filter(log => !matchedRegs.some(r => r.id === log.id)));
+    }
+
     setSchoolUsers((prev) => prev.filter((u) => u.id !== userId));
     deleteDocFromFirestore('schoolUsers', userId);
     setTeacherProfiles((prev) => prev.filter((t) => t.id !== userId));
@@ -1856,6 +1889,25 @@ export default function App() {
     setActiveTab('login');
     sessionStorage.clear();
     localStorage.removeItem('pending_registration_info');
+    localStorage.removeItem('saved_user_id');
+    setEnrolledClassIds([]);
+    setStudentInfo({
+      email: '',
+      studentName: '',
+      firstName: '',
+      lastName: '',
+      middleName: '',
+      formGrade: '',
+      currentSchool: '',
+      age: '',
+      dateOfBirth: '',
+      cellPhone: '',
+      homePhone: '',
+      address: '',
+      gmailAddress: '',
+      gender: '',
+      livesWith: 'Parent',
+    });
     logSystemAction('login', 'User signed out of portal');
   }
 
@@ -1887,6 +1939,48 @@ export default function App() {
           (log.studentInfo?.gmailAddress || '').toLowerCase() === studentEmail.toLowerCase()
       ) 
     : [];
+
+  // Synchronize enrolledClassIds dynamically with the student's registrations from Firestore
+  useEffect(() => {
+    if (loggedInUser && loggedInUser.role === 'student') {
+      const classIdsFromRegistrations = new Set<string>();
+      
+      if (loggedInUser.registeredClassIds) {
+        loggedInUser.registeredClassIds.forEach(id => classIdsFromRegistrations.add(id));
+      }
+      if (loggedInUser.studentDetails?.selectedClassIds) {
+        loggedInUser.studentDetails.selectedClassIds.forEach(id => classIdsFromRegistrations.add(id));
+      }
+      
+      const emailLower = (studentEmail || '').toLowerCase();
+      if (emailLower) {
+        const matchedLogs = registrationLogs.filter(
+          (log) => 
+            (log.studentInfo?.parentEmail || '').toLowerCase() === emailLower || 
+            (log.studentInfo?.email || '').toLowerCase() === emailLower || 
+            (log.studentInfo?.gmailAddress || '').toLowerCase() === emailLower
+        );
+
+        matchedLogs.forEach(reg => {
+          if (reg.selectedClasses) {
+            reg.selectedClasses.forEach(c => classIdsFromRegistrations.add(c.id));
+          }
+        });
+      }
+      
+      const newClassIds = Array.from(classIdsFromRegistrations);
+      setEnrolledClassIds(prev => {
+        const sortedPrev = [...prev].sort();
+        const sortedNew = [...newClassIds].sort();
+        if (sortedPrev.length === sortedNew.length && sortedPrev.every((val, idx) => val === sortedNew[idx])) {
+          return prev;
+        }
+        return newClassIds;
+      });
+    } else {
+      setEnrolledClassIds(prev => prev.length === 0 ? prev : []);
+    }
+  }, [loggedInUser, registrationLogs, studentEmail]);
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-200 flex flex-col justify-between transition-colors duration-300">
