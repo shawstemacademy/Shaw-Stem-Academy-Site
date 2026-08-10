@@ -58,7 +58,10 @@ import { AdminNewsManagement } from './AdminNewsManagement';
 import { AdminAcademyInfoManagement } from './AdminAcademyInfoManagement';
 import { StudentSearchDashboard } from './StudentSearchDashboard';
 import { ClassClaimForm } from './ClassClaimForm';
-import { HelpCircle, Newspaper } from 'lucide-react';
+import { HelpCircle, Newspaper, Send, Smartphone, Laptop, Globe, Wifi, Copy, RefreshCw, CheckCircle, AlertCircle, MessageSquare, Info, SendHorizontal } from 'lucide-react';
+import { isFcmSupported, requestAndSaveFcmToken, onForegroundMessage, revokeFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
+import { subscribeToCollection, db } from '../../lib/firebase';
+import { collection, deleteDoc, doc } from 'firebase/firestore';
 import { ClassItem, SbaHubOption, ScheduleClash, ClashAdmissibility, ClassType, LocationOption, ClassClaimItem, TeacherHourlyRate } from '../../types';
 
 interface AdminDashboardPageProps {
@@ -202,6 +205,249 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [permissionState, setPermissionState] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
+
+  // Firebase Cloud Messaging (FCM) States
+  const [fcmSupported, setFcmSupported] = useState<boolean | null>(null);
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
+  const [fcmError, setFcmError] = useState<string | null>(null);
+  const [isRequestingToken, setIsRequestingToken] = useState(false);
+  const [vapidKey, setVapidKey] = useState(DEFAULT_VAPID_KEY);
+  const [registeredTokens, setRegisteredTokens] = useState<any[]>([]);
+  const [targetToken, setTargetToken] = useState<string>('');
+  const [fcmServerKey, setFcmServerKey] = useState<string>('');
+  const [fcmSendStatus, setFcmSendStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [fcmSendError, setFcmSendError] = useState<string | null>(null);
+  const [fcmSendLogs, setFcmSendLogs] = useState<{ id: string; timestamp: string; title: string; body: string; success: boolean; type: 'real' | 'simulated' }[]>([]);
+
+  // Check FCM Support and Subscribe to fcmTokens
+  React.useEffect(() => {
+    isFcmSupported().then((supported) => {
+      setFcmSupported(supported);
+    });
+
+    const unsubscribe = subscribeToCollection<any>('fcmTokens', (data) => {
+      setRegisteredTokens(data || []);
+      if (data && data.length > 0) {
+        // Set first token as target if none selected
+        setTargetToken((prev) => prev || data[0].token);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Listen to FCM Foreground Push Messages
+  React.useEffect(() => {
+    let unsubForeground: (() => void) | null = null;
+    
+    onForegroundMessage((payload) => {
+      console.log('Received foreground message inside Admin Dashboard:', payload);
+      const title = payload.notification?.title || 'FCM Alert';
+      const body = payload.notification?.body || 'Foreground notification received';
+      
+      playSynthesizedSound({
+        frequency: 1000,
+        duration: 0.2,
+        waveType: 'sine',
+        volume: 0.2,
+        preset: 'bubble'
+      });
+      
+      setFcmSendLogs((prev) => [
+        {
+          id: `fcm-rec-${Date.now()}`,
+          timestamp: new Date().toLocaleTimeString(),
+          title,
+          body,
+          success: true,
+          type: 'real'
+        },
+        ...prev
+      ]);
+
+      if (Notification.permission === 'granted') {
+        new Notification(`[FCM Foreground] ${title}`, {
+          body,
+          icon: 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png'
+        });
+      }
+    }).then((unsub) => {
+      if (unsub) unsubForeground = unsub;
+    });
+
+    return () => {
+      if (unsubForeground) unsubForeground();
+    };
+  }, []);
+
+  const handleRegisterDevice = async () => {
+    setIsRequestingToken(true);
+    setFcmError(null);
+    try {
+      const { token, error } = await requestAndSaveFcmToken(vapidKey);
+      if (error) {
+        setFcmError(error);
+      } else if (token) {
+        setFcmToken(token);
+        setTargetToken(token);
+        playSynthesizedSound({
+          frequency: 523.25,
+          duration: 0.3,
+          waveType: 'sine',
+          volume: 0.25,
+          preset: 'success'
+        });
+      }
+    } catch (err: any) {
+      setFcmError(err?.message || String(err));
+    } finally {
+      setIsRequestingToken(false);
+    }
+  };
+
+  const handleDeleteToken = async (tokenToDelete: string) => {
+    try {
+      await revokeFcmToken(tokenToDelete);
+      setRegisteredTokens((prev) => prev.filter((item) => item.token !== tokenToDelete));
+      if (fcmToken === tokenToDelete) {
+        setFcmToken(null);
+      }
+      if (targetToken === tokenToDelete) {
+        setTargetToken('');
+      }
+    } catch (err) {
+      console.error('Error revoking token:', err);
+    }
+  };
+
+  const handleSendFcmPush = async (isSimulation: boolean = false) => {
+    setFcmSendStatus('sending');
+    setFcmSendError(null);
+
+    const pushTitle = notifyTitle || 'Shaw STEM Academy Update';
+    const pushBody = notifyBody || 'This is an FCM test notification.';
+    const pushImage = 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png';
+
+    if (isSimulation) {
+      setTimeout(() => {
+        setFcmSendStatus('success');
+        
+        setFcmSendLogs((prev) => [
+          {
+            id: `fcm-sim-${Date.now()}`,
+            timestamp: new Date().toLocaleTimeString(),
+            title: pushTitle,
+            body: pushBody,
+            success: true,
+            type: 'simulated'
+          },
+          ...prev
+        ]);
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then((reg) => {
+            if (reg && 'showNotification' in reg) {
+              reg.showNotification(`[FCM SIMULATED] ${pushTitle}`, {
+                body: pushBody,
+                icon: pushImage,
+                badge: pushImage,
+                tag: 'shaw-stem-notification',
+                requireInteraction: true
+              });
+            } else {
+              new Notification(`[FCM SIMULATED] ${pushTitle}`, {
+                body: pushBody,
+                icon: pushImage
+              });
+            }
+          }).catch(() => {
+            new Notification(`[FCM SIMULATED] ${pushTitle}`, {
+              body: pushBody,
+              icon: pushImage
+            });
+          });
+        } else {
+          new Notification(`[FCM SIMULATED] ${pushTitle}`, {
+            body: pushBody,
+            icon: pushImage
+          });
+        }
+        
+        playSynthesizedSound({
+          frequency: 523.25,
+          duration: 0.3,
+          waveType: 'sine',
+          volume: 0.25,
+          preset: 'success'
+        });
+      }, 800);
+      return;
+    }
+
+    if (!targetToken) {
+      setFcmSendStatus('error');
+      setFcmSendError('No target token selected. Please register a device first.');
+      return;
+    }
+
+    if (!fcmServerKey) {
+      setFcmSendStatus('error');
+      setFcmSendError('Please enter your FCM Server Key (Legacy Server Key) to send real push notifications.');
+      return;
+    }
+
+    const payload = {
+      to: targetToken,
+      notification: {
+        title: pushTitle,
+        body: pushBody,
+        image: pushImage,
+        sound: 'default'
+      },
+      data: {
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+        school: 'Shaw STEM Academy',
+        sentAt: new Date().toISOString()
+      }
+    };
+
+    try {
+      const response = await fetch('https://fcm.googleapis.com/fcm/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `key=${fcmServerKey}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const resData = await response.json();
+      if (response.ok && (!resData.failure || resData.failure === 0)) {
+        setFcmSendStatus('success');
+        setFcmSendLogs((prev) => [
+          {
+            id: `fcm-real-${Date.now()}`,
+            timestamp: new Date().toLocaleTimeString(),
+            title: pushTitle,
+            body: pushBody,
+            success: true,
+            type: 'real'
+          },
+          ...prev
+        ]);
+        alert('FCM Push Notification sent successfully via Google FCM API!');
+      } else {
+        const errorMsg = resData.results?.[0]?.error || JSON.stringify(resData);
+        setFcmSendStatus('error');
+        setFcmSendError(`FCM Delivery Failed: ${errorMsg}`);
+      }
+    } catch (err: any) {
+      setFcmSendStatus('error');
+      setFcmSendError(`Network Error connecting to fcm.googleapis.com: ${err?.message || String(err)}`);
+    }
+  };
 
   React.useEffect(() => {
     if (typeof Notification !== 'undefined') {
@@ -1754,6 +2000,369 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   <li>If prompted by your browser, choose <strong>"Allow"</strong> when asked to show notifications.</li>
                   <li>Watch the notification pop up directly in your Windows/macOS notification deck alongside the playing audio tone!</li>
                 </ol>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider to FCM Integration */}
+          <div className="border-t border-slate-200/80 my-10 pt-10"></div>
+
+          {/* FCM Control Center Section */}
+          <div className="space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-extrabold uppercase tracking-wider rounded-full border border-blue-100 mb-2">
+                  <Wifi className="w-3 h-3 animate-pulse" />
+                  Google Cloud Platform Integration
+                </div>
+                <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                  <Send className="w-5 h-5 text-blue-600 animate-pulse" />
+                  Firebase Cloud Messaging (FCM) Control Center
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Register browser endpoints, manage security-hardened device tokens, and broadcast push messages using Google's FCM Delivery Network.
+                </p>
+              </div>
+
+              {/* FCM Global Support Indicator */}
+              <div className="flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-2xl border border-slate-200">
+                <span className="text-xs font-bold text-slate-600">Browser FCM Support:</span>
+                {fcmSupported === null ? (
+                  <span className="text-xs font-bold text-slate-400">Checking...</span>
+                ) : fcmSupported ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Supported
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-xl bg-rose-50 text-rose-700 border border-rose-200">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    Unsupported (Iframe/Private)
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column: Device Enrollment */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-6">
+                <div className="border-b border-slate-100 pb-4 flex items-center gap-2">
+                  <Smartphone className="w-4.5 h-4.5 text-blue-500" />
+                  <h3 className="font-bold text-slate-800 text-sm">FCM Device Registration</h3>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                      Web Push VAPID Key:
+                      <span className="group relative cursor-pointer">
+                        <Info className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block w-48 bg-slate-900 text-white text-[10px] p-2 rounded-lg font-medium leading-normal z-50">
+                          Identifies your Firebase Application to the browser's web push service.
+                        </span>
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      value={vapidKey}
+                      onChange={(e) => setVapidKey(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                      placeholder="Enter VAPID key..."
+                    />
+                  </div>
+
+                  {fcmToken ? (
+                    <div className="space-y-3 bg-emerald-50/50 border border-emerald-100 p-4 rounded-2xl">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          Device Enrolled Successfully
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(fcmToken);
+                            alert('FCM Token copied to clipboard!');
+                          }}
+                          className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-[9px] font-extrabold text-slate-700 flex items-center gap-1 transition-colors shadow-xs"
+                        >
+                          <Copy className="w-2.5 h-2.5" />
+                          <span>Copy Token</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-600 font-medium font-mono bg-white p-2.5 rounded-xl border border-slate-200/60 break-all select-all leading-normal max-h-24 overflow-y-auto">
+                        {fcmToken}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-semibold leading-normal">
+                        This token is linked to your email <strong>{loggedInUser?.email || 'guest@shawstemacademy.edu'}</strong> in Firestore under the <code>fcmTokens</code> collection.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <button
+                        onClick={handleRegisterDevice}
+                        disabled={isRequestingToken}
+                        className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 disabled:bg-slate-300 disabled:cursor-not-allowed"
+                      >
+                        {isRequestingToken ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>Requesting Web Push Token...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Smartphone className="w-4 h-4" />
+                            <span>Register Current Browser & Generate FCM Token</span>
+                          </>
+                        )}
+                      </button>
+
+                      {fcmError && (
+                        <div className="p-3.5 bg-rose-50 border border-rose-100 text-rose-800 rounded-xl text-[11px] font-semibold leading-relaxed">
+                          <strong className="block mb-0.5">Registration Issue:</strong>
+                          {fcmError}
+                          <div className="mt-1.5 pt-1.5 border-t border-rose-200/50 text-[10px] text-rose-700">
+                            * Note: Browsers block high-privilege operations like service workers and push registration in nested sandboxed iframes. If this fails, click the "Open App in New Tab" link at the top of this page!
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Helpful service worker hint */}
+                <div className="bg-slate-50/50 border border-slate-200/60 rounded-2xl p-4 space-y-2.5">
+                  <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-blue-500" />
+                    How Web Push Works:
+                  </h4>
+                  <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc list-inside font-medium leading-relaxed">
+                    <li>The browser registers <code>/firebase-messaging-sw.js</code> as a background process.</li>
+                    <li>Google matches your unique <strong>Device Token</strong> to deliver push events.</li>
+                    <li>Even when Shaw STEM Academy is <strong>closed or offline</strong>, background push notifications will show up on your system!</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Right Column: FCM Broadcasting Tool */}
+              <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6 text-white space-y-6 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div className="border-b border-slate-800 pb-4 flex items-center gap-2">
+                  <SendHorizontal className="w-4.5 h-4.5 text-blue-400" />
+                  <h3 className="font-bold text-slate-200 text-sm">FCM Push Broadcast Tool</h3>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Select Destination */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Destination Target Token:
+                    </label>
+                    <select
+                      value={targetToken}
+                      onChange={(e) => setTargetToken(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-xs font-semibold px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden text-white"
+                    >
+                      {registeredTokens.length === 0 ? (
+                        <option value="">-- No Devices Registered Yet --</option>
+                      ) : (
+                        registeredTokens.map((t) => (
+                          <option key={t.token} value={t.token}>
+                            {t.userEmail} ({t.platform || 'Browser'})
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+
+                  {/* Manual Target Token Override */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Target FCM Token:
+                    </label>
+                    <input
+                      type="text"
+                      value={targetToken}
+                      onChange={(e) => setTargetToken(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-[10px] font-mono px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden text-slate-300 break-all"
+                      placeholder="Select a device above or paste token..."
+                    />
+                  </div>
+
+                  {/* Firebase Legacy Server Key */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                      <span>FCM Legacy Server Key:</span>
+                      <span className="text-[9px] text-amber-400 hover:underline cursor-pointer">Where is this?</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={fcmServerKey}
+                      onChange={(e) => setFcmServerKey(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-xs font-semibold px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden text-white"
+                      placeholder="Paste FCM Server Key (starts with AIzaSy...)"
+                    />
+                  </div>
+
+                  {/* Dual buttons for real or mock broadcast */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <button
+                      onClick={() => handleSendFcmPush(true)}
+                      className="py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl font-bold text-xs shadow-md transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Simulate Push Receipt</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleSendFcmPush(false)}
+                      disabled={fcmSendStatus === 'sending'}
+                      className="py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs shadow-lg transition-colors flex items-center justify-center gap-1.5 disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed"
+                    >
+                      {fcmSendStatus === 'sending' ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Delivering...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Send Real FCM Push</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Send Status Alerts */}
+                  {fcmSendStatus === 'success' && (
+                    <div className="p-3 bg-emerald-950/80 border border-emerald-800 text-emerald-200 rounded-xl text-[10px] font-semibold flex gap-2 items-center">
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Notification dispatched and logged successfully!</span>
+                    </div>
+                  )}
+
+                  {fcmSendStatus === 'error' && (
+                    <div className="p-3 bg-rose-950/80 border border-rose-800 text-rose-200 rounded-xl text-[10px] font-semibold flex gap-2 items-start">
+                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="block">Delivery Failed:</strong>
+                        <span className="leading-normal">{fcmSendError}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* FCM Devices & Activity Logs */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
+              {/* Active Device registrations Table */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="w-4.5 h-4.5 text-slate-700" />
+                    <h3 className="font-extrabold text-slate-800 text-sm">Enrolled FCM Devices ({registeredTokens.length})</h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Live from Firestore</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[9px]">
+                        <th className="pb-2.5">User / Email</th>
+                        <th className="pb-2.5">Platform</th>
+                        <th className="pb-2.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 font-medium">
+                      {registeredTokens.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="py-6 text-center text-slate-400 font-semibold">
+                            No devices registered. Click "Register Current Browser" above to enroll this device!
+                          </td>
+                        </tr>
+                      ) : (
+                        registeredTokens.map((t) => (
+                          <tr key={t.token} className="hover:bg-slate-50/50">
+                            <td className="py-3">
+                              <div className="font-bold text-slate-800 truncate max-w-44">{t.userName || 'Guest User'}</div>
+                              <div className="text-[10px] text-slate-500 font-semibold truncate max-w-44">{t.userEmail}</div>
+                            </td>
+                            <td className="py-3">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-100 text-[10px] font-extrabold text-slate-700 border border-slate-200">
+                                {t.platform?.includes('Desktop') || t.platform?.includes('macOS') || t.platform?.includes('Windows') ? (
+                                  <Laptop className="w-3 h-3 text-slate-500" />
+                                ) : t.platform?.includes('Mobile') ? (
+                                  <Smartphone className="w-3 h-3 text-slate-500" />
+                                ) : (
+                                  <Globe className="w-3 h-3 text-slate-500" />
+                                )}
+                                {t.platform || 'Web Browser'}
+                              </span>
+                            </td>
+                            <td className="py-3 text-right">
+                              <button
+                                onClick={() => handleDeleteToken(t.token)}
+                                className="p-1.5 bg-slate-50 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-lg border border-slate-200 text-slate-400 transition-colors"
+                                title="Remove/Deregister Token"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Delivery Receipt Log */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4.5 h-4.5 text-slate-700" />
+                    <h3 className="font-extrabold text-slate-800 text-sm">FCM Activity & Delivery Logs</h3>
+                  </div>
+                  <button
+                    onClick={() => setFcmSendLogs([])}
+                    className="text-[10px] font-extrabold text-slate-400 hover:text-rose-600 uppercase tracking-wider"
+                  >
+                    Clear Logs
+                  </button>
+                </div>
+
+                <div className="max-h-[220px] overflow-y-auto space-y-3 pr-1">
+                  {fcmSendLogs.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 font-semibold text-xs">
+                      No activity logged. Trigger simulated push or send real push to log events.
+                    </div>
+                  ) : (
+                    fcmSendLogs.map((log) => (
+                      <div key={log.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-3">
+                        <div className={`p-1.5 rounded-xl shrink-0 ${log.type === 'simulated' ? 'bg-amber-50 border border-amber-100 text-amber-600' : 'bg-blue-50 border border-blue-100 text-blue-600'}`}>
+                          <Send className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-800 text-xs truncate">{log.title}</span>
+                            <span className="text-[9px] text-slate-400 font-bold whitespace-nowrap">{log.timestamp}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-semibold leading-relaxed truncate">{log.body}</p>
+                          <div className="flex items-center gap-1.5 pt-0.5">
+                            <span className={`text-[8px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded-md ${log.type === 'simulated' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                              {log.type}
+                            </span>
+                            <span className="text-[8px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                              Success
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>

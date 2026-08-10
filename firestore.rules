@@ -110,6 +110,13 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAuthenticated() && isStaff();
     }
+
+    // 6. Firebase Cloud Messaging (FCM) Tokens Collection
+    match /fcmTokens/{token} {
+      allow read: if isAuthenticated();
+      allow create, update: if true;
+      allow delete: if isAuthenticated();
+    }
     
     // Default fallback rules
     match /{document=**} {

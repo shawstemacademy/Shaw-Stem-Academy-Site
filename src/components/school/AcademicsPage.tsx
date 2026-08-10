@@ -17,24 +17,56 @@ import {
   Calendar,
   DollarSign
 } from 'lucide-react';
-import { TeacherProfile, ClassItem, Department, isDepartmentVisibleToStudents } from '../../types';
+import { TeacherProfile, ClassItem, Department, isDepartmentVisibleToStudents, PortalTab } from '../../types';
 
 interface AcademicsPageProps {
   teachers: TeacherProfile[];
   classes: ClassItem[];
   departments: Department[];
-  onOpenRegistration: () => void;
+  isLoggedIn: boolean;
+  isAccepted: boolean;
+  onNavigate: (tab: PortalTab) => void;
+  onOpenRegistration?: () => void;
 }
 
 export const AcademicsPage: React.FC<AcademicsPageProps> = ({
   teachers = [],
   classes = [],
   departments = [],
+  isLoggedIn,
+  isAccepted,
+  onNavigate,
   onOpenRegistration,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedLevel, setSelectedLevel] = useState('all');
+
+  const handleEnrollInDepartment = () => {
+    if (!isAccepted) {
+      onNavigate('student-portal');
+    } else {
+      onNavigate('registration');
+    }
+  };
+
+  const handleProceedToRegistration = () => {
+    if (!isAccepted) {
+      onNavigate('student-portal');
+    } else {
+      onNavigate('registration');
+    }
+  };
+
+  const handleOpenRegistrationForm = () => {
+    if (!isLoggedIn) {
+      onNavigate('admissions');
+    } else if (!isAccepted) {
+      onNavigate('student-portal');
+    } else {
+      onNavigate('registration');
+    }
+  };
 
   // Extract unique categories and levels from all offered classes
   const categories = useMemo(() => {
@@ -114,7 +146,7 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
                   {classes.filter((c) => c.category === dept.name).length} Open Classes
                 </span>
                 <button
-                  onClick={onOpenRegistration}
+                  onClick={handleEnrollInDepartment}
                   className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1"
                 >
                   <span>Enroll in Department</span>
@@ -136,7 +168,7 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
             </p>
           </div>
           <button
-            onClick={onOpenRegistration}
+            onClick={handleProceedToRegistration}
             className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 shrink-0 self-start sm:self-auto"
           >
             <span>Proceed to Registration</span>
@@ -368,7 +400,7 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
           </p>
         </div>
         <button
-          onClick={onOpenRegistration}
+          onClick={handleOpenRegistrationForm}
           className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg whitespace-nowrap"
         >
           Open Registration Form

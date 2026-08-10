@@ -40,6 +40,7 @@ import {
 } from '../../types';
 import { StudentInfoForm } from '../StudentInfoForm';
 import { RegistrationReceiptModal } from '../RegistrationReceiptModal';
+import { isFcmSupported, requestAndSaveFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
 
 interface StudentPortalPageProps {
   status: StudentStatus;
@@ -75,6 +76,40 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   const [editingStudentInfo, setEditingStudentInfo] = useState<StudentInfo | null>(null);
   const [selectedReceiptRecord, setSelectedReceiptRecord] = useState<RegistrationRecord | null>(null);
   const [activePaymentMethod, setActivePaymentMethod] = useState<'zelle' | 'wire' | 'check'>('zelle');
+
+  // FCM Notification States
+  const [fcmSupported, setFcmSupported] = useState<boolean | null>(null);
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
+  const [isRequestingToken, setIsRequestingToken] = useState(false);
+  const [fcmError, setFcmError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    isFcmSupported().then((supported) => {
+      setFcmSupported(supported);
+      if (supported && 'Notification' in window && Notification.permission === 'granted') {
+        requestAndSaveFcmToken(DEFAULT_VAPID_KEY).then(({ token }) => {
+          if (token) setFcmToken(token);
+        });
+      }
+    });
+  }, []);
+
+  const handleRegisterFcm = async () => {
+    setIsRequestingToken(true);
+    setFcmError(null);
+    try {
+      const { token, error } = await requestAndSaveFcmToken(DEFAULT_VAPID_KEY);
+      if (error) {
+        setFcmError(error);
+      } else if (token) {
+        setFcmToken(token);
+      }
+    } catch (err: any) {
+      setFcmError(err?.message || String(err));
+    } finally {
+      setIsRequestingToken(false);
+    }
+  };
 
   // Calculate outstanding balances dynamically using real database records
   const outstandingRegistrations = allRegistrations.map((r) => {
@@ -373,6 +408,57 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
           )}
         </div>
       </div>
+
+      {/* Real-time Push Notifications Opt-In */}
+      {fcmSupported && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm animate-fade-in">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-500/10 dark:bg-blue-500/5 rounded-2xl border border-blue-500/20 text-blue-600 dark:text-blue-400">
+              <Bell className="w-6 h-6 animate-pulse" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">Real-Time Push Notifications</h3>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+                {fcmToken 
+                  ? '✓ Web Push enabled! You will receive live school updates and class notices.' 
+                  : 'Receive real-time scheduling alerts, class announcements, and admissions updates.'}
+              </p>
+              {fcmError && (
+                <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold bg-rose-500/5 px-2.5 py-1 rounded-md border border-rose-500/10 mt-1 max-w-xl">
+                  ⚠️ Error registering: {fcmError}. Note: In some sandboxed development environments or iframes, you might need to "Open App in New Tab" to authorize notifications.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="shrink-0 self-start sm:self-auto">
+            {fcmToken ? (
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/30">
+                <Check className="w-4 h-4 text-emerald-500" />
+                <span>Web Push Active</span>
+              </span>
+            ) : (
+              <button
+                onClick={handleRegisterFcm}
+                disabled={isRequestingToken}
+                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed transition-all shadow-md"
+              >
+                {isRequestingToken ? (
+                  <>
+                    <Clock className="w-3.5 h-3.5 animate-spin" />
+                    <span>Enrolling...</span>
+                  </>
+                ) : (
+                  <>
+                    <Bell className="w-3.5 h-3.5" />
+                    <span>Enable Push Alerts</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 1. NOTIFICATION BANNER: ACCEPTED STUDENT */}
       {status === 'accepted' && (

@@ -122,6 +122,21 @@
         "name": { "type": "string" }
       },
       "required": ["id", "name"]
+    },
+    "fcmTokens": {
+      "title": "FCM Registration Tokens",
+      "description": "Registered devices and browser endpoints for Firebase Cloud Messaging push delivery",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "platform": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["token", "userId", "userEmail"]
     }
   }
 }

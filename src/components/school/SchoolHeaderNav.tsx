@@ -133,10 +133,11 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
 
   // Filter visible tabs based on user role and enrollment payment status
   const visibleTabs = allTabs.filter((tab) => {
+    const isLoggedIn = !!user || !!loggedInUser;
+    
     // Class Registration and Admissions visible to students, admin, registrar (hidden for teachers)
     if (tab.id === 'registration') {
       const isStudent = (loggedInUser?.role || currentRole) === 'student';
-      const isLoggedIn = !!user || !!loggedInUser;
       if (isStudent) {
         if (!isLoggedIn) {
           return false;
@@ -149,7 +150,6 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
       return currentRole !== 'teacher' && currentRole !== 'hod';
     }
     if (tab.id === 'admissions') {
-      const isLoggedIn = !!user || !!loggedInUser;
       if (isLoggedIn) {
         return false;
       }
@@ -159,9 +159,9 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
     if (tab.id === 'home' || tab.id === 'academics') {
       return true;
     }
-    // Student Portal is visible to all students, teachers, and admins
+    // Student Portal is visible to all logged-in users
     if (tab.id === 'student-portal') {
-      return true;
+      return isLoggedIn;
     }
     // Teacher Dashboard is visible to Teachers, HODs, and Admins
     if (tab.id === 'teacher-dashboard') {

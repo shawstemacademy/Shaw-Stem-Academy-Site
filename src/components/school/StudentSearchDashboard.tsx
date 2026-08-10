@@ -414,10 +414,11 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                         s.name.toLowerCase().includes(r.studentInfo.firstName.toLowerCase()))
               )[0];
 
+              const totalPaidAmt = reg && reg.payments ? reg.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
               const isPendingReview = reg && (!reg.payments || reg.payments.length === 0);
               const isVerified = reg && reg.verifiedClassIds && reg.verifiedClassIds.length > 0;
-              const hasPartial = reg && reg.payments && reg.payments.reduce((sum, p) => sum + p.amount, 0) > 0 && reg.payments.reduce((sum, p) => sum + p.amount, 0) < reg.totalPrice;
-              const hasFullyPaid = reg && reg.payments && reg.payments.reduce((sum, p) => sum + p.amount, 0) >= reg.totalPrice;
+              const hasPartial = reg && totalPaidAmt > 0 && totalPaidAmt < reg.totalPrice;
+              const hasFullyPaid = reg && totalPaidAmt > 0 && totalPaidAmt >= reg.totalPrice;
 
               return (
                 <button

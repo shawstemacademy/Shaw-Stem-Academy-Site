@@ -777,27 +777,6 @@ export default function App() {
           });
         }
       }),
-      subscribeToCollection<TeacherResource>('resources', (data) => setResources(data || [])),
-      subscribeToCollection<ClassAnnouncement>('announcements', (data) => {
-        setAnnouncements(data || []);
-        if (data && data.length > 0) {
-          if (isInitialAnnouncementsRef.current) {
-            prevAnnouncementsRef.current = data;
-            isInitialAnnouncementsRef.current = false;
-          } else {
-            const newAnnouncements = data.filter(
-              (item) => !prevAnnouncementsRef.current.some((prev) => prev.id === item.id)
-            );
-            newAnnouncements.forEach((ann) => {
-              sendDesktopNotification(
-                `📣 Class Announcement: ${ann.title || 'New Post'}`,
-                `${ann.className || 'Class'}: ${ann.content || 'A new update was posted.'}`
-              );
-            });
-            prevAnnouncementsRef.current = data;
-          }
-        }
-      }),
     ];
 
     return () => {
@@ -884,7 +863,8 @@ export default function App() {
               matched.status === 'pending_verification' ||
               matched.status === 'accepted';
 
-            if (hasRegisteredClasses) {
+            const isAccepted = matched.status === 'accepted' || matched.status === 'enrolled_paid';
+            if (hasRegisteredClasses || !isAccepted) {
               setActiveTab('student-portal');
             } else {
               setActiveTab('registration');
@@ -1059,10 +1039,10 @@ export default function App() {
       setLoggedInUser(newUser);
       setCurrentRole('student');
       setStudentStatus('prospective');
-      setActiveTab('registration');
+      setActiveTab('student-portal');
       localStorage.removeItem('pending_registration_info');
       
-      alert(`Account created successfully for ${gUser.email}! You are now logged in. Please select your classes below to complete your Class Registration.`);
+      alert(`Account created successfully for ${gUser.email}! Welcome to Shaw STEM Academy. Your admissions application is being processed; you will receive a notification and be able to enroll in classes once your admission is accepted by the school.`);
       return true;
     }
     return false;
@@ -1139,8 +1119,8 @@ export default function App() {
       setLoggedInUser(newUser);
       setCurrentRole('student');
       setStudentStatus('prospective');
-      setActiveTab('registration');
-      alert(`School Account Created Successfully!\nWelcome to Shaw STEM Academy, ${newUser.name} (${newUser.email}). You are now logged in. Please select your classes below to complete your Class Registration.`);
+      setActiveTab('student-portal');
+      alert(`School Account Created Successfully!\nWelcome to Shaw STEM Academy, ${newUser.name} (${newUser.email}). Your admissions application is being processed; you will receive a notification and be able to enroll in classes once your admission is accepted by the school.`);
     } catch (err: any) {
       setAuthError(err?.message || 'Failed to complete direct email sign-in.');
     } finally {
@@ -1192,8 +1172,8 @@ export default function App() {
       setLoggedInUser(newUser);
       setCurrentRole('student');
       setStudentStatus('prospective');
-      setActiveTab('registration');
-      alert(`School Account Created Successfully!\nWelcome to Shaw STEM Academy, ${newUser.name} (${newUser.email}). You are now logged in. Please select your classes below to complete your Class Registration.`);
+      setActiveTab('student-portal');
+      alert(`School Account Created Successfully!\nWelcome to Shaw STEM Academy, ${newUser.name} (${newUser.email}). Your admissions application is being processed; you will receive a notification and be able to enroll in classes once your admission is accepted by the school.`);
     } catch (err: any) {
       console.error('Password registration error:', err);
       setAuthError(err?.message || 'Failed to create password account.');
@@ -2073,6 +2053,9 @@ export default function App() {
               teachers={teacherProfiles}
               classes={classList}
               departments={departments}
+              isLoggedIn={!!user || !!loggedInUser}
+              isAccepted={studentStatus === 'accepted' || studentStatus === 'enrolled_paid'}
+              onNavigate={setActiveTab}
               onOpenRegistration={() => setActiveTab('admissions')}
             />
           )}
