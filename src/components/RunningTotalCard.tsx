@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 interface RunningTotalCardProps {
+  currentRole?: string | null;
   selectedClasses: ClassItem[];
   sbaHubOptions?: SbaHubOption[];
   selectedSbaHubIds?: string[];
@@ -31,6 +32,7 @@ interface RunningTotalCardProps {
 }
 
 export const RunningTotalCard: React.FC<RunningTotalCardProps> = ({
+  currentRole,
   selectedClasses,
   subtotal,
   appliedDiscounts,
@@ -242,13 +244,15 @@ export const RunningTotalCard: React.FC<RunningTotalCardProps> = ({
               <ArrowRight className="w-4 h-4" />
             </button>
 
-            <button
-              onClick={onOpenDiscountConfig}
-              className="w-full py-2 px-3 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors flex items-center justify-center gap-1.5"
-            >
-              <PlusCircle className="w-3.5 h-3.5 text-blue-400" />
-              <span>Configure Discount Rules</span>
-            </button>
+            {(currentRole === 'admin' || currentRole === 'registrar') && (
+              <button
+                onClick={onOpenDiscountConfig}
+                className="w-full py-2 px-3 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+              >
+                <PlusCircle className="w-3.5 h-3.5 text-blue-400" />
+                <span>Configure Discount Rules</span>
+              </button>
+            )}
           </div>
 
           <div className="text-center text-[11px] text-slate-500 flex items-center justify-center gap-1 pt-1">

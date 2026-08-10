@@ -264,7 +264,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 : status === 'pending_verification'
                 ? 'Your course selections have been submitted and are currently pending registrar verification. Your class schedule is active below.'
                 : status === 'accepted'
-                ? '🎉 You have been accepted to Shaw STEM Academy! Please select your courses in the Class Registration portal to complete your enrollment.'
+                ? '🎉 You have been accepted to Shaw STEM Academy! Please proceed to submit your tuition fee payment to finalize your enrollment.'
                 : status === 'awaiting_acceptance' || status === 'unverified'
                 ? 'Your student account registration has been received and is currently being reviewed by admissions officers.'
                 : 'Browse our academic offerings and school guidelines. Complete registration to unlock course materials.'}
@@ -301,9 +301,20 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 Congratulations, {studentUser?.name || 'Student'}! You Have Been Accepted!
               </h2>
-              <p className="text-emerald-50 text-sm max-w-2xl leading-relaxed font-medium">
-                We are thrilled to welcome you to Shaw STEM Academy. Your student application has been officially accepted by school administration! To finalize your schedule, please proceed to select your STEM courses below.
-              </p>
+              <div className="space-y-3">
+                <p className="text-emerald-50 text-sm max-w-2xl leading-relaxed font-medium">
+                  We are thrilled to welcome you to Shaw STEM Academy. Your student application has been officially accepted by school administration!
+                </p>
+                <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl">
+                  <p className="text-sm font-bold text-white flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-emerald-200" />
+                    Payment Required
+                  </p>
+                  <p className="text-emerald-100 text-xs mt-1">
+                    To finalize your enrollment and unlock course materials, please ensure your tuition fee payment is submitted to the registrar.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -723,7 +734,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
                       <div className="flex flex-row sm:flex-col items-start sm:items-end justify-between sm:justify-center gap-3 shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                         <div className="text-left sm:text-right">
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Tuition</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tuition Fee</p>
                           <p className="text-lg font-black text-slate-900">${record.totalPrice}</p>
                         </div>
 

@@ -998,7 +998,7 @@ export default function App() {
 
       const info = JSON.parse(savedInfo);
       const sName = info.studentName || `${info.firstName || ''} ${info.lastName || ''}`.trim() || gUser.displayName || 'Student';
-      const pName = info.motherFirstName || info.fatherFirstName || info.guardianFirstName || info.parentName || sName;
+      const pName = info.motherFirstName || info.fatherFirstName || info.guardianFirstName || info.parentName || '';
       const pPhone = info.cellPhone || info.homePhone || info.motherCellPhone || info.fatherCellPhone || info.guardianCellPhone || info.parentPhone || '';
       
       const completeStudentInfo: StudentInfo = {
@@ -1015,7 +1015,7 @@ export default function App() {
         name: sName,
         email: gUser.email!,
         role: 'student',
-        status: 'accepted',
+        status: 'prospective',
         avatar: gUser.photoURL || undefined,
         department: 'Student Body',
         studentDetails: completeStudentInfo,
@@ -1080,17 +1080,19 @@ export default function App() {
     try {
       const email = studentInfo.email || 'shawstemacademy@gmail.com';
       const sName = studentInfo.studentName || `${studentInfo.firstName || ''} ${studentInfo.lastName || ''}`.trim() || email.split('@')[0] || 'Student';
-      const pName = studentInfo.motherFirstName || studentInfo.fatherFirstName || studentInfo.guardianFirstName || studentInfo.parentName || sName;
+      const pName = studentInfo.motherFirstName || studentInfo.fatherFirstName || studentInfo.guardianFirstName || studentInfo.parentName || '';
       const pPhone = studentInfo.cellPhone || studentInfo.homePhone || studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone || studentInfo.parentPhone || '';
 
-      setStudentInfo(prev => ({
-        ...prev,
+      const completeInfo = {
+        ...studentInfo,
         studentName: sName,
-        parentEmail: prev.email || email,
+        parentEmail: studentInfo.email || email,
         parentName: pName,
         parentPhone: pPhone,
-        emergencyContact: prev.emergencyContact || pPhone || ''
-      }));
+        emergencyContact: studentInfo.emergencyContact || pPhone || ''
+      };
+
+      setStudentInfo(completeInfo);
 
       const userId = 'guser_' + email.replace(/[^a-zA-Z0-9]/g, '_');
       const newUser: SchoolUser = {
@@ -1098,8 +1100,9 @@ export default function App() {
         name: sName,
         email: email,
         role: 'student',
-        status: 'accepted',
+        status: 'prospective',
         department: 'Student Body',
+        studentDetails: completeInfo,
       };
 
       await saveDocToFirestore('schoolUsers', newUser.id, newUser);
@@ -1130,17 +1133,19 @@ export default function App() {
     setAuthError('');
     try {
       const sName = studentInfo.studentName || `${studentInfo.firstName || ''} ${studentInfo.lastName || ''}`.trim() || 'Student';
-      const pName = studentInfo.motherFirstName || studentInfo.fatherFirstName || studentInfo.guardianFirstName || studentInfo.parentName || sName;
+      const pName = studentInfo.motherFirstName || studentInfo.fatherFirstName || studentInfo.guardianFirstName || studentInfo.parentName || '';
       const pPhone = studentInfo.cellPhone || studentInfo.homePhone || studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone || studentInfo.parentPhone || '';
       
-      setStudentInfo(prev => ({
-        ...prev,
+      const completeInfo = {
+        ...studentInfo,
         studentName: sName,
-        parentEmail: prev.email || '',
+        parentEmail: studentInfo.email || '',
         parentName: pName,
         parentPhone: pPhone,
-        emergencyContact: prev.emergencyContact || pPhone || ''
-      }));
+        emergencyContact: studentInfo.emergencyContact || pPhone || ''
+      };
+
+      setStudentInfo(completeInfo);
 
       const newUser: SchoolUser = {
         id: `usr-${Date.now()}`,
@@ -1148,8 +1153,9 @@ export default function App() {
         email: studentInfo.email || '',
         password: regPassword,
         role: 'student',
-        status: 'accepted',
+        status: 'prospective',
         department: 'Student Body',
+        studentDetails: completeInfo,
       };
       
       await saveDocToFirestore('schoolUsers', newUser.id, newUser);
@@ -1370,8 +1376,20 @@ export default function App() {
   const handleSubmitRegistration = () => {
     if (selectedClasses.length === 0) return;
 
-    if (!studentInfo.parentName || !studentInfo.parentEmail || !studentInfo.studentName) {
+    if (!studentInfo.studentName || !studentInfo.email) {
       alert('Please complete the School Registration (Account Creation) step first.');
+      setActiveTab('admissions');
+      return;
+    }
+    
+    if (studentInfo.livesWith === 'Parent' && !studentInfo.motherFirstName && !studentInfo.fatherFirstName && !studentInfo.parentName) {
+      alert('Please complete the parent information in the registration step.');
+      setActiveTab('admissions');
+      return;
+    }
+
+    if (studentInfo.livesWith === 'Guardian' && !studentInfo.guardianFirstName) {
+      alert('Please complete the guardian information in the registration step.');
       setActiveTab('admissions');
       return;
     }
@@ -1403,15 +1421,19 @@ export default function App() {
     setEnrolledClassIds((prev) => Array.from(new Set([...prev, ...selectedClassIds])));
     setSelectedClassIds([]);
 
-    // Switch status to pending_verification (awaiting payment verification) & navigate to Student Portal
-    setStudentStatus('pending_verification');
+    // Switch status to awaiting_acceptance & navigate to Student Portal
+    setStudentStatus('awaiting_acceptance');
     if (loggedInUser) {
-      const updatedUser: SchoolUser = { ...loggedInUser, status: 'pending_verification' };
+      const updatedUser: SchoolUser = { ...loggedInUser, status: 'awaiting_acceptance' };
       setLoggedInUser(updatedUser);
       saveDocToFirestore('schoolUsers', loggedInUser.id, updatedUser);
     }
     setCompletedRegistration(record);
     setActiveTab('student-portal');
+    
+    setTimeout(() => {
+      alert(`Registration submitted! An email confirmation has been sent to ${studentInfo.email}. Your application is now Awaiting Acceptance by the administration.`);
+    }, 500);
   };
 
   const siblingAmount = siblingRule?.flatAmountOff || 20;
@@ -2116,7 +2138,7 @@ export default function App() {
                           }
                         }
 
-                        const pName = studentInfo.motherFirstName || studentInfo.fatherFirstName || studentInfo.guardianFirstName || studentInfo.parentName || sName;
+                        const pName = studentInfo.motherFirstName || studentInfo.fatherFirstName || studentInfo.guardianFirstName || studentInfo.parentName || '';
                         const pPhone = studentInfo.cellPhone || studentInfo.homePhone || studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone || studentInfo.parentPhone || '';
                         
                         setStudentInfo(prev => ({
@@ -2175,10 +2197,21 @@ export default function App() {
                             const el = document.getElementById(item.id);
                             if (el) {
                               el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                              // Give a brief visual cue (shake or border highlight could be added later)
                               el.focus?.();
                             }
                             alert(`Please complete the ${item.label} field.`);
+                            return;
+                          }
+                        }
+
+                        if (studentInfo.livesWith === 'Parent') {
+                          if (!studentInfo.motherFirstName && !studentInfo.fatherFirstName) {
+                            alert('Please enter at least one parent (mother or father) first name in the form.');
+                            return;
+                          }
+                        } else if (studentInfo.livesWith === 'Guardian') {
+                          if (!studentInfo.guardianFirstName) {
+                            alert('Please enter the guardian\'s first name in the form.');
                             return;
                           }
                         }
@@ -2275,6 +2308,7 @@ export default function App() {
               {/* Right Column: Live Running Total Card */}
               <div className="lg:col-span-4 lg:sticky lg:top-24 self-start">
                 <RunningTotalCard
+                  currentRole={currentRole}
                   selectedClasses={selectedClasses}
                   sbaHubOptions={sbaHubOptions}
                   selectedSbaHubIds={selectedSbaHubIds}

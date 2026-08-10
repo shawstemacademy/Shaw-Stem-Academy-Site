@@ -155,7 +155,7 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
             ))}
 
             <div className="pt-2 border-t border-slate-200 flex justify-between text-base font-black text-gray-900">
-              <span>Total Tuition Paid:</span>
+              <span>Tuition Fee:</span>
               <span className="text-purple-900 print:text-slate-900">${(registration?.totalPrice ?? 0).toFixed(2)}</span>
             </div>
           </div>
