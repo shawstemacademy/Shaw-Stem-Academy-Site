@@ -29,6 +29,57 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
 
   const totalSavings = appliedDiscounts.reduce((sum, d) => sum + (d?.amountOff ?? 0), 0);
 
+  const calculateAgeFromDob = (dob?: string) => {
+    if (!dob) return '';
+    const birthDate = new Date(dob);
+    if (isNaN(birthDate.getTime())) return '';
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age > 0 ? String(age) : '';
+  };
+
+  const studentNameVal = studentInfo.studentName ||
+    (`${studentInfo.firstName || ''} ${studentInfo.lastName || ''}`.trim()) ||
+    'N/A';
+
+  const studentAgeVal = studentInfo.studentAge ||
+    studentInfo.age ||
+    calculateAgeFromDob(studentInfo.dateOfBirth) ||
+    'N/A';
+
+  const gradeLevelVal = studentInfo.gradeLevel ||
+    studentInfo.formGrade ||
+    'N/A';
+
+  const rawParentName = studentInfo.parentName;
+  const motherFullName = `${studentInfo.motherFirstName || ''} ${studentInfo.motherLastName || ''}`.trim();
+  const fatherFullName = `${studentInfo.fatherFirstName || ''} ${studentInfo.fatherLastName || ''}`.trim();
+  const guardianFullName = `${studentInfo.guardianFirstName || ''} ${studentInfo.guardianLastName || ''}`.trim();
+
+  const parentNameVal = (rawParentName && rawParentName !== 'Parent/Guardian' && rawParentName !== 'Parent')
+    ? rawParentName
+    : (motherFullName || fatherFullName || guardianFullName || rawParentName || 'Parent/Guardian');
+
+  const parentEmailVal = studentInfo.parentEmail ||
+    studentInfo.email ||
+    studentInfo.motherEmail ||
+    studentInfo.fatherEmail ||
+    studentInfo.guardianEmail ||
+    'N/A';
+
+  const phoneVal = studentInfo.parentPhone ||
+    studentInfo.cellPhone ||
+    studentInfo.homePhone ||
+    studentInfo.motherCellPhone ||
+    studentInfo.fatherCellPhone ||
+    studentInfo.guardianCellPhone ||
+    studentInfo.emergencyContact ||
+    'N/A';
+
   const handlePrint = () => {
     window.print();
   };
@@ -91,22 +142,22 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
                 <span className="text-gray-500">Student Name:</span>
-                <span className="font-bold text-gray-900 ml-1">{studentInfo.studentName}</span>
+                <span className="font-bold text-gray-900 ml-1">{studentNameVal}</span>
                 <span className="text-gray-500 ml-1">
-                  (Age {studentInfo.studentAge || 'N/A'}, Grade {studentInfo.gradeLevel || 'N/A'})
+                  (Age {studentAgeVal}, Grade {gradeLevelVal})
                 </span>
               </div>
               <div>
                 <span className="text-gray-500">Parent/Guardian:</span>
-                <span className="font-bold text-gray-900 ml-1">{studentInfo.parentName}</span>
+                <span className="font-bold text-gray-900 ml-1">{parentNameVal}</span>
               </div>
               <div>
                 <span className="text-gray-500">Email:</span>
-                <span className="font-medium text-gray-900 ml-1">{studentInfo.parentEmail}</span>
+                <span className="font-medium text-gray-900 ml-1">{parentEmailVal}</span>
               </div>
               <div>
                 <span className="text-gray-500">Phone:</span>
-                <span className="font-medium text-gray-900 ml-1">{studentInfo.parentPhone}</span>
+                <span className="font-medium text-gray-900 ml-1">{phoneVal}</span>
               </div>
             </div>
           </div>

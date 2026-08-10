@@ -479,19 +479,35 @@ export default function App() {
   useEffect(() => {
     const curEmail = loggedInUser?.email || user?.email;
     const curName = loggedInUser?.name || user?.displayName || (curEmail ? curEmail.split('@')[0] : '');
-    if (curEmail) {
+    const details = loggedInUser?.studentDetails || {};
+
+    if (curEmail || curName) {
       setStudentInfo((prev) => {
-        if (prev.email === curEmail && prev.studentName) return prev;
         const nameParts = curName ? curName.split(' ') : [];
-        const fName = prev.firstName || nameParts[0] || 'Student';
-        const lName = prev.lastName || nameParts.slice(1).join(' ') || '';
+        const fName = prev.firstName || details.firstName || nameParts[0] || 'Student';
+        const lName = prev.lastName || details.lastName || nameParts.slice(1).join(' ') || '';
+
+        const ageVal = prev.studentAge || prev.age || details.studentAge || details.age || '';
+        const gradeVal = prev.gradeLevel || prev.formGrade || details.gradeLevel || details.formGrade || '';
+        const phoneVal = prev.parentPhone || prev.cellPhone || prev.homePhone ||
+          prev.motherCellPhone || prev.fatherCellPhone || prev.guardianCellPhone ||
+          details.parentPhone || details.cellPhone || details.homePhone || details.motherCellPhone ||
+          details.fatherCellPhone || details.guardianCellPhone || details.emergencyContact || '';
+
         return {
+          ...details,
           ...prev,
-          email: curEmail,
+          email: curEmail || prev.email,
           studentName: curName || prev.studentName || `${fName} ${lName}`.trim(),
           firstName: fName,
           lastName: lName,
-          parentEmail: prev.parentEmail || curEmail,
+          parentEmail: prev.parentEmail || details.parentEmail || curEmail,
+          age: ageVal,
+          studentAge: ageVal,
+          formGrade: gradeVal,
+          gradeLevel: gradeVal,
+          cellPhone: phoneVal,
+          parentPhone: phoneVal,
         };
       });
     }
@@ -1445,16 +1461,40 @@ export default function App() {
       }
     }
 
+    const details = loggedInUser?.studentDetails || {};
+    const ageVal = studentInfo.studentAge || studentInfo.age || details.studentAge || details.age || '';
+    const gradeVal = studentInfo.gradeLevel || studentInfo.formGrade || details.gradeLevel || details.formGrade || '';
+    const phoneVal = studentInfo.parentPhone || studentInfo.cellPhone || studentInfo.homePhone ||
+      studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone ||
+      details.parentPhone || details.cellPhone || details.homePhone || details.motherCellPhone ||
+      details.fatherCellPhone || details.guardianCellPhone || details.emergencyContact || '';
+
+    const motherFullName = `${studentInfo.motherFirstName || details.motherFirstName || ''} ${studentInfo.motherLastName || details.motherLastName || ''}`.trim();
+    const fatherFullName = `${studentInfo.fatherFirstName || details.fatherFirstName || ''} ${studentInfo.fatherLastName || details.fatherLastName || ''}`.trim();
+    const guardianFullName = `${studentInfo.guardianFirstName || details.guardianFirstName || ''} ${studentInfo.guardianLastName || details.guardianLastName || ''}`.trim();
+
+    const rawParentName = studentInfo.parentName || details.parentName;
+    const parentNameVal = (rawParentName && rawParentName !== 'Parent/Guardian' && rawParentName !== 'Parent')
+      ? rawParentName
+      : (motherFullName || fatherFullName || guardianFullName || rawParentName || 'Parent/Guardian');
+
     const effectiveStudentInfo: StudentInfo = {
+      ...details,
       ...studentInfo,
       email: currentEmail,
       studentName: currentName,
       firstName,
       lastName,
-      parentEmail: studentInfo.parentEmail || currentEmail,
-      motherFirstName,
-      guardianFirstName,
-      parentName,
+      parentEmail: studentInfo.parentEmail || details.parentEmail || currentEmail,
+      age: ageVal,
+      studentAge: ageVal,
+      formGrade: gradeVal,
+      gradeLevel: gradeVal,
+      cellPhone: phoneVal,
+      parentPhone: phoneVal,
+      motherFirstName: studentInfo.motherFirstName || details.motherFirstName || motherFirstName,
+      guardianFirstName: studentInfo.guardianFirstName || details.guardianFirstName || guardianFirstName,
+      parentName: parentNameVal,
       selectedSbaHubIds,
       selectedClassIds
     };
@@ -1462,6 +1502,8 @@ export default function App() {
     setStudentInfo(effectiveStudentInfo);
 
     const existingRecord = studentRegistrationRecord;
+
+    const studentAccountId = loggedInUser?.id || user?.uid || (existingRecord as any)?.studentId;
 
     const record: RegistrationRecord = {
       id: existingRecord ? existingRecord.id : `REG-${Date.now()}`,
@@ -1474,9 +1516,10 @@ export default function App() {
       googleFormId: existingRecord ? existingRecord.googleFormId : '1FAIpQLSc_STEM_FORM_DEMO',
       isPaid: existingRecord ? existingRecord.isPaid : false,
       status: existingRecord ? existingRecord.status : 'pending_review',
-      payments: existingRecord ? existingRecord.payments : undefined,
-      verifiedClassIds: existingRecord ? existingRecord.verifiedClassIds : undefined,
-      grades: existingRecord ? existingRecord.grades : undefined,
+      payments: existingRecord?.payments || [],
+      verifiedClassIds: existingRecord?.verifiedClassIds || [],
+      grades: existingRecord?.grades || [],
+      ...(studentAccountId ? { studentId: studentAccountId } : {})
     };
 
     if (existingRecord) {
@@ -1493,9 +1536,9 @@ export default function App() {
     logSystemAction(
       'registration',
       existingRecord 
-        ? `Registration updated for ${studentInfo.studentName}`
-        : `Registration submitted for ${studentInfo.studentName}`,
-      { subtotal, totalPrice, studentEmail: studentInfo.parentEmail }
+        ? `Registration updated for ${effectiveStudentInfo.studentName}`
+        : `Registration submitted for ${effectiveStudentInfo.studentName}`,
+      { subtotal, totalPrice, studentEmail: effectiveStudentInfo.parentEmail }
     );
 
     // Add newly registered class IDs to student's enrolledClassIds list
@@ -1515,7 +1558,8 @@ export default function App() {
       const updatedUser: SchoolUser = { 
         ...loggedInUser, 
         status: isAlreadyAcceptedOrEnrolled ? currentStatus : 'awaiting_acceptance',
-        registeredClassIds: selectedClassIds
+        registeredClassIds: Array.from(new Set([...(loggedInUser.registeredClassIds || []), ...selectedClassIds])),
+        studentDetails: effectiveStudentInfo
       };
       setLoggedInUser(updatedUser);
       saveDocToFirestore('schoolUsers', loggedInUser.id, updatedUser);

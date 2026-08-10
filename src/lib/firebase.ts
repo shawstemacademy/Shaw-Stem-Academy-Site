@@ -435,16 +435,21 @@ export const deleteDocFromFirestore = async (collectionName: string, id: string)
 export const saveRegistrationToFirestore = async (registrationData: any) => {
   try {
     const registrationId = registrationData.id || `REG-${Date.now()}`;
+    const cleanData = JSON.parse(JSON.stringify(registrationData || {}));
     const docRef = doc(db, 'registrations', registrationId);
     await setDoc(docRef, {
-      ...registrationData,
+      ...cleanData,
       id: registrationId,
-      createdAt: new Date().toISOString(),
+      createdAt: cleanData.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       timestamp: serverTimestamp(),
     });
+    notifyWriteListeners('registrations', registrationId, cleanData, true);
     return registrationId;
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `registrations`);
+  } catch (err: any) {
+    const errMsg = err?.message || String(err);
+    handleFirestoreError(err, OperationType.WRITE, `registrations/${registrationData?.id || 'new'}`);
+    notifyWriteListeners('registrations', registrationData?.id || 'unknown', registrationData, false, errMsg);
     return null;
   }
 };
