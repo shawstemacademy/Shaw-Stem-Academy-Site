@@ -335,7 +335,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
       )}
 
       {/* ENROLLED / ACCEPTED / REGISTERED STUDENT VIEW */}
-      {(status === 'enrolled_paid' || status === 'pending_verification' || status === 'accepted' || status === 'unverified') && (
+      {(status === 'enrolled_paid' || status === 'pending_verification' || status === 'accepted' || status === 'awaiting_acceptance' || status === 'unverified') && (
         <div className="space-y-10 animate-fade-in">
           {/* Enrolled Classes Bar */}
           <div className="space-y-4">
@@ -478,13 +478,14 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
           </div>
 
           {/* Quick Pay Section */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Quick Pay Dashboard</h2>
-            </div>
+          {(status === 'accepted' || status === 'pending_verification' || status === 'enrolled_paid') && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Quick Pay Dashboard</h2>
+              </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Outstanding Balance Summary Card */}
               <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-4">
                 <div className="space-y-3">
@@ -659,7 +660,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+          )}
 
           {/* Enrollment & Registration History */}
           <div className="space-y-4">

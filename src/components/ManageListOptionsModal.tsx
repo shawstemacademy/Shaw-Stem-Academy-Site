@@ -27,11 +27,11 @@ export const ManageListOptionsModal: React.FC<ManageListOptionsModalProps> = ({
   sbaHubOptions,
   onUpdateSbaHubOptions,
   classTypes = [
-    { id: 'ct-csec', name: 'CSEC', code: 'CSEC' },
-    { id: 'ct-cape', name: 'CAPE', code: 'CAPE' },
-    { id: 'ct-primary', name: 'Primary', code: 'Primary' },
-    { id: 'ct-lower-sec', name: 'Lower Secondary', code: 'Lower Secondary' },
-  ],
+    { id: 'ct-csec', name: 'CSEC', code: 'CSEC', isVisibleToStudents: true },
+    { id: 'ct-cape', name: 'CAPE', code: 'CAPE', isVisibleToStudents: true },
+    { id: 'ct-primary', name: 'Primary', code: 'Primary', isVisibleToStudents: true },
+    { id: 'ct-lower-sec', name: 'Lower Secondary', code: 'Lower Secondary', isVisibleToStudents: true },
+  ] as ClassType[],
   departments = [],
   locations = [],
   onSaveLocation,
@@ -501,10 +501,10 @@ export const ManageListOptionsModal: React.FC<ManageListOptionsModalProps> = ({
                         <label key={dept.id} className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
                           <input 
                             type="checkbox" 
-                            checked={dept.isVisibleToStudents !== false} 
+                            checked={dept.showToStudents !== false} 
                             onChange={(e) => {
                               if (onUpdateDepartment) {
-                                onUpdateDepartment({...dept, isVisibleToStudents: e.target.checked});
+                                onUpdateDepartment({...dept, showToStudents: e.target.checked});
                               }
                             }}
                             className="w-4 h-4 text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"

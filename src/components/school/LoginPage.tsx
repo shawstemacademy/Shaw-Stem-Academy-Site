@@ -15,12 +15,14 @@ interface LoginPageProps {
   onLoginProfile: (role: UserRole, studentStatus?: StudentStatus, userObj?: SchoolUser, targetTab?: PortalTab) => void;
   onNavigate: (tab: PortalTab) => void;
   schoolUsers: SchoolUser[];
+  schoolUsersLoaded?: boolean;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
   onLoginProfile,
   onNavigate,
   schoolUsers = [],
+  schoolUsersLoaded = true,
 }) => {
   // Form State
   const [email, setEmail] = useState('');
@@ -65,6 +67,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     e.preventDefault();
     setLoginMessage(null);
     setIsSuccessMessage(false);
+
+    if (!schoolUsersLoaded) {
+      setLoginMessage('⏳ Connecting to database, please wait...');
+      return;
+    }
 
     if (!email) {
       setLoginMessage('Please enter a valid email address.');

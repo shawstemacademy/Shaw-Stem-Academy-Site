@@ -11,6 +11,7 @@ export interface ClassType {
   code: string; // e.g. 'CSEC', 'CAPE', 'PRIMARY'
   description?: string;
   isSbaHub?: boolean; // if true, SBA Hub class type (excluded from discounts)
+  isVisibleToStudents?: boolean;
 }
 
 export interface ClassItem {

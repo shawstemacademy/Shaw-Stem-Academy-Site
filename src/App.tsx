@@ -118,6 +118,15 @@ export default function App() {
   const [resourceCategories, setResourceCategories] = useState<ResourceCategory[]>([]);
   const [dbError, setDbError] = useState<string | null>(null);
 
+  // Persist manual logged-in user
+  useEffect(() => {
+    if (loggedInUser && loggedInUser.id && (loggedInUser.id.startsWith('usr-') || loggedInUser.id.startsWith('guser_'))) {
+      localStorage.setItem('saved_user_id', loggedInUser.id);
+    } else if (!loggedInUser) {
+      localStorage.removeItem('saved_user_id');
+    }
+  }, [loggedInUser]);
+
   // Auto request notification permission on login
   useEffect(() => {
     if (loggedInUser || user) {
@@ -834,6 +843,11 @@ export default function App() {
   // Synchronize logged-in user details when auth user or school users list updates
   useEffect(() => {
     if (user && user.email) {
+      if (!schoolUsersLoaded) {
+        console.log('Waiting for schoolUsers to load before verifying profile...');
+        return;
+      }
+      
       const matched = schoolUsers.find(
         (u) => (u?.email || '').toLowerCase() === user.email!.toLowerCase()
       );
@@ -914,11 +928,18 @@ export default function App() {
         }
       }
     } else {
-      if (loggedInUser && loggedInUser.id && loggedInUser.id.startsWith('usr-')) {
-        const matched = schoolUsers.find((u) => u.id === loggedInUser.id);
+      const savedUserId = localStorage.getItem('saved_user_id');
+      const checkId = (loggedInUser && loggedInUser.id) ? loggedInUser.id : savedUserId;
+
+      if (checkId && (checkId.startsWith('usr-') || checkId.startsWith('guser_'))) {
+        const matched = schoolUsers.find((u) => u.id === checkId);
         if (matched) {
           setLoggedInUser(matched);
           setCurrentRole(matched.role);
+        } else if (schoolUsersLoaded) {
+          setLoggedInUser(null);
+          setCurrentRole('student');
+          localStorage.removeItem('saved_user_id');
         }
       } else {
         setLoggedInUser(null);
@@ -1937,6 +1958,7 @@ export default function App() {
               onLoginProfile={handleLoginProfile}
               onNavigate={setActiveTab}
               schoolUsers={schoolUsers}
+              schoolUsersLoaded={schoolUsersLoaded}
             />
           )}
 
