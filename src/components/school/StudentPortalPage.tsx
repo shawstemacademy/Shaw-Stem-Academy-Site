@@ -138,6 +138,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
     .filter((c, idx, self) => c && c.id && self.findIndex((o) => o.id === c.id) === idx)
     .filter((c) => !classes.some((released) => released.id === c.id));
 
+  const hasCourseRegistrations = classes.length > 0 || pendingRequestedClasses.length > 0 || (allRegistrations && allRegistrations.some(r => (r.selectedClasses && r.selectedClasses.length > 0) || (r.selectedClassIds && r.selectedClassIds.length > 0)));
+
   const handleEditProfileClick = () => {
     const defaultStudentInfo: StudentInfo = {
       email: studentUser?.email || '',
@@ -320,7 +322,9 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 : status === 'pending_verification'
                 ? 'Your course selections have been submitted and are currently pending registrar verification. Your class schedule is active below.'
                 : status === 'accepted'
-                ? '🎉 You have been accepted to Shaw STEM Academy! Please proceed to submit your tuition fee payment to finalize your enrollment.'
+                ? (hasCourseRegistrations
+                    ? '🎉 You have been accepted to Shaw STEM Academy! Please proceed to submit your tuition fee payment to finalize your enrollment.'
+                    : '🎉 You have been accepted to Shaw STEM Academy! Please proceed to register for your courses as your next step to get started.')
                 : status === 'awaiting_acceptance' || status === 'unverified'
                 ? 'Your student account registration has been received and is currently being reviewed by admissions officers.'
                 : 'Browse our academic offerings and school guidelines. Complete registration to unlock course materials.'}
@@ -399,10 +403,17 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 <span>Accepted</span>
               </div>
-              <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 bg-rose-500/5 px-2.5 py-1 rounded-lg border border-rose-500/10">
-                <AlertCircle className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
-                Payment Required
-              </span>
+              {hasCourseRegistrations ? (
+                <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 bg-rose-500/5 px-2.5 py-1 rounded-lg border border-rose-500/10">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                  Payment Required
+                </span>
+              ) : (
+                <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5 bg-blue-500/5 px-2.5 py-1 rounded-lg border border-blue-500/10">
+                  <BookOpen className="w-3.5 h-3.5 text-blue-500" />
+                  Course Registration Needed
+                </span>
+              )}
             </div>
           ) : status === 'enrolled_paid' ? (
             <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold border border-emerald-500/20 uppercase tracking-wider shadow-inner select-none">
@@ -494,15 +505,35 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 <p className="text-emerald-50 text-sm max-w-2xl leading-relaxed font-medium">
                   We are thrilled to welcome you to Shaw STEM Academy. Your student application has been officially accepted by school administration!
                 </p>
-                <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl">
-                  <p className="text-sm font-bold text-white flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-emerald-200" />
-                    Payment Required
-                  </p>
-                  <p className="text-emerald-100 text-xs mt-1">
-                    To finalize your enrollment and unlock course materials, please ensure your tuition fee payment is submitted to the registrar.
-                  </p>
-                </div>
+                {hasCourseRegistrations ? (
+                  <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl">
+                    <p className="text-sm font-bold text-white flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-emerald-200" />
+                      Payment Required
+                    </p>
+                    <p className="text-emerald-100 text-xs mt-1">
+                      To finalize your enrollment and unlock course materials, please ensure your tuition fee payment is submitted to the registrar.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-white flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-emerald-200" />
+                        Next Step: Register for Courses
+                      </p>
+                      <p className="text-emerald-100 text-xs mt-1">
+                        Please select your desired STEM classes as your next step to complete course enrollment.
+                      </p>
+                    </div>
+                    <button
+                      onClick={onOpenRegistration}
+                      className="px-4 py-2 bg-white text-emerald-950 hover:bg-emerald-50 font-extrabold text-xs rounded-xl shadow-md transition-all shrink-0 cursor-pointer"
+                    >
+                      Register for Courses →
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -544,7 +575,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 Status: Awaiting Acceptance
               </p>
               <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-1">
-                Your profile is queued for administrative review. Once your account is approved and accepted, you will see your acceptance details here and be able to proceed with final class enrollment and payments.
+                Your profile is queued for administrative review. Once your account is approved and accepted, you will see your acceptance details here and be able to proceed with final class enrollment.
               </p>
             </div>
           </div>
@@ -737,8 +768,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
             )}
           </div>
 
-          {/* Quick Pay Section */}
-          {(status === 'accepted' || status === 'pending_verification' || status === 'enrolled_paid') && (
+          {/* Quick Pay Section - Only show when student has registered for courses */}
+          {hasCourseRegistrations && (status === 'accepted' || status === 'pending_verification' || status === 'enrolled_paid') && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
