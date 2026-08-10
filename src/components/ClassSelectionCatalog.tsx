@@ -58,7 +58,7 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
   const safeEnrolledIds = enrolledClassIds || [];
   const offeredClasses = safeClassList.filter((cls) => cls && cls.isOffered !== false);
   const unregisteredOfferedClasses = offeredClasses.filter(
-    (cls) => !safeEnrolledIds.includes(cls.id)
+    (cls) => !safeEnrolledIds.includes(cls.id) || selectedClassIds.includes(cls.id)
   );
 
   // Dynamically compute category options strictly from departments visible to students

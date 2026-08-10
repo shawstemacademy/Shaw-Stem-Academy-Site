@@ -48,6 +48,7 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
   onDeleteUser,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'info' | 'financial' | 'classes' | 'grades'>('info');
   
@@ -67,11 +68,13 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
   // Get only students
   const students = users.filter((u) => u.role === 'student');
 
-  // Filter students based on search
+  // Filter students based on search and status
   const filteredStudents = students.filter((s) => {
     const nameMatch = (s.name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const emailMatch = (s.email || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return nameMatch || emailMatch;
+    const studentStatus = s.status || 'prospective';
+    const statusMatch = statusFilter === 'all' || studentStatus === statusFilter;
+    return (nameMatch || emailMatch) && statusMatch;
   });
 
   // Find active student details
@@ -387,15 +390,34 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
             Search for registered students, verify course tuitions, and upload Classroom grades.
           </p>
 
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-bold text-slate-600 cursor-pointer"
+              >
+                <option value="all">All Statuses</option>
+                <option value="prospective">Prospective</option>
+                <option value="awaiting_acceptance">Awaiting Acceptance</option>
+                <option value="accepted">Accepted</option>
+                <option value="enrolled_paid">Enrolled & Paid</option>
+                <option value="pending_verification">Pending Verification</option>
+                <option value="unverified">Unverified</option>
+                <option value="disabled">Disabled</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -404,7 +426,9 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
           {filteredStudents.length === 0 ? (
             <div className="text-center py-12 space-y-2">
               <Users className="w-8 h-8 text-slate-300 mx-auto" />
-              <p className="text-xs text-slate-400">No students matched "{searchTerm}"</p>
+              <p className="text-xs text-slate-400">
+                No students matched "{searchTerm}"{statusFilter !== 'all' ? ` with status "${statusFilter.replace('_', ' ')}"` : ''}
+              </p>
             </div>
           ) : (
             filteredStudents.map((s) => {

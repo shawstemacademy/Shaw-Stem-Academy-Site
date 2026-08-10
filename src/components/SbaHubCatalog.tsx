@@ -21,6 +21,7 @@ import {
 interface SbaHubCatalogProps {
   sbaHubOptions: SbaHubOption[];
   selectedSbaHubIds: string[];
+  enrolledSbaHubIds?: string[];
   onToggleSbaHubOption: (optionId: string) => void;
   theme: FormTheme;
   canEditList?: boolean;
@@ -32,6 +33,7 @@ interface SbaHubCatalogProps {
 export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
   sbaHubOptions,
   selectedSbaHubIds,
+  enrolledSbaHubIds = [],
   onToggleSbaHubOption,
   theme,
   canEditList = false,
@@ -46,7 +48,10 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const safeSbaHubOptions = sbaHubOptions || [];
-  const offeredOptions = safeSbaHubOptions.filter((opt) => opt && opt.isOffered !== false);
+  const safeEnrolledSbaHubIds = enrolledSbaHubIds || [];
+  const offeredOptions = safeSbaHubOptions.filter(
+    (opt) => opt && opt.isOffered !== false && (!safeEnrolledSbaHubIds.includes(opt.id) || selectedSbaHubIds.includes(opt.id))
+  );
 
   // Helper to categorize SBA Hub options based on department keywords
   const getSbaCategory = (opt: SbaHubOption) => {

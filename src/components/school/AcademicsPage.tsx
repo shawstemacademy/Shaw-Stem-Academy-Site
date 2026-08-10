@@ -43,7 +43,9 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
   const [selectedLevel, setSelectedLevel] = useState('all');
 
   const handleEnrollInDepartment = () => {
-    if (!isAccepted) {
+    if (!isLoggedIn) {
+      onNavigate('admissions');
+    } else if (!isAccepted) {
       onNavigate('student-portal');
     } else {
       onNavigate('registration');
@@ -51,7 +53,9 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
   };
 
   const handleProceedToRegistration = () => {
-    if (!isAccepted) {
+    if (!isLoggedIn) {
+      onNavigate('admissions');
+    } else if (!isAccepted) {
       onNavigate('student-portal');
     } else {
       onNavigate('registration');

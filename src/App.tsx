@@ -402,6 +402,7 @@ export default function App() {
 
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [enrolledClassIds, setEnrolledClassIds] = useState<string[]>([]);
+  const [enrolledSbaHubIds, setEnrolledSbaHubIds] = useState<string[]>([]);
   const [sbaHubOptions, setSbaHubOptions] = useState<SbaHubOption[]>([]);
 
   const handleUpdateSbaHubOptions = async (action: SbaHubOption[] | React.SetStateAction<SbaHubOption[]>) => {
@@ -1382,7 +1383,7 @@ export default function App() {
 
   // Submit Registration & Auto-log
   const handleSubmitRegistration = () => {
-    if (selectedClasses.length === 0) return;
+    if (selectedClasses.length === 0 && selectedSbaHubIds.length === 0) return;
 
     if (!studentInfo.studentName || !studentInfo.email) {
       alert('Please complete the School Registration (Account Creation) step first.');
@@ -1402,37 +1403,66 @@ export default function App() {
       return;
     }
 
+    const existingRecord = studentRegistrationRecord;
+
     const record: RegistrationRecord = {
-      id: `REG-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      studentInfo,
+      id: existingRecord ? existingRecord.id : `REG-${Date.now()}`,
+      timestamp: existingRecord ? existingRecord.timestamp : new Date().toISOString(),
+      studentInfo: {
+        ...studentInfo,
+        selectedSbaHubIds,
+        selectedClassIds
+      },
       selectedClasses,
       subtotal,
       appliedDiscounts,
       totalPrice,
-      googleFormId: '1FAIpQLSc_STEM_FORM_DEMO',
-      isPaid: false,
+      googleFormId: existingRecord ? existingRecord.googleFormId : '1FAIpQLSc_STEM_FORM_DEMO',
+      isPaid: existingRecord ? existingRecord.isPaid : false,
+      status: existingRecord ? existingRecord.status : 'pending_review',
+      payments: existingRecord ? existingRecord.payments : undefined,
+      verifiedClassIds: existingRecord ? existingRecord.verifiedClassIds : undefined,
+      grades: existingRecord ? existingRecord.grades : undefined,
     };
 
-    // Add to registration logs for Admin dashboard
-    setRegistrationLogs((prev) => [record, ...prev]);
+    if (existingRecord) {
+      // Update existing registration in state
+      setRegistrationLogs((prev) => prev.map((log) => log.id === existingRecord.id ? record : log));
+    } else {
+      // Add new registration log
+      setRegistrationLogs((prev) => [record, ...prev]);
+    }
+    
     // Save persistently to Firebase Firestore
     saveRegistrationToFirestore(record);
 
     logSystemAction(
       'registration',
-      `Registration submitted for ${studentInfo.studentName}`,
+      existingRecord 
+        ? `Registration updated for ${studentInfo.studentName}`
+        : `Registration submitted for ${studentInfo.studentName}`,
       { subtotal, totalPrice, studentEmail: studentInfo.parentEmail }
     );
 
     // Add newly registered class IDs to student's enrolledClassIds list
     setEnrolledClassIds((prev) => Array.from(new Set([...prev, ...selectedClassIds])));
     setSelectedClassIds([]);
+    setSelectedSbaHubIds([]);
 
-    // Switch status to awaiting_acceptance & navigate to Student Portal
-    setStudentStatus('awaiting_acceptance');
+    // Switch status to awaiting_acceptance & navigate to Student Portal (if not already accepted or enrolled)
+    const currentStatus = loggedInUser?.status || studentStatus;
+    const isAlreadyAcceptedOrEnrolled = currentStatus === 'accepted' || currentStatus === 'enrolled_paid' || currentStatus === 'pending_verification';
+    
+    if (!isAlreadyAcceptedOrEnrolled) {
+      setStudentStatus('awaiting_acceptance');
+    }
+    
     if (loggedInUser) {
-      const updatedUser: SchoolUser = { ...loggedInUser, status: 'awaiting_acceptance' };
+      const updatedUser: SchoolUser = { 
+        ...loggedInUser, 
+        status: isAlreadyAcceptedOrEnrolled ? currentStatus : 'awaiting_acceptance',
+        registeredClassIds: selectedClassIds
+      };
       setLoggedInUser(updatedUser);
       saveDocToFirestore('schoolUsers', loggedInUser.id, updatedUser);
     }
@@ -1440,7 +1470,11 @@ export default function App() {
     setActiveTab('student-portal');
     
     setTimeout(() => {
-      alert(`Registration submitted! An email confirmation has been sent to ${studentInfo.email}. Your application is now Awaiting Acceptance by the administration.`);
+      if (existingRecord) {
+        alert('Your class selections and totals have been updated successfully!');
+      } else {
+        alert(`Registration submitted! An email confirmation has been sent to ${studentInfo.email}. Your application is now Awaiting Acceptance by the administration.`);
+      }
     }, 500);
   };
 
@@ -1908,6 +1942,24 @@ export default function App() {
           setActiveTab('student-portal');
           return;
         }
+
+        // Pre-populate previously chosen classes and SBA Hub options for editing
+        const email = user?.email || loggedInUser?.email;
+        if (email) {
+          const matchedRecord = registrationLogs.find(
+            (log) => 
+              (log.studentInfo?.parentEmail || '').toLowerCase() === email.toLowerCase() || 
+              (log.studentInfo?.email || '').toLowerCase() === email.toLowerCase() || 
+              (log.studentInfo?.gmailAddress || '').toLowerCase() === email.toLowerCase()
+          );
+          if (matchedRecord) {
+            const classIds = matchedRecord.selectedClasses?.map(c => c.id) || [];
+            setSelectedClassIds(classIds);
+            
+            const sbaIds = matchedRecord.studentInfo?.selectedSbaHubIds || [];
+            setSelectedSbaHubIds(sbaIds);
+          }
+        }
       }
     }
     setActiveTab(tab);
@@ -1932,16 +1984,20 @@ export default function App() {
       ) 
     : [];
 
-  // Synchronize enrolledClassIds dynamically with the student's registrations from Firestore
+  // Synchronize enrolledClassIds and enrolledSbaHubIds dynamically with the student's registrations from Firestore
   useEffect(() => {
     if (loggedInUser && loggedInUser.role === 'student') {
       const classIdsFromRegistrations = new Set<string>();
+      const sbaHubIdsFromRegistrations = new Set<string>();
       
       if (loggedInUser.registeredClassIds) {
         loggedInUser.registeredClassIds.forEach(id => classIdsFromRegistrations.add(id));
       }
       if (loggedInUser.studentDetails?.selectedClassIds) {
         loggedInUser.studentDetails.selectedClassIds.forEach(id => classIdsFromRegistrations.add(id));
+      }
+      if (loggedInUser.studentDetails?.selectedSbaHubIds) {
+        loggedInUser.studentDetails.selectedSbaHubIds.forEach(id => sbaHubIdsFromRegistrations.add(id));
       }
       
       const emailLower = (studentEmail || '').toLowerCase();
@@ -1957,6 +2013,9 @@ export default function App() {
           if (reg.selectedClasses) {
             reg.selectedClasses.forEach(c => classIdsFromRegistrations.add(c.id));
           }
+          if (reg.studentInfo?.selectedSbaHubIds) {
+            reg.studentInfo.selectedSbaHubIds.forEach(id => sbaHubIdsFromRegistrations.add(id));
+          }
         });
       }
       
@@ -1969,8 +2028,19 @@ export default function App() {
         }
         return newClassIds;
       });
+
+      const newSbaHubIds = Array.from(sbaHubIdsFromRegistrations);
+      setEnrolledSbaHubIds(prev => {
+        const sortedPrev = [...prev].sort();
+        const sortedNew = [...newSbaHubIds].sort();
+        if (sortedPrev.length === sortedNew.length && sortedPrev.every((val, idx) => val === sortedNew[idx])) {
+          return prev;
+        }
+        return newSbaHubIds;
+      });
     } else {
       setEnrolledClassIds(prev => prev.length === 0 ? prev : []);
+      setEnrolledSbaHubIds(prev => prev.length === 0 ? prev : []);
     }
   }, [loggedInUser, registrationLogs, studentEmail]);
 
@@ -2393,6 +2463,7 @@ export default function App() {
                 <SbaHubCatalog
                   sbaHubOptions={sbaHubOptions}
                   selectedSbaHubIds={selectedSbaHubIds}
+                  enrolledSbaHubIds={enrolledSbaHubIds}
                   onToggleSbaHubOption={handleToggleSbaHubOption}
                   theme={theme}
                   canEditList={
