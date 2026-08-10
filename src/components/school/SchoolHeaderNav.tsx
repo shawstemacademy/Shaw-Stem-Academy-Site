@@ -137,8 +137,14 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
     if (tab.id === 'registration') {
       const isStudent = (loggedInUser?.role || currentRole) === 'student';
       const isLoggedIn = !!user || !!loggedInUser;
-      if (isStudent && !isLoggedIn) {
-        return false;
+      if (isStudent) {
+        if (!isLoggedIn) {
+          return false;
+        }
+        const status = loggedInUser?.status || studentStatus;
+        if (status !== 'accepted' && status !== 'enrolled_paid') {
+          return false;
+        }
       }
       return currentRole !== 'teacher' && currentRole !== 'hod';
     }

@@ -1869,7 +1869,8 @@ export default function App() {
           userObj?.status === 'pending_verification' ||
           userObj?.status === 'accepted';
 
-        if (hasRegisteredClasses) {
+        const isAccepted = userObj?.status === 'accepted' || userObj?.status === 'enrolled_paid';
+        if (hasRegisteredClasses || !isAccepted) {
           setActiveTab('student-portal');
         } else {
           setActiveTab('registration');
@@ -1917,6 +1918,17 @@ export default function App() {
       alert('Authentication required: Please log in to your student account to access the Student Portal or Class Registration.');
       setActiveTab('login');
       return;
+    }
+    if (tab === 'registration') {
+      const isStudent = (loggedInUser?.role || currentRole) === 'student';
+      if (isStudent) {
+        const status = loggedInUser?.status || studentStatus;
+        if (status !== 'accepted' && status !== 'enrolled_paid') {
+          alert('Access denied: You must be accepted or enrolled to register for classes.');
+          setActiveTab('student-portal');
+          return;
+        }
+      }
     }
     setActiveTab(tab);
   };
@@ -2282,7 +2294,13 @@ export default function App() {
                           setLoggedInUser(updatedUser);
                         }
                         
-                        setActiveTab('registration');
+                        const currentStatus = loggedInUser?.status || 'unverified';
+                        if (currentStatus === 'accepted' || currentStatus === 'enrolled_paid') {
+                          setActiveTab('registration');
+                        } else {
+                          alert('Profile saved successfully! Your registration is now pending review. You will be redirected to the Student Portal to track your status.');
+                          setActiveTab('student-portal');
+                        }
                       }}
                       className={`px-8 py-3 rounded-xl text-white font-bold text-sm shadow-md transition-all ${theme.buttonBg}`}
                     >
@@ -2476,7 +2494,15 @@ export default function App() {
                   Academics & Labs Directory
                 </button>
               </li>
-              {!((currentRole === 'teacher' || currentRole === 'hod') || (((loggedInUser?.role || currentRole) === 'student') && !(!!user || !!loggedInUser))) && (
+              {(() => {
+                const isStudent = (loggedInUser?.role || currentRole) === 'student';
+                const status = loggedInUser?.status || studentStatus;
+                const isAccepted = status === 'accepted' || status === 'enrolled_paid';
+                const isTeacherOrHod = currentRole === 'teacher' || currentRole === 'hod';
+                if (isTeacherOrHod) return false;
+                if (isStudent && !isAccepted) return false;
+                return true;
+              })() && (
                 <li>
                   <button 
                     onClick={() => setActiveTab('registration')} 
