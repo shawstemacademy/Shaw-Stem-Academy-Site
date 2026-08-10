@@ -24,7 +24,8 @@ import {
   DollarSign,
   ChevronRight,
   Info,
-  ClipboardList
+  ClipboardList,
+  Trash2
 } from 'lucide-react';
 import { 
   StudentStatus, 
@@ -55,6 +56,7 @@ interface StudentPortalPageProps {
   onUpdateRegistration?: (updated: RegistrationRecord) => void;
   onUpdateUserProfile?: (updated: SchoolUser) => void;
   onOpenRegistration: () => void;
+  onDeleteRegistration?: (logId: string) => void;
 }
 
 export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
@@ -70,6 +72,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   onUpdateRegistration,
   onUpdateUserProfile,
   onOpenRegistration,
+  onDeleteRegistration,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -1031,13 +1034,28 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                           <p className="text-lg font-black text-slate-900">${record.totalPrice}</p>
                         </div>
 
-                        <button
-                          onClick={() => setSelectedReceiptRecord(record)}
-                          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                          <span>View Receipt</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSelectedReceiptRecord(record)}
+                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>View Receipt</span>
+                          </button>
+                          {onDeleteRegistration && (
+                            <button
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete this registration record (Receipt #${record.id.slice(-8).toUpperCase()})?`)) {
+                                  onDeleteRegistration(record.id);
+                                }
+                              }}
+                              className="p-2 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all cursor-pointer"
+                              title="Delete Registration Record"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );

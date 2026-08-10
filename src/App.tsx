@@ -472,7 +472,7 @@ export default function App() {
     gradeLevel: '',
     emergencyContact: '',
     sbaHubSelection: [],
-    livesWith: 'Parent',
+    livesWith: '',
   });
 
   // Keep studentInfo synced with logged-in user details
@@ -501,13 +501,13 @@ export default function App() {
           studentName: curName || prev.studentName || `${fName} ${lName}`.trim(),
           firstName: fName,
           lastName: lName,
-          parentEmail: prev.parentEmail || details.parentEmail || curEmail,
+          parentEmail: prev.parentEmail || details.parentEmail || '',
           age: ageVal,
           studentAge: ageVal,
           formGrade: gradeVal,
           gradeLevel: gradeVal,
-          cellPhone: phoneVal,
-          parentPhone: phoneVal,
+          cellPhone: prev.cellPhone || details.cellPhone || '',
+          parentPhone: prev.parentPhone || details.parentPhone || '',
         };
       });
     }
@@ -1052,12 +1052,12 @@ export default function App() {
       const info = JSON.parse(savedInfo);
       const sName = info.studentName || `${info.firstName || ''} ${info.lastName || ''}`.trim() || gUser.displayName || 'Student';
       const pName = info.motherFirstName || info.fatherFirstName || info.guardianFirstName || info.parentName || '';
-      const pPhone = info.cellPhone || info.homePhone || info.motherCellPhone || info.fatherCellPhone || info.guardianCellPhone || info.parentPhone || '';
+      const pPhone = info.parentPhone || info.motherCellPhone || info.fatherCellPhone || info.guardianCellPhone || '';
       
       const completeStudentInfo: StudentInfo = {
         ...info,
         studentName: sName,
-        parentEmail: info.email || gUser.email || '',
+        parentEmail: info.parentEmail || info.motherEmail || info.fatherEmail || info.guardianEmail || '',
         parentName: pName,
         parentPhone: pPhone,
         emergencyContact: info.emergencyContact || pPhone || ''
@@ -1134,12 +1134,12 @@ export default function App() {
       const email = studentInfo.email || 'shawstemacademy@gmail.com';
       const sName = studentInfo.studentName || `${studentInfo.firstName || ''} ${studentInfo.lastName || ''}`.trim() || email.split('@')[0] || 'Student';
       const pName = studentInfo.motherFirstName || studentInfo.fatherFirstName || studentInfo.guardianFirstName || studentInfo.parentName || '';
-      const pPhone = studentInfo.cellPhone || studentInfo.homePhone || studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone || studentInfo.parentPhone || '';
+      const pPhone = studentInfo.parentPhone || studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone || '';
 
       const completeInfo = {
         ...studentInfo,
         studentName: sName,
-        parentEmail: studentInfo.email || email,
+        parentEmail: studentInfo.parentEmail || studentInfo.motherEmail || studentInfo.fatherEmail || studentInfo.guardianEmail || '',
         parentName: pName,
         parentPhone: pPhone,
         emergencyContact: studentInfo.emergencyContact || pPhone || ''
@@ -1187,12 +1187,12 @@ export default function App() {
     try {
       const sName = studentInfo.studentName || `${studentInfo.firstName || ''} ${studentInfo.lastName || ''}`.trim() || 'Student';
       const pName = studentInfo.motherFirstName || studentInfo.fatherFirstName || studentInfo.guardianFirstName || studentInfo.parentName || '';
-      const pPhone = studentInfo.cellPhone || studentInfo.homePhone || studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone || studentInfo.parentPhone || '';
+      const pPhone = studentInfo.parentPhone || studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone || '';
       
       const completeInfo = {
         ...studentInfo,
         studentName: sName,
-        parentEmail: studentInfo.email || '',
+        parentEmail: studentInfo.parentEmail || studentInfo.motherEmail || studentInfo.fatherEmail || studentInfo.guardianEmail || '',
         parentName: pName,
         parentPhone: pPhone,
         emergencyContact: studentInfo.emergencyContact || pPhone || ''
@@ -1476,7 +1476,7 @@ export default function App() {
     const rawParentName = studentInfo.parentName || details.parentName;
     const parentNameVal = (rawParentName && rawParentName !== 'Parent/Guardian' && rawParentName !== 'Parent')
       ? rawParentName
-      : (motherFullName || fatherFullName || guardianFullName || rawParentName || 'Parent/Guardian');
+      : (motherFullName || fatherFullName || guardianFullName || '');
 
     const effectiveStudentInfo: StudentInfo = {
       ...details,
@@ -1485,7 +1485,7 @@ export default function App() {
       studentName: currentName,
       firstName,
       lastName,
-      parentEmail: studentInfo.parentEmail || details.parentEmail || currentEmail,
+      parentEmail: studentInfo.parentEmail || details.parentEmail || '',
       age: ageVal,
       studentAge: ageVal,
       formGrade: gradeVal,
@@ -2249,6 +2249,7 @@ export default function App() {
                 allRegistrations={allStudentRegistrations}
                 onUpdateRegistration={handleUpdateRegistration}
                 onUpdateUserProfile={handleUpdateUserProfile}
+                onDeleteRegistration={handleDeleteRegistration}
                 classes={enrolledClasses}
                 resources={resources}
                 announcements={announcements}
@@ -2279,6 +2280,8 @@ export default function App() {
               hourlyRates={hourlyRates}
               onUpdateHourlyRates={handleUpdateHourlyRates}
               schoolUsers={schoolUsers}
+              onUpdateUserProfile={handleUpdateUserProfile}
+              onUpdateUser={handleUpdateUser}
             />
           )}
 
@@ -2301,6 +2304,7 @@ export default function App() {
               permissions={rolePermissions}
               loggedInUser={loggedInUser}
               currentRole={currentRole}
+              onUpdateUserProfile={handleUpdateUserProfile}
               onAddUser={handleAddUser}
               onUpdateUser={handleUpdateUser}
               onDeleteUser={handleDeleteUser}
@@ -2657,27 +2661,6 @@ export default function App() {
                   </button>
                 </li>
               )}
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="font-bold text-white text-sm">Role Access</h4>
-            <ul className="space-y-1">
-              <li>
-                <button onClick={() => { setCurrentRole('student'); setActiveTab('student-portal'); }} className="hover:text-blue-400 transition-colors">
-                  Student Portal (Prospective / Enrolled)
-                </button>
-              </li>
-              <li>
-                <button onClick={() => { setCurrentRole('teacher'); setActiveTab('teacher-dashboard'); }} className="hover:text-blue-400 transition-colors">
-                  Faculty & Teacher Dashboard
-                </button>
-              </li>
-              <li>
-                <button onClick={() => { setCurrentRole('admin'); setActiveTab('admin-dashboard'); }} className="hover:text-blue-400 transition-colors">
-                  Administrator & Registrar Dashboard
-                </button>
-              </li>
             </ul>
           </div>
 

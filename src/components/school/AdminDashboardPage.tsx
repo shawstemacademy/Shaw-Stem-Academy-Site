@@ -29,7 +29,8 @@ import {
   Check,
   X,
   Activity,
-  Sparkles
+  Sparkles,
+  Edit3
 } from 'lucide-react';
 import { ImageUploadInput } from '../common/ImageUploadInput';
 import { 
@@ -90,6 +91,7 @@ interface AdminDashboardPageProps {
   onToggleUserDisabled?: (user: SchoolUser) => void;
   currentRole?: UserRole;
   loggedInUser?: SchoolUser | null;
+  onUpdateUserProfile?: (user: SchoolUser) => void;
   onTogglePaymentStatus?: (logId: string, isPaid: boolean) => void;
   onUpdateRegistration?: (updatedLog: RegistrationRecord) => void;
   onDeleteRegistration?: (logId: string) => void;
@@ -144,6 +146,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   onToggleUserDisabled,
   currentRole,
   loggedInUser,
+  onUpdateUserProfile,
   onTogglePaymentStatus,
   onUpdateRegistration,
   onDeleteRegistration,
@@ -205,6 +208,51 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [permissionState, setPermissionState] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
+
+  // Admin Self Profile Editing State
+  const [isEditingAdminProfileModal, setIsEditingAdminProfileModal] = useState(false);
+  const [adminEditName, setAdminEditName] = useState('');
+  const [adminEditEmail, setAdminEditEmail] = useState('');
+  const [adminEditPhone, setAdminEditPhone] = useState('');
+  const [adminEditTitle, setAdminEditTitle] = useState('');
+  const [adminEditBio, setAdminEditBio] = useState('');
+  const [adminEditOfficeHours, setAdminEditOfficeHours] = useState('');
+  const [adminEditAvatar, setAdminEditAvatar] = useState('');
+
+  const handleOpenAdminProfileModal = () => {
+    if (!loggedInUser) return;
+    setAdminEditName(loggedInUser.name || '');
+    setAdminEditEmail(loggedInUser.email || '');
+    setAdminEditPhone(loggedInUser.phone || '');
+    setAdminEditTitle(loggedInUser.title || 'Academy Administrator');
+    setAdminEditBio(loggedInUser.bio || '');
+    setAdminEditOfficeHours(loggedInUser.officeHours || '');
+    setAdminEditAvatar(loggedInUser.avatar || '');
+    setIsEditingAdminProfileModal(true);
+  };
+
+  const handleSaveAdminProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loggedInUser) return;
+
+    const updatedUser: SchoolUser = {
+      ...loggedInUser,
+      name: adminEditName.trim(),
+      email: adminEditEmail.trim(),
+      phone: adminEditPhone.trim(),
+      title: adminEditTitle.trim(),
+      bio: adminEditBio.trim(),
+      officeHours: adminEditOfficeHours.trim(),
+      avatar: adminEditAvatar.trim() || loggedInUser.avatar,
+    };
+
+    if (onUpdateUserProfile) {
+      onUpdateUserProfile(updatedUser);
+    } else if (onUpdateUser) {
+      onUpdateUser(updatedUser);
+    }
+    setIsEditingAdminProfileModal(false);
+  };
 
   // Firebase Cloud Messaging (FCM) States
   const [fcmSupported, setFcmSupported] = useState<boolean | null>(null);
@@ -825,6 +873,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           {/* Quick Action Buttons */}
           {currentRole !== 'registrar' ? (
             <div className="flex flex-wrap items-center gap-3 shrink-0">
+              {loggedInUser && (
+                <button
+                  onClick={handleOpenAdminProfileModal}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>Edit My Admin Profile</span>
+                </button>
+              )}
+
               <button
                 onClick={() => setActiveAdminTab('users')}
                 className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2"
@@ -1309,8 +1367,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {filteredLogs.map((log) => {
                       const studentName = log?.studentInfo?.studentName || 'Unknown Student';
-                      const parentEmail = log?.studentInfo?.parentEmail || '';
-                      const parentPhone = log?.studentInfo?.parentPhone || '';
+                      const studentEmail = log?.studentInfo?.email || '';
+                      const rawParentEmail = log?.studentInfo?.parentEmail || '';
+                      const parentEmail = (rawParentEmail && studentEmail && rawParentEmail.toLowerCase().trim() === studentEmail.toLowerCase().trim())
+                        ? ''
+                        : rawParentEmail;
+                      const rawParentPhone = log?.studentInfo?.parentPhone || '';
+                      const studentPhone = log?.studentInfo?.cellPhone || '';
+                      const parentPhone = (rawParentPhone && studentPhone && rawParentPhone.trim() === studentPhone.trim())
+                        ? ''
+                        : rawParentPhone;
                       const gradeLevel = log?.studentInfo?.gradeLevel || 'N/A';
                       const selectedClasses = log?.selectedClasses || [];
                       const appliedDiscounts = log?.appliedDiscounts || [];
@@ -1443,6 +1509,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           theme={currentTheme}
           onUpdateUser={onUpdateUser}
           onDeleteUser={onDeleteUser}
+          onDeleteRegistration={onDeleteRegistration}
         />
       )}
 
@@ -1591,6 +1658,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           users={users}
           onTogglePermission={onTogglePermission}
           onRoleChange={onRoleChange}
+          onUpdateUser={onUpdateUser}
         />
       )}
 
@@ -2690,9 +2758,21 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                         <tr key={log.id} className="align-top">
                           <td className="py-3.5 pr-4 font-bold text-slate-900">
                             <div>{log.studentInfo?.studentName}</div>
-                            <div className="text-[10px] text-slate-500 font-medium">
-                              {log.studentInfo?.parentEmail} {log.studentInfo?.parentPhone ? `• ${log.studentInfo?.parentPhone}` : ''}
-                            </div>
+                            {(() => {
+                              const sEmail = log.studentInfo?.email || '';
+                              const pEmail = log.studentInfo?.parentEmail;
+                              const displayPEmail = (pEmail && sEmail && pEmail.toLowerCase().trim() === sEmail.toLowerCase().trim()) ? '' : pEmail;
+                              const sPhone = log.studentInfo?.cellPhone || '';
+                              const pPhone = log.studentInfo?.parentPhone;
+                              const displayPPhone = (pPhone && sPhone && pPhone.trim() === sPhone.trim()) ? '' : pPhone;
+
+                              if (!displayPEmail && !displayPPhone) return null;
+                              return (
+                                <div className="text-[10px] text-slate-500 font-medium">
+                                  {displayPEmail} {displayPPhone ? `• ${displayPPhone}` : ''}
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="py-3.5 px-3 text-center text-slate-600 font-semibold">{log.studentInfo?.gradeLevel || 'N/A'}</td>
                           <td className="py-3.5 px-3 text-slate-600">
@@ -2782,6 +2862,136 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 <span>Print or Save to PDF</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL: EDIT ADMIN PROFILE */}
+      {isEditingAdminProfileModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-200 my-8 text-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-slate-900">Edit Administrator Profile</h3>
+                  <p className="text-xs text-slate-500">Update your administrative account credentials and contact details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsEditingAdminProfileModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAdminProfile} className="space-y-4">
+              <ImageUploadInput
+                label="Administrator Profile Avatar"
+                value={adminEditAvatar}
+                onChange={setAdminEditAvatar}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={adminEditName}
+                    onChange={(e) => setAdminEditName(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={adminEditEmail}
+                    onChange={(e) => setAdminEditEmail(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. +1 (868) 555-0100"
+                    value={adminEditPhone}
+                    onChange={(e) => setAdminEditPhone(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Official Title
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Director of Academic Operations"
+                    value={adminEditTitle}
+                    onChange={(e) => setAdminEditTitle(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Office / Availability Hours
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Mon - Fri 8:00 AM - 4:00 PM"
+                  value={adminEditOfficeHours}
+                  onChange={(e) => setAdminEditOfficeHours(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Administrative Bio / Notes
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Share details regarding your administrative role and responsibilities..."
+                  value={adminEditBio}
+                  onChange={(e) => setAdminEditBio(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingAdminProfileModal(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+                >
+                  Save Admin Profile
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -38,6 +38,7 @@ interface StudentSearchDashboardProps {
   theme: any;
   onUpdateUser?: (user: SchoolUser) => void;
   onDeleteUser?: (userId: string) => void;
+  onDeleteRegistration?: (logId: string) => void;
 }
 
 export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
@@ -48,6 +49,7 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
   theme,
   onUpdateUser,
   onDeleteUser,
+  onDeleteRegistration,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -685,70 +687,118 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Student Details */}
-                  <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
-                    <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
-                      <User className="w-4 h-4 text-slate-500" />
-                      <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Student Details</h3>
-                    </div>
+                  {(() => {
+                    const sInfo = currentRegistration?.studentInfo || selectedStudent?.studentDetails || {};
+                    const displayFormGrade = sInfo.formGrade || sInfo.gradeLevel || 'Not Provided';
+                    const displayPrimarySchool = sInfo.currentSchool || 'Not Provided';
+                    const displayDOB = sInfo.dateOfBirth || sInfo.dob || 'Not Provided';
+                    const displayContactNumber = sInfo.cellPhone || sInfo.homePhone || sInfo.phone || 'Not Provided';
 
-                    <div className="space-y-2.5 text-xs">
-                      <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Full Name</span>
-                        <span className="font-bold text-slate-800">{currentRegistration?.studentInfo?.studentName || selectedStudent.name}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Form Grade</span>
-                        <span className="font-bold text-slate-800">{currentRegistration?.studentInfo?.formGrade || 'Grade 9'}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Primary School</span>
-                        <span className="font-bold text-slate-800 truncate max-w-[180px]">{currentRegistration?.studentInfo?.currentSchool || 'Shaw STEM Prep'}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Date of Birth</span>
-                        <span className="font-bold text-slate-800">{currentRegistration?.studentInfo?.dateOfBirth || '2011-04-12'}</span>
-                      </div>
-                      <div className="flex justify-between py-1">
-                        <span className="text-slate-500">Contact Number</span>
-                        <span className="font-bold text-slate-800">{currentRegistration?.studentInfo?.cellPhone || '876-555-0199'}</span>
-                      </div>
-                    </div>
-                  </div>
+                    const motherName = `${sInfo.motherFirstName || ''} ${sInfo.motherLastName || ''}`.trim();
+                    const fatherName = `${sInfo.fatherFirstName || ''} ${sInfo.fatherLastName || ''}`.trim();
+                    const guardianName = `${sInfo.guardianFirstName || ''} ${sInfo.guardianLastName || ''}`.trim();
 
-                  {/* Parent / Guardian Information */}
-                  <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
-                    <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
-                      <Users className="w-4 h-4 text-slate-500" />
-                      <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Parent & Guardian Contacts</h3>
-                    </div>
+                    let displayParentName = '';
+                    if (sInfo.parentName && sInfo.parentName !== 'Parent/Guardian' && sInfo.parentName !== 'Parent' && sInfo.parentName !== 'A. Morgan') {
+                      displayParentName = sInfo.parentName;
+                    } else if (motherName) {
+                      displayParentName = `${motherName} (Mother)`;
+                    } else if (fatherName) {
+                      displayParentName = `${fatherName} (Father)`;
+                    } else if (guardianName) {
+                      displayParentName = `${guardianName} (Guardian)`;
+                    } else {
+                      displayParentName = 'Not Provided';
+                    }
 
-                    <div className="space-y-2.5 text-xs">
-                      <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Parent Name</span>
-                        <span className="font-bold text-slate-800">
-                          {currentRegistration?.studentInfo?.parentName || 
-                           `${currentRegistration?.studentInfo?.motherFirstName || ''} ${currentRegistration?.studentInfo?.motherLastName || ''}`.trim() || 
-                           'A. Morgan'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Parent Email</span>
-                        <span className="font-bold text-slate-800 truncate max-w-[180px]">{currentRegistration?.studentInfo?.parentEmail || 'morgan.parent@gmail.com'}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Parent Phone</span>
-                        <span className="font-bold text-slate-800">{currentRegistration?.studentInfo?.parentPhone || '876-555-4422'}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Home Address</span>
-                        <span className="font-bold text-slate-800 truncate max-w-[160px]">{currentRegistration?.studentInfo?.address || '10 Hope Road, Kingston'}</span>
-                      </div>
-                      <div className="flex justify-between py-1">
-                        <span className="text-slate-500">Lives With</span>
-                        <span className="font-bold text-slate-800">{currentRegistration?.studentInfo?.livesWith || 'Parent'}</span>
-                      </div>
-                    </div>
-                  </div>
+                    const studentEmail = sInfo.email || '';
+                    const studentPhone = sInfo.cellPhone || '';
+
+                    const rawPEmail = sInfo.parentEmail || sInfo.motherEmail || sInfo.fatherEmail || sInfo.guardianEmail || '';
+                    const isParentEmailStudentEmail = rawPEmail && studentEmail && rawPEmail.toLowerCase().trim() === studentEmail.toLowerCase().trim();
+                    const displayParentEmail = (!isParentEmailStudentEmail && rawPEmail && rawPEmail !== 'morgan.parent@gmail.com')
+                      ? rawPEmail
+                      : 'Not Provided';
+
+                    const rawPPhone = sInfo.parentPhone || sInfo.motherCellPhone || sInfo.fatherCellPhone || sInfo.guardianCellPhone || '';
+                    const isParentPhoneStudentPhone = rawPPhone && studentPhone && rawPPhone.trim() === studentPhone.trim();
+                    const displayParentPhone = (!isParentPhoneStudentPhone && rawPPhone && rawPPhone !== '876-555-4422')
+                      ? rawPPhone
+                      : 'Not Provided';
+
+                    const displayHomeAddress = (sInfo.address && sInfo.address !== '10 Hope Road, Kingston')
+                      ? sInfo.address
+                      : (sInfo.motherAddress || sInfo.fatherAddress || sInfo.guardianAddress || 'Not Provided');
+
+                    const displayLivesWith = sInfo.livesWith || 'Not Provided';
+
+                    return (
+                      <>
+                        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
+                          <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+                            <User className="w-4 h-4 text-slate-500" />
+                            <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Student Details</h3>
+                          </div>
+
+                          <div className="space-y-2.5 text-xs">
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500">Full Name</span>
+                              <span className="font-bold text-slate-800">{sInfo.studentName || selectedStudent.name}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500">Form Grade</span>
+                              <span className="font-bold text-slate-800">{displayFormGrade}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500">Primary School</span>
+                              <span className="font-bold text-slate-800 truncate max-w-[180px]">{displayPrimarySchool}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500">Date of Birth</span>
+                              <span className="font-bold text-slate-800">{displayDOB}</span>
+                            </div>
+                            <div className="flex justify-between py-1">
+                              <span className="text-slate-500">Contact Number</span>
+                              <span className="font-bold text-slate-800">{displayContactNumber}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Parent / Guardian Information */}
+                        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
+                          <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+                            <Users className="w-4 h-4 text-slate-500" />
+                            <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Parent & Guardian Contacts</h3>
+                          </div>
+
+                          <div className="space-y-2.5 text-xs">
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500">Parent Name</span>
+                              <span className="font-bold text-slate-800">
+                                {displayParentName}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500">Parent Email</span>
+                              <span className="font-bold text-slate-800 truncate max-w-[180px]">{displayParentEmail}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500">Parent Phone</span>
+                              <span className="font-bold text-slate-800">{displayParentPhone}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500">Home Address</span>
+                              <span className="font-bold text-slate-800 truncate max-w-[160px]">{displayHomeAddress}</span>
+                            </div>
+                            <div className="flex justify-between py-1">
+                              <span className="text-slate-500">Lives With</span>
+                              <span className="font-bold text-slate-800">{displayLivesWith}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Verification Checkmark Controls */}
@@ -1042,6 +1092,72 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                               <span className="text-[10px] text-slate-400">{new Date(p.timestamp).toLocaleDateString()}</span>
                             </div>
                           ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Registration History & Records */}
+                    <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-1.5">
+                          <FileText className="w-4.5 h-4.5 text-purple-600" />
+                          <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Registration Logs & Records</h4>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400">{studentRegistrations.length} Record(s)</span>
+                      </div>
+
+                      {studentRegistrations.length === 0 ? (
+                        <div className="text-center py-6 text-xs text-slate-400">
+                          No registration logs found for this student.
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {studentRegistrations.map((reg) => {
+                            const regDate = reg.timestamp
+                              ? new Date(reg.timestamp).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                })
+                              : 'N/A';
+                            return (
+                              <div key={reg.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-extrabold text-slate-900">Receipt #{reg.id.slice(-8).toUpperCase()}</span>
+                                    <span className="text-[10px] text-slate-500 font-medium">• {regDate}</span>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                      reg.isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                    }`}>
+                                      {reg.isPaid ? 'PAID' : 'PENDING'}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-600">
+                                    <strong>Courses:</strong> {reg.selectedClasses?.map((c) => c.title).join(', ') || 'None'}
+                                  </p>
+                                  <p className="text-[10px] text-slate-500 font-medium">
+                                    Tuition: <strong className="text-slate-800">${reg.totalPrice}</strong>
+                                  </p>
+                                </div>
+
+                                {onDeleteRegistration && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (confirm(`Are you sure you want to delete this registration log (Receipt #${reg.id.slice(-8).toUpperCase()})?`)) {
+                                        onDeleteRegistration(reg.id);
+                                      }
+                                    }}
+                                    className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 font-bold rounded-lg text-xs transition-colors flex items-center gap-1 self-start sm:self-center cursor-pointer"
+                                    title="Delete Registration Record"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Delete Log</span>
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

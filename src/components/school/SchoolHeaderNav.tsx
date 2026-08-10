@@ -93,7 +93,7 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
     : currentRole === 'registrar'
     ? 'Clara Rodriguez'
     : studentStatus === 'enrolled_paid' 
-    ? 'Alex Morgan' 
+    ? 'Student User' 
     : studentStatus === 'unverified'
     ? 'Leo Sterling'
     : 'Guest Student';

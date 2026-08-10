@@ -379,6 +379,8 @@ export interface SchoolUser {
   name: string;
   email: string;
   role: 'student' | 'teacher' | 'admin' | 'registrar' | 'hod';
+  roles?: ('student' | 'teacher' | 'admin' | 'registrar' | 'hod')[];
+  phone?: string;
   title?: string;
   departmentId?: string;
   departmentName?: string;

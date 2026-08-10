@@ -62,23 +62,15 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
 
   const parentNameVal = (rawParentName && rawParentName !== 'Parent/Guardian' && rawParentName !== 'Parent')
     ? rawParentName
-    : (motherFullName || fatherFullName || guardianFullName || rawParentName || 'Parent/Guardian');
+    : (motherFullName || fatherFullName || guardianFullName || 'Not Provided');
 
-  const parentEmailVal = studentInfo.parentEmail ||
-    studentInfo.email ||
-    studentInfo.motherEmail ||
-    studentInfo.fatherEmail ||
-    studentInfo.guardianEmail ||
-    'N/A';
+  const rawParentEmail = studentInfo.parentEmail || studentInfo.motherEmail || studentInfo.fatherEmail || studentInfo.guardianEmail;
+  const isParentEmailSameAsStudent = rawParentEmail && studentInfo.email && rawParentEmail.toLowerCase().trim() === studentInfo.email.toLowerCase().trim();
+  const parentEmailVal = (!isParentEmailSameAsStudent && rawParentEmail) ? rawParentEmail : 'Not Provided';
 
-  const phoneVal = studentInfo.parentPhone ||
-    studentInfo.cellPhone ||
-    studentInfo.homePhone ||
-    studentInfo.motherCellPhone ||
-    studentInfo.fatherCellPhone ||
-    studentInfo.guardianCellPhone ||
-    studentInfo.emergencyContact ||
-    'N/A';
+  const rawPhone = studentInfo.parentPhone || studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone;
+  const isPhoneSameAsStudentCell = rawPhone && studentInfo.cellPhone && rawPhone.trim() === studentInfo.cellPhone.trim();
+  const phoneVal = (!isPhoneSameAsStudentCell && rawPhone) ? rawPhone : 'Not Provided';
 
   const handlePrint = () => {
     window.print();

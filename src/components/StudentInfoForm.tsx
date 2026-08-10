@@ -79,7 +79,6 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
                 value={studentInfo.email || ''}
                 onChange={(e) => {
                   onChange('email', e.target.value);
-                  onChange('parentEmail', e.target.value);
                 }}
                 placeholder="Your primary email address"
                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-hidden"
@@ -232,10 +231,9 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
                   id="student-cellphone"
                   type="tel"
                   required
-                  value={studentInfo.cellPhone || studentInfo.parentPhone || ''}
+                  value={studentInfo.cellPhone || ''}
                   onChange={(e) => {
                     onChange('cellPhone', e.target.value);
-                    onChange('parentPhone', e.target.value);
                   }}
                   placeholder="Cell phone number"
                   className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-hidden"

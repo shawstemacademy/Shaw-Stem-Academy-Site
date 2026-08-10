@@ -11,8 +11,12 @@ import {
   Clock, 
   Mail, 
   BookOpen,
-  AlertCircle
+  AlertCircle,
+  Edit3,
+  X,
+  UserCheck
 } from 'lucide-react';
+import { ImageUploadInput } from '../common/ImageUploadInput';
 import { 
   TeacherProfile, 
   TeacherResource, 
@@ -52,6 +56,8 @@ interface TeacherDashboardPageProps {
   hourlyRates?: TeacherHourlyRate[];
   onUpdateHourlyRates?: (updated: TeacherHourlyRate[]) => void;
   schoolUsers?: SchoolUser[];
+  onUpdateUserProfile?: (updated: SchoolUser) => void;
+  onUpdateUser?: (updated: SchoolUser) => void;
 }
 
 export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
@@ -75,6 +81,8 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   hourlyRates = [],
   onUpdateHourlyRates = () => {},
   schoolUsers = [],
+  onUpdateUserProfile,
+  onUpdateUser,
 }) => {
   const [activeSection, setActiveSection] = useState<'classes' | 'claims' | 'resources'>('classes');
 
@@ -94,6 +102,63 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   const teacherClasses = classes.filter((c) => 
     (currentTeacher?.assignedClassIds || []).includes(c.id) || c.instructor === currentTeacher?.name
   );
+
+  // Teacher Profile Editing state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [editDepartment, setEditDepartment] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editOfficeHours, setEditOfficeHours] = useState('');
+  const [editAvatar, setEditAvatar] = useState('');
+
+  const handleOpenEditProfileModal = () => {
+    setEditName(currentTeacher?.name || '');
+    setEditEmail(currentTeacher?.email || '');
+    setEditPhone((loggedInUser as SchoolUser)?.phone || '');
+    setEditTitle(currentTeacher?.title || '');
+    setEditDepartment(currentTeacher?.department || '');
+    setEditBio(currentTeacher?.bio || '');
+    setEditOfficeHours(currentTeacher?.officeHours || '');
+    setEditAvatar(currentTeacher?.avatar || '');
+    setIsEditingProfile(true);
+  };
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentTeacher) return;
+
+    const matchedUser = schoolUsers.find(
+      (u) => u.id === currentTeacher.id || (u.email && u.email.toLowerCase() === (currentTeacher.email || '').toLowerCase())
+    ) || (loggedInUser as SchoolUser);
+
+    const updatedUser: SchoolUser = {
+      ...(matchedUser || {
+        id: currentTeacher.id || `teacher-${Date.now()}`,
+        role: 'teacher',
+        status: 'active',
+      }),
+      id: currentTeacher.id || matchedUser?.id || `teacher-${Date.now()}`,
+      name: editName.trim(),
+      email: editEmail.trim(),
+      phone: editPhone.trim(),
+      title: editTitle.trim(),
+      departmentName: editDepartment.trim(),
+      department: editDepartment.trim(),
+      bio: editBio.trim(),
+      officeHours: editOfficeHours.trim(),
+      avatar: editAvatar.trim() || currentTeacher.avatar,
+    };
+
+    if (onUpdateUserProfile) {
+      onUpdateUserProfile(updatedUser);
+    } else if (onUpdateUser) {
+      onUpdateUser(updatedUser);
+    }
+    setIsEditingProfile(false);
+  };
 
   // New announcement form state
   const [annTitle, setAnnTitle] = useState('');
@@ -204,6 +269,14 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold">{currentTeacher?.name}</h1>
               <p className="text-xs sm:text-sm text-slate-400">{currentTeacher?.title} • {currentTeacher?.department}</p>
+              
+              <button
+                onClick={handleOpenEditProfileModal}
+                className="mt-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Edit My Faculty Profile</span>
+              </button>
             </div>
           </div>
 
@@ -731,6 +804,151 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
         </div>
       )}
       </div>
+      )}
+      {/* MODAL: EDIT TEACHER FACULTY PROFILE */}
+      {isEditingProfile && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-200 my-8 text-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-slate-900">Edit Faculty Profile</h3>
+                  <p className="text-xs text-slate-500">Update your teacher credentials and contact details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsEditingProfile(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              <ImageUploadInput
+                label="Faculty Profile Avatar"
+                value={editAvatar}
+                onChange={setEditAvatar}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Contact Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. +1 (868) 555-0199"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Academic Title
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Senior Robotics Lead"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Department
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Computer Science & AI"
+                    value={editDepartment}
+                    onChange={(e) => setEditDepartment(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Office Hours
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Mon & Wed 2:00 PM - 4:00 PM"
+                    value={editOfficeHours}
+                    onChange={(e) => setEditOfficeHours(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Faculty Biography & Summary
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Share a short bio regarding your teaching experience and research interests..."
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+                >
+                  Save Profile Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
