@@ -124,10 +124,14 @@ export default function App() {
       const timer = setTimeout(() => {
         requestNotificationPermission().then((perm) => {
           if (perm === 'granted') {
-            sendDesktopNotification(
-              "🔔 Notifications Enabled", 
-              `Welcome back, ${loggedInUser?.name || user?.displayName || 'User'}! You will receive live desktop alerts on Shaw STEM Academy.`
-            );
+            const hasShown = localStorage.getItem('notifications_welcome_shown');
+            if (!hasShown) {
+              sendDesktopNotification(
+                "🔔 Notifications Enabled", 
+                `Welcome back, ${loggedInUser?.name || user?.displayName || 'User'}! You will receive live desktop alerts on Shaw STEM Academy.`
+              );
+              localStorage.setItem('notifications_welcome_shown', 'true');
+            }
           }
         });
       }, 3000);
@@ -898,25 +902,15 @@ export default function App() {
             return;
           }
           
-          // Auto-create prospective student account so new Google sign-in users never get stuck!
-          console.log(`Auto-creating default profile for new Google user: ${user.email}`);
-          const sName = user.displayName || (user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1));
-          const newGUser: SchoolUser = {
-            id: user.uid,
-            name: sName,
-            email: user.email,
-            role: 'student',
-            status: 'accepted',
-            avatar: user.photoURL || undefined,
-            department: 'Student Body',
-          };
-          saveDocToFirestore('schoolUsers', newGUser.id, newGUser);
-          setSchoolUsers((prev) => [...prev.filter((u) => u.id !== newGUser.id), newGUser]);
-          setLoggedInUser(newGUser);
-          setCurrentRole(newGUser.role);
-          setStudentStatus('accepted');
-          setActiveTab('registration');
-          alert(`Welcome to Shaw STEM Academy, ${sName}! A student profile has been created for you under ${user.email}. Please fill out the registration form below to complete your class enrollment.`);
+          // Prevent auto-creation of prospective student accounts for Google sign-in.
+          console.log(`No existing user profile for ${user.email}. Prompting registration.`);
+          googleSignOut();
+          setLoggedInUser(null);
+          setCurrentRole(null);
+          setStudentStatus(null);
+          setActiveTab('admissions');
+          alert(`No student profile found for ${user.email}. Please create an account by filling out the school registration form.`);
+          return;
         }
       }
     } else {
