@@ -1541,8 +1541,7 @@ export default function App() {
       { subtotal, totalPrice, studentEmail: effectiveStudentInfo.parentEmail }
     );
 
-    // Add newly registered class IDs to student's enrolledClassIds list
-    setEnrolledClassIds((prev) => Array.from(new Set([...prev, ...selectedClassIds])));
+    // Clear selected options for editing form
     setSelectedClassIds([]);
     setSelectedSbaHubIds([]);
 
@@ -1558,7 +1557,7 @@ export default function App() {
       const updatedUser: SchoolUser = { 
         ...loggedInUser, 
         status: isAlreadyAcceptedOrEnrolled ? currentStatus : 'awaiting_acceptance',
-        registeredClassIds: Array.from(new Set([...(loggedInUser.registeredClassIds || []), ...selectedClassIds])),
+        registeredClassIds: loggedInUser.registeredClassIds || [],
         studentDetails: effectiveStudentInfo
       };
       setLoggedInUser(updatedUser);
@@ -2099,21 +2098,12 @@ export default function App() {
       const classIdsFromRegistrations = new Set<string>();
       const sbaHubIdsFromRegistrations = new Set<string>();
       
-      if (loggedInUser.registeredClassIds) {
-        loggedInUser.registeredClassIds.forEach(id => classIdsFromRegistrations.add(id));
-      }
-      if (loggedInUser.studentDetails?.selectedClassIds) {
-        loggedInUser.studentDetails.selectedClassIds.forEach(id => classIdsFromRegistrations.add(id));
-      }
-      if (loggedInUser.studentDetails?.selectedSbaHubIds) {
-        loggedInUser.studentDetails.selectedSbaHubIds.forEach(id => sbaHubIdsFromRegistrations.add(id));
-      }
-      
       const matchedLogs = (studentEmail || studentId) ? registrationLogs.filter(isLogForStudent) : [];
 
       matchedLogs.forEach(reg => {
-        if (reg.selectedClasses) {
-          reg.selectedClasses.forEach(c => classIdsFromRegistrations.add(c.id));
+        // ONLY add classes that have been released/verified by administration in the Student Directory!
+        if (reg.verifiedClassIds && Array.isArray(reg.verifiedClassIds)) {
+          reg.verifiedClassIds.forEach(id => classIdsFromRegistrations.add(id));
         }
         if (reg.studentInfo?.selectedSbaHubIds) {
           reg.studentInfo.selectedSbaHubIds.forEach(id => sbaHubIdsFromRegistrations.add(id));

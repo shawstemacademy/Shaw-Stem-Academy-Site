@@ -132,6 +132,12 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   const totalOutstandingBalance = outstandingRegistrations.reduce((sum, r) => sum + r.outstandingBalance, 0);
   const outstandingCount = outstandingRegistrations.filter((r) => r.outstandingBalance > 0).length;
 
+  // Track classes requested during registration that have not yet been released by administration in the Student Directory
+  const pendingRequestedClasses = allRegistrations
+    .flatMap((r) => r.selectedClasses || [])
+    .filter((c, idx, self) => c && c.id && self.findIndex((o) => o.id === c.id) === idx)
+    .filter((c) => !classes.some((released) => released.id === c.id));
+
   const handleEditProfileClick = () => {
     const defaultStudentInfo: StudentInfo = {
       email: studentUser?.email || '',
@@ -568,19 +574,62 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
             </div>
 
             {classes.length === 0 ? (
-              <div className="bg-blue-50 border border-blue-200 rounded-3xl p-6 text-center space-y-3">
-                <p className="text-xs font-semibold text-blue-900">
-                  You have not registered for any specific courses yet. Click below to choose your classes.
-                </p>
-                <button
-                  onClick={onOpenRegistration}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm"
-                >
-                  Go to Class Registration
-                </button>
-              </div>
+              pendingRequestedClasses.length > 0 ? (
+                <div className="bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-3xl p-6 space-y-4">
+                  <div className="flex items-center gap-2.5 text-amber-900 dark:text-amber-200 font-bold text-sm">
+                    <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>Registration Received — Pending Student Directory Release ({pendingRequestedClasses.length} Course{pendingRequestedClasses.length === 1 ? '' : 's'})</span>
+                  </div>
+                  <p className="text-xs text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
+                    Your class registration request has been submitted. Requested courses are currently awaiting verification and official release by administration in the <strong>Student Directory</strong> before they appear in your active classes.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {pendingRequestedClasses.map((cls) => (
+                      <span key={cls.id} className="px-3 py-1.5 bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 text-xs font-semibold rounded-xl border border-amber-300/60 dark:border-amber-700/50">
+                        {cls.title} (Awaiting Directory Release)
+                      </span>
+                    ))}
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      onClick={onOpenRegistration}
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+                    >
+                      View / Modify Requested Classes
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-blue-50 border border-blue-200 rounded-3xl p-6 text-center space-y-3">
+                  <p className="text-xs font-semibold text-blue-900">
+                    You have not registered for any specific courses yet. Click below to choose your classes.
+                  </p>
+                  <button
+                    onClick={onOpenRegistration}
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm"
+                  >
+                    Go to Class Registration
+                  </button>
+                </div>
+              )
             ) : (
               <div className="space-y-6">
+                {pendingRequestedClasses.length > 0 && (
+                  <div className="bg-amber-50/90 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-medium">
+                      <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                      <span>
+                        <strong>{pendingRequestedClasses.length} additional course(s)</strong> awaiting release by Student Directory: {pendingRequestedClasses.map(c => c.title).join(', ')}
+                      </span>
+                    </div>
+                    <button
+                      onClick={onOpenRegistration}
+                      className="text-amber-800 dark:text-amber-300 font-bold hover:underline shrink-0"
+                    >
+                      Modify Request →
+                    </button>
+                  </div>
+                )}
                 {/* Google Classroom Hub Banner */}
                 <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-3xl p-6 border border-emerald-800 shadow-md space-y-4">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
