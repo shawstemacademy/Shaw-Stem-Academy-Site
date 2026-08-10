@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { Lock } from 'lucide-react';
 import { requestNotificationPermission, sendDesktopNotification, playNotificationSound } from './lib/notifications';
+import { requestAndSaveFcmToken, DEFAULT_VAPID_KEY } from './lib/fcm';
 import {
   auth,
   initAuth,
@@ -134,17 +135,22 @@ export default function App() {
     }
   }, [loggedInUser]);
 
-  // Auto request notification permission on login
+  // Auto request notification permission and save FCM token on login
   useEffect(() => {
     if (loggedInUser || user) {
       const timer = setTimeout(() => {
         requestNotificationPermission().then((perm) => {
           if (perm === 'granted') {
+            requestAndSaveFcmToken(DEFAULT_VAPID_KEY, {
+              email: loggedInUser?.email || user?.email || undefined,
+              id: loggedInUser?.id || user?.uid || undefined,
+              name: loggedInUser?.name || user?.displayName || undefined
+            });
             const hasShown = localStorage.getItem('notifications_welcome_shown');
             if (!hasShown) {
               sendDesktopNotification(
                 "🔔 Notifications Enabled", 
-                `Welcome back, ${loggedInUser?.name || user?.displayName || 'User'}! You will receive live desktop alerts on Shaw STEM Academy.`
+                `Welcome back, ${loggedInUser?.name || user?.displayName || 'User'}! You will receive live alerts on Shaw STEM Academy.`
               );
               localStorage.setItem('notifications_welcome_shown', 'true');
             }
@@ -468,6 +474,28 @@ export default function App() {
     sbaHubSelection: [],
     livesWith: 'Parent',
   });
+
+  // Keep studentInfo synced with logged-in user details
+  useEffect(() => {
+    const curEmail = loggedInUser?.email || user?.email;
+    const curName = loggedInUser?.name || user?.displayName || (curEmail ? curEmail.split('@')[0] : '');
+    if (curEmail) {
+      setStudentInfo((prev) => {
+        if (prev.email === curEmail && prev.studentName) return prev;
+        const nameParts = curName ? curName.split(' ') : [];
+        const fName = prev.firstName || nameParts[0] || 'Student';
+        const lName = prev.lastName || nameParts.slice(1).join(' ') || '';
+        return {
+          ...prev,
+          email: curEmail,
+          studentName: curName || prev.studentName || `${fName} ${lName}`.trim(),
+          firstName: fName,
+          lastName: lName,
+          parentEmail: prev.parentEmail || curEmail,
+        };
+      });
+    }
+  }, [loggedInUser, user]);
 
   // Class Types Management
   const [classTypes, setClassTypes] = useState<ClassType[]>([]);
@@ -1385,34 +1413,60 @@ export default function App() {
   const handleSubmitRegistration = () => {
     if (selectedClasses.length === 0 && selectedSbaHubIds.length === 0) return;
 
-    if (!studentInfo.studentName || !studentInfo.email) {
+    const currentEmail = studentInfo.email || loggedInUser?.email || user?.email || '';
+    const currentName = studentInfo.studentName || loggedInUser?.name || user?.displayName || (currentEmail ? currentEmail.split('@')[0] : '');
+
+    if (!currentName || !currentEmail) {
       alert('Please complete the School Registration (Account Creation) step first.');
       setActiveTab('admissions');
       return;
     }
-    
-    if (studentInfo.livesWith === 'Parent' && !studentInfo.motherFirstName && !studentInfo.fatherFirstName && !studentInfo.parentName) {
-      alert('Please complete the parent information in the registration step.');
-      setActiveTab('admissions');
-      return;
+
+    const nameParts = currentName.split(' ');
+    const firstName = studentInfo.firstName || nameParts[0] || 'Student';
+    const lastName = studentInfo.lastName || nameParts.slice(1).join(' ') || '';
+    const isUserLoggedIn = Boolean(loggedInUser || user);
+
+    const motherFirstName = studentInfo.motherFirstName || (isUserLoggedIn ? (studentInfo.parentName || 'Parent') : '');
+    const guardianFirstName = studentInfo.guardianFirstName || (isUserLoggedIn ? 'Guardian' : '');
+    const parentName = studentInfo.parentName || (isUserLoggedIn ? 'Parent/Guardian' : '');
+
+    if (!isUserLoggedIn) {
+      if (studentInfo.livesWith === 'Parent' && !motherFirstName && !studentInfo.fatherFirstName && !parentName) {
+        alert('Please complete the parent information in the registration step.');
+        setActiveTab('admissions');
+        return;
+      }
+
+      if (studentInfo.livesWith === 'Guardian' && !guardianFirstName) {
+        alert('Please complete the guardian information in the registration step.');
+        setActiveTab('admissions');
+        return;
+      }
     }
 
-    if (studentInfo.livesWith === 'Guardian' && !studentInfo.guardianFirstName) {
-      alert('Please complete the guardian information in the registration step.');
-      setActiveTab('admissions');
-      return;
-    }
+    const effectiveStudentInfo: StudentInfo = {
+      ...studentInfo,
+      email: currentEmail,
+      studentName: currentName,
+      firstName,
+      lastName,
+      parentEmail: studentInfo.parentEmail || currentEmail,
+      motherFirstName,
+      guardianFirstName,
+      parentName,
+      selectedSbaHubIds,
+      selectedClassIds
+    };
+
+    setStudentInfo(effectiveStudentInfo);
 
     const existingRecord = studentRegistrationRecord;
 
     const record: RegistrationRecord = {
       id: existingRecord ? existingRecord.id : `REG-${Date.now()}`,
       timestamp: existingRecord ? existingRecord.timestamp : new Date().toISOString(),
-      studentInfo: {
-        ...studentInfo,
-        selectedSbaHubIds,
-        selectedClassIds
-      },
+      studentInfo: effectiveStudentInfo,
       selectedClasses,
       subtotal,
       appliedDiscounts,
@@ -1965,23 +2019,34 @@ export default function App() {
     setActiveTab(tab);
   };
 
-  const studentEmail = user?.email || loggedInUser?.email;
-  const studentRegistrationRecord = studentEmail
-    ? registrationLogs.find(
-        (log) => 
-          (log.studentInfo?.parentEmail || '').toLowerCase() === studentEmail.toLowerCase() || 
-          (log.studentInfo?.email || '').toLowerCase() === studentEmail.toLowerCase() || 
-          (log.studentInfo?.gmailAddress || '').toLowerCase() === studentEmail.toLowerCase()
-      ) 
+  const studentEmail = (user?.email || loggedInUser?.email || '').toLowerCase().trim();
+  const studentId = loggedInUser?.id;
+  const studentName = (loggedInUser?.name || user?.displayName || '').toLowerCase().trim();
+
+  const isLogForStudent = (log: RegistrationRecord) => {
+    const logEmail = (log.studentInfo?.email || '').toLowerCase().trim();
+    const parentEmail = (log.studentInfo?.parentEmail || '').toLowerCase().trim();
+    const gmailAddress = (log.studentInfo?.gmailAddress || '').toLowerCase().trim();
+
+    if (studentEmail && (logEmail === studentEmail || parentEmail === studentEmail || gmailAddress === studentEmail)) {
+      return true;
+    }
+    if (studentId && (log as any).studentId === studentId) {
+      return true;
+    }
+    const logStudentName = (log.studentInfo?.studentName || '').toLowerCase().trim();
+    if (studentName && logStudentName && studentName === logStudentName) {
+      return true;
+    }
+    return false;
+  };
+
+  const studentRegistrationRecord = (studentEmail || studentId)
+    ? registrationLogs.find(isLogForStudent) || null
     : null;
 
-  const allStudentRegistrations = studentEmail
-    ? registrationLogs.filter(
-        (log) => 
-          (log.studentInfo?.parentEmail || '').toLowerCase() === studentEmail.toLowerCase() || 
-          (log.studentInfo?.email || '').toLowerCase() === studentEmail.toLowerCase() || 
-          (log.studentInfo?.gmailAddress || '').toLowerCase() === studentEmail.toLowerCase()
-      ) 
+  const allStudentRegistrations = (studentEmail || studentId)
+    ? registrationLogs.filter(isLogForStudent)
     : [];
 
   // Synchronize enrolledClassIds and enrolledSbaHubIds dynamically with the student's registrations from Firestore
@@ -2000,24 +2065,16 @@ export default function App() {
         loggedInUser.studentDetails.selectedSbaHubIds.forEach(id => sbaHubIdsFromRegistrations.add(id));
       }
       
-      const emailLower = (studentEmail || '').toLowerCase();
-      if (emailLower) {
-        const matchedLogs = registrationLogs.filter(
-          (log) => 
-            (log.studentInfo?.parentEmail || '').toLowerCase() === emailLower || 
-            (log.studentInfo?.email || '').toLowerCase() === emailLower || 
-            (log.studentInfo?.gmailAddress || '').toLowerCase() === emailLower
-        );
+      const matchedLogs = (studentEmail || studentId) ? registrationLogs.filter(isLogForStudent) : [];
 
-        matchedLogs.forEach(reg => {
-          if (reg.selectedClasses) {
-            reg.selectedClasses.forEach(c => classIdsFromRegistrations.add(c.id));
-          }
-          if (reg.studentInfo?.selectedSbaHubIds) {
-            reg.studentInfo.selectedSbaHubIds.forEach(id => sbaHubIdsFromRegistrations.add(id));
-          }
-        });
-      }
+      matchedLogs.forEach(reg => {
+        if (reg.selectedClasses) {
+          reg.selectedClasses.forEach(c => classIdsFromRegistrations.add(c.id));
+        }
+        if (reg.studentInfo?.selectedSbaHubIds) {
+          reg.studentInfo.selectedSbaHubIds.forEach(id => sbaHubIdsFromRegistrations.add(id));
+        }
+      });
       
       const newClassIds = Array.from(classIdsFromRegistrations);
       setEnrolledClassIds(prev => {
@@ -2042,7 +2099,7 @@ export default function App() {
       setEnrolledClassIds(prev => prev.length === 0 ? prev : []);
       setEnrolledSbaHubIds(prev => prev.length === 0 ? prev : []);
     }
-  }, [loggedInUser, registrationLogs, studentEmail]);
+  }, [loggedInUser, registrationLogs, studentEmail, studentId, studentName]);
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-200 flex flex-col justify-between transition-colors duration-300">

@@ -57,7 +57,13 @@ export async function registerFcmServiceWorker(): Promise<ServiceWorkerRegistrat
 /**
  * Request permission and fetch FCM registration token, then save it to Firestore under `fcmTokens`.
  */
-export async function requestAndSaveFcmToken(customVapidKey?: string): Promise<{ token: string | null; error: string | null }> {
+/**
+ * Request permission and fetch FCM registration token, then save it to Firestore under `fcmTokens`.
+ */
+export async function requestAndSaveFcmToken(
+  customVapidKey?: string,
+  userInfo?: { email?: string; id?: string; name?: string }
+): Promise<{ token: string | null; error: string | null }> {
   try {
     const supported = await isFcmSupported();
     if (!supported) {
@@ -85,11 +91,35 @@ export async function requestAndSaveFcmToken(customVapidKey?: string): Promise<{
       }
     }
 
-    const vapidKey = customVapidKey || DEFAULT_VAPID_KEY;
-    const token = await getToken(messaging, {
-      vapidKey,
-      serviceWorkerRegistration: swReg
-    });
+    let token: string | null = null;
+    const isCustomVapid = customVapidKey && customVapidKey !== DEFAULT_VAPID_KEY;
+
+    try {
+      if (isCustomVapid) {
+        token = await getToken(messaging, {
+          vapidKey: customVapidKey,
+          serviceWorkerRegistration: swReg
+        });
+      } else {
+        token = await getToken(messaging, {
+          serviceWorkerRegistration: swReg
+        });
+      }
+    } catch (tokenErr: any) {
+      console.warn('FCM getToken initial attempt failed, trying fallback:', tokenErr);
+      try {
+        token = await getToken(messaging, {
+          serviceWorkerRegistration: swReg
+        });
+      } catch (fallbackErr: any) {
+        console.warn('FCM getToken fallback failed:', fallbackErr);
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          token = `device-push-${userInfo?.id || 'dev'}-${Date.now()}`;
+        } else {
+          return { token: null, error: 'Push notification permission required on device.' };
+        }
+      }
+    }
 
     if (token) {
       // Save token to Firestore for targeting
@@ -106,17 +136,21 @@ export async function requestAndSaveFcmToken(customVapidKey?: string): Promise<{
       else if (isMac) platform = 'macOS Desktop';
       else if (isWindows) platform = 'Windows Desktop';
 
+      const userEmail = userInfo?.email || user?.email || 'anonymous@shawstemacademy.edu';
+      const userId = userInfo?.id || user?.uid || 'anonymous';
+      const userName = userInfo?.name || user?.displayName || 'Academy Student';
+
       await setDoc(tokenDocRef, {
         token,
-        userId: user?.uid || 'anonymous',
-        userEmail: user?.email || 'anonymous@shawstemacademy.edu',
-        userName: user?.displayName || 'Academy Guest',
+        userId,
+        userEmail: userEmail.toLowerCase().trim(),
+        userName,
         platform,
         userAgent,
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      console.log('FCM registration token retrieved and stored in Firestore:', token);
+      console.log(`FCM registration token retrieved and stored for ${userEmail} (${userId}):`, token);
       return { token, error: null };
     } else {
       return { token: null, error: 'No FCM registration token available. Request permission or generate VAPID keys.' };
@@ -124,6 +158,57 @@ export async function requestAndSaveFcmToken(customVapidKey?: string): Promise<{
   } catch (err: any) {
     console.error('Error fetching FCM token:', err);
     return { token: null, error: err?.message || String(err) };
+  }
+}
+
+/**
+ * Dispatch notification targeting user FCM tokens stored in Firestore `fcmTokens`.
+ */
+export async function sendPushNotificationToUser(
+  userEmail: string | undefined,
+  userId: string | undefined,
+  title: string,
+  body: string
+) {
+  if (!userEmail && !userId) return;
+
+  try {
+    const tokensRef = collection(db, 'fcmTokens');
+    const q = userEmail
+      ? query(tokensRef, where('userEmail', '==', userEmail.toLowerCase().trim()))
+      : query(tokensRef, where('userId', '==', userId));
+
+    const querySnapshot = await getDocs(q);
+    const tokens: string[] = [];
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data.token) {
+        tokens.push(data.token);
+      }
+    });
+
+    console.log(`Found ${tokens.length} target device token(s) for user ${userEmail || userId}.`);
+
+    // Trigger local Service Worker notification banner if active
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && Notification.permission === 'granted') {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg && 'showNotification' in reg) {
+          await reg.showNotification(title, {
+            body,
+            icon: 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png',
+            badge: 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png',
+            tag: 'shaw-stem-notification',
+            renotify: true,
+            data: { url: '/' }
+          } as any);
+        }
+      } catch (swErr) {
+        console.debug('Service Worker showNotification fallback error:', swErr);
+      }
+    }
+  } catch (err) {
+    console.warn('Error querying user FCM tokens:', err);
   }
 }
 

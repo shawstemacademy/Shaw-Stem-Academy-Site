@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { SchoolUser, RegistrationRecord, ClassItem, AppliedDiscount } from '../../types';
 import { saveDocToFirestore } from '../../lib/firebase';
+import { sendPushNotificationToUser } from '../../lib/fcm';
+import { sendDesktopNotification } from '../../lib/notifications';
 
 interface StudentSearchDashboardProps {
   users: SchoolUser[];
@@ -80,12 +82,27 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
   // Find active student details
   const selectedStudent = students.find((s) => s.id === selectedStudentId);
 
-  // Get matching registrations for selected student
-  const studentRegistrations = registrationLogs.filter(
-    (r) => r.studentInfo?.email?.toLowerCase() === selectedStudent?.email?.toLowerCase() || 
-           (r.studentInfo?.firstName && selectedStudent?.name && 
-            selectedStudent.name.toLowerCase().includes(r.studentInfo.firstName.toLowerCase()))
-  );
+  // Get matching registrations for selected student strictly by email, studentId, or exact full name
+  const studentRegistrations = registrationLogs.filter((r) => {
+    if (!selectedStudent) return false;
+    const studentEmail = selectedStudent.email?.toLowerCase().trim();
+    const regEmail = r.studentInfo?.email?.toLowerCase().trim();
+    const parentEmail = r.studentInfo?.parentEmail?.toLowerCase().trim();
+    const gmailAddress = r.studentInfo?.gmailAddress?.toLowerCase().trim();
+
+    if (studentEmail && (regEmail === studentEmail || parentEmail === studentEmail || gmailAddress === studentEmail)) {
+      return true;
+    }
+    if ((r as any).studentId && (r as any).studentId === selectedStudent.id) {
+      return true;
+    }
+    const studentName = selectedStudent.name?.toLowerCase().trim();
+    const regStudentName = r.studentInfo?.studentName?.toLowerCase().trim();
+    if (studentName && regStudentName && studentName === regStudentName) {
+      return true;
+    }
+    return false;
+  });
 
   // Use the most recent registration for pricing and course details
   const currentRegistration = studentRegistrations[0];
@@ -432,11 +449,18 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
             </div>
           ) : (
             filteredStudents.map((s) => {
-              const reg = registrationLogs.filter(
-                (r) => r.studentInfo?.email?.toLowerCase() === s.email?.toLowerCase() || 
-                       (r.studentInfo?.firstName && s.name && 
-                        s.name.toLowerCase().includes(r.studentInfo.firstName.toLowerCase()))
-              )[0];
+              const reg = registrationLogs.find((r) => {
+                const sEmail = s.email?.toLowerCase().trim();
+                const rEmail = r.studentInfo?.email?.toLowerCase().trim();
+                const pEmail = r.studentInfo?.parentEmail?.toLowerCase().trim();
+                const gEmail = r.studentInfo?.gmailAddress?.toLowerCase().trim();
+                if (sEmail && (rEmail === sEmail || pEmail === sEmail || gEmail === sEmail)) return true;
+                if ((r as any).studentId && (r as any).studentId === s.id) return true;
+                const sName = s.name?.toLowerCase().trim();
+                const rName = r.studentInfo?.studentName?.toLowerCase().trim();
+                if (sName && rName && sName === rName) return true;
+                return false;
+              });
 
               const totalPaidAmt = reg && reg.payments ? reg.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
               const isPendingReview = reg && (!reg.payments || reg.payments.length === 0);
@@ -748,6 +772,16 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                           if (onUpdateUser) {
                             onUpdateUser(updatedUser);
                           }
+                          sendPushNotificationToUser(
+                            selectedStudent.email,
+                            selectedStudent.id,
+                            '🎓 Admission Application Approved!',
+                            `Congratulations ${selectedStudent.name}! Your application to Shaw STEM Academy has been approved. You can now access your student portal and register for classes.`
+                          );
+                          sendDesktopNotification(
+                            '🎓 Admission Application Approved!',
+                            `Congratulations ${selectedStudent.name}! Your application to Shaw STEM Academy has been approved.`
+                          );
                         }
                         if (currentRegistration) {
                           const updatedReg = { ...currentRegistration, status: 'completed' as const };

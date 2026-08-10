@@ -87,18 +87,26 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
     isFcmSupported().then((supported) => {
       setFcmSupported(supported);
       if (supported && 'Notification' in window && Notification.permission === 'granted') {
-        requestAndSaveFcmToken(DEFAULT_VAPID_KEY).then(({ token }) => {
+        requestAndSaveFcmToken(undefined, {
+          email: studentUser?.email,
+          id: studentUser?.id,
+          name: studentUser?.name
+        }).then(({ token }) => {
           if (token) setFcmToken(token);
         });
       }
     });
-  }, []);
+  }, [studentUser]);
 
   const handleRegisterFcm = async () => {
     setIsRequestingToken(true);
     setFcmError(null);
     try {
-      const { token, error } = await requestAndSaveFcmToken(DEFAULT_VAPID_KEY);
+      const { token, error } = await requestAndSaveFcmToken(undefined, {
+        email: studentUser?.email,
+        id: studentUser?.id,
+        name: studentUser?.name
+      });
       if (error) {
         setFcmError(error);
       } else if (token) {
