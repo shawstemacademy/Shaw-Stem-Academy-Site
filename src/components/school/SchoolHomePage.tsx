@@ -164,7 +164,7 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
             <div className="relative group flex flex-col items-center">
               <div className="relative w-56 h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 flex items-center justify-center rounded-full bg-slate-800/10 p-4 border border-slate-800/50 shadow-2xl backdrop-blur-xs overflow-hidden">
                 <img
-                  src={settings.logoUrl || 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png'}
+                  src={settings.logoUrl || '/favicon.png'}
                   alt="Shaw STEM Academy Logo"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-contain transition-all duration-300 group-hover:scale-105"
@@ -405,7 +405,7 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
             <div className="space-y-4">
               <div className="flex justify-center p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800">
                 <img
-                  src={tempLogoUrl || settings.logoUrl || 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png'}
+                  src={tempLogoUrl || settings.logoUrl || '/favicon.png'}
                   alt="Logo Preview"
                   referrerPolicy="no-referrer"
                   className="h-32 object-contain"

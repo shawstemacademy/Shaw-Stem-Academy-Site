@@ -38,13 +38,13 @@ import {
 import { SchoolUser } from '../types';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAbovUPLk2wIMM4K44r0RuRPGOJhP1RU0M",
-  authDomain: "shawstemacademy-c0039.firebaseapp.com",
-  projectId: "shawstemacademy-c0039",
-  storageBucket: "shawstemacademy-c0039.firebasestorage.app",
-  messagingSenderId: "53639382274",
-  appId: "1:53639382274:web:8f688e6d5182a3d6d82e1b",
-  measurementId: "G-XEKYJ5G7W8"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAbovUPLk2wIMM4K44r0RuRPGOJhP1RU0M",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "shawstemacademy-c0039.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "shawstemacademy-c0039",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "shawstemacademy-c0039.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "53639382274",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:53639382274:web:8f688e6d5182a3d6d82e1b",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-XEKYJ5G7W8"
 };
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);

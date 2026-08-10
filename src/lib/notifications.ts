@@ -84,7 +84,7 @@ export async function sendDesktopNotification(title: string, body: string, iconU
 
   if (Notification.permission === 'granted') {
     try {
-      const icon = iconUrl || 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png';
+      const icon = iconUrl || '/favicon.png';
       
       // If service worker is active and has showNotification, use it (recommended for full mobile and desktop support)
       if ('serviceWorker' in navigator) {

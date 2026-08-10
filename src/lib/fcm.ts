@@ -34,6 +34,19 @@ export async function getFcmInstance() {
   }
 }
 
+function getSwUrlWithConfig(): string {
+  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyAbovUPLk2wIMM4K44r0RuRPGOJhP1RU0M';
+  const params = new URLSearchParams({
+    apiKey,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'shawstemacademy-c0039.firebaseapp.com',
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'shawstemacademy-c0039',
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'shawstemacademy-c0039.firebasestorage.app',
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '53639382274',
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:53639382274:web:8f688e6d5182a3d6d82e1b'
+  });
+  return `/firebase-messaging-sw.js?${params.toString()}`;
+}
+
 /**
  * Register a service worker explicitly for FCM.
  * Helps ensure the service worker registers properly even inside iframe-friendly dev settings.
@@ -43,7 +56,8 @@ export async function registerFcmServiceWorker(): Promise<ServiceWorkerRegistrat
     return null;
   }
   try {
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+    const swUrl = getSwUrlWithConfig();
+    const registration = await navigator.serviceWorker.register(swUrl, {
       scope: '/firebase-cloud-messaging-push-scope'
     });
     console.log('FCM Service Worker registered successfully with scope:', registration.scope);
@@ -84,7 +98,7 @@ export async function requestAndSaveFcmToken(
     let swReg: ServiceWorkerRegistration | undefined;
     if ('serviceWorker' in navigator) {
       try {
-        const sw = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        const sw = await navigator.serviceWorker.register(getSwUrlWithConfig());
         if (sw) swReg = sw;
       } catch (swErr) {
         console.warn('Failed to register sw during token request, attempting standard retrieval:', swErr);
@@ -196,8 +210,8 @@ export async function sendPushNotificationToUser(
         if (reg && 'showNotification' in reg) {
           await reg.showNotification(title, {
             body,
-            icon: 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png',
-            badge: 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png',
+            icon: '/favicon.png',
+            badge: '/favicon.png',
             tag: 'shaw-stem-notification',
             renotify: true,
             data: { url: '/' }

@@ -318,7 +318,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       if (Notification.permission === 'granted') {
         new Notification(`[FCM Foreground] ${title}`, {
           body,
-          icon: 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png'
+          icon: '/favicon.png'
         });
       }
     }).then((unsub) => {
@@ -376,7 +376,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
     const pushTitle = notifyTitle || 'Shaw STEM Academy Update';
     const pushBody = notifyBody || 'This is an FCM test notification.';
-    const pushImage = 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png';
+    const pushImage = '/favicon.png';
 
     if (isSimulation) {
       setTimeout(() => {

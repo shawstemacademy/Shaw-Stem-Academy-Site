@@ -4,13 +4,13 @@
   "description": "Shaw STEM Academy's course catalogs, student registries, and online portal.",
   "icons": [
     {
-      "src": "https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png",
+      "src": "/favicon.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
     },
     {
-      "src": "https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png",
+      "src": "/favicon.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any"
