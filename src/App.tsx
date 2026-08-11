@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { Lock } from 'lucide-react';
 import { requestNotificationPermission, sendDesktopNotification, playNotificationSound } from './lib/notifications';
-import { requestAndSaveFcmToken, DEFAULT_VAPID_KEY } from './lib/fcm';
+import { requestAndSaveFcmToken, DEFAULT_VAPID_KEY, sendPushNotificationToClass, sendPushNotificationToAll } from './lib/fcm';
 import {
   auth,
   initAuth,
@@ -397,6 +397,23 @@ export default function App() {
       const existing = classList.find((c) => c.id === cls.id);
       if (!existing || JSON.stringify(existing) !== JSON.stringify(cls)) {
         await saveDocToFirestore('classes', cls.id, cls);
+
+        // Check if location or schedule changed and notify students
+        if (existing) {
+          let pushTitle = '';
+          let pushBody = '';
+          if (existing.location !== cls.location) {
+            pushTitle = `Location Update: ${cls.title}`;
+            pushBody = `The location for ${cls.title} has changed to ${cls.location || 'TBA'}.`;
+          } else if (existing.days !== cls.days || existing.time !== cls.time) {
+            pushTitle = `Schedule Update: ${cls.title}`;
+            pushBody = `The schedule for ${cls.title} has changed to ${cls.days} at ${cls.time}.`;
+          }
+
+          if (pushTitle) {
+            sendPushNotificationToClass(cls.id, pushTitle, pushBody);
+          }
+        }
       }
     }
     for (const oldCls of classList) {
@@ -1581,6 +1598,11 @@ export default function App() {
   const handleAddAnnouncement = (newAnn: ClassAnnouncement) => {
     setAnnouncements((prev) => [newAnn, ...prev]);
     saveDocToFirestore('announcements', newAnn.id, newAnn);
+    sendPushNotificationToClass(
+      newAnn.classId,
+      `New Announcement: ${newAnn.className}`,
+      newAnn.title
+    );
   };
 
   const handleDeleteAnnouncement = (id: string) => {
@@ -1591,6 +1613,11 @@ export default function App() {
   const handleAddResource = (newRes: TeacherResource) => {
     setResources((prev) => [newRes, ...prev]);
     saveDocToFirestore('resources', newRes.id, newRes);
+    sendPushNotificationToClass(
+      newRes.classId,
+      `New Resource Uploaded: ${newRes.className}`,
+      `A new ${newRes.category} titled "${newRes.title}" has been uploaded by ${newRes.teacherName}.`
+    );
   };
 
   const handleDeleteResource = (id: string) => {
@@ -1601,6 +1628,10 @@ export default function App() {
   const handleAddNewsItem = (item: any) => {
     setSchoolNews((prev: any) => [item, ...prev]);
     saveDocToFirestore('schoolNews', item.id, item);
+    sendPushNotificationToAll(
+      `Shaw STEM News: ${item.title}`,
+      item.summary || `A new update has been posted in ${item.category}.`
+    );
   };
 
   const handleDeleteNewsItem = (id: string) => {

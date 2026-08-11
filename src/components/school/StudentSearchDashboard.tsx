@@ -175,6 +175,12 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
         ...selectedStudent,
         status: 'enrolled_paid'
       });
+      sendPushNotificationToUser(
+        selectedStudent.email,
+        selectedStudent.id,
+        '🎉 Enrollment Confirmed!',
+        `Your payment is complete and your enrollment at Shaw STEM Academy is finalized. Thank you!`
+      );
     }
 
     onUpdateRegistration(updatedReg);

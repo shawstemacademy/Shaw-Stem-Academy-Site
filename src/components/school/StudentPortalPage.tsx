@@ -326,7 +326,9 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 ? 'Your course selections have been submitted and are currently pending registrar verification. Your class schedule is active below.'
                 : status === 'accepted'
                 ? (hasCourseRegistrations
-                    ? '🎉 You have been accepted to Shaw STEM Academy! Please proceed to submit your tuition fee payment to finalize your enrollment.'
+                    ? (totalOutstandingBalance > 0
+                        ? '🎉 You have been accepted to Shaw STEM Academy! Please proceed to submit your tuition fee payment to finalize your enrollment.'
+                        : '🎉 You have been accepted to Shaw STEM Academy! Your courses are fully paid and you are awaiting final administrative verification.')
                     : '🎉 You have been accepted to Shaw STEM Academy! Please proceed to register for your courses as your next step to get started.')
                 : status === 'awaiting_acceptance' || status === 'unverified'
                 ? 'Your student account registration has been received and is currently being reviewed by admissions officers.'
@@ -407,10 +409,17 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 <span>Accepted</span>
               </div>
               {hasCourseRegistrations ? (
-                <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 bg-rose-500/5 px-2.5 py-1 rounded-lg border border-rose-500/10">
-                  <AlertCircle className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
-                  Payment Required
-                </span>
+                totalOutstandingBalance > 0 ? (
+                  <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 bg-rose-500/5 px-2.5 py-1 rounded-lg border border-rose-500/10">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                    Payment Required
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 bg-emerald-500/5 px-2.5 py-1 rounded-lg border border-emerald-500/10">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    Fully Paid
+                  </span>
+                )
               ) : (
                 <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5 bg-blue-500/5 px-2.5 py-1 rounded-lg border border-blue-500/10">
                   <BookOpen className="w-3.5 h-3.5 text-blue-500" />
@@ -509,15 +518,27 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                   We are thrilled to welcome you to Shaw STEM Academy. Your student application has been officially accepted by school administration!
                 </p>
                 {hasCourseRegistrations ? (
-                  <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl">
-                    <p className="text-sm font-bold text-white flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-emerald-200" />
-                      Payment Required
-                    </p>
-                    <p className="text-emerald-100 text-xs mt-1">
-                      To finalize your enrollment and unlock course materials, please ensure your tuition fee payment is submitted to the registrar.
-                    </p>
-                  </div>
+                  totalOutstandingBalance > 0 ? (
+                    <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl">
+                      <p className="text-sm font-bold text-white flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-rose-200" />
+                        Payment Required
+                      </p>
+                      <p className="text-emerald-100 text-xs mt-1">
+                        To finalize your enrollment and unlock course materials, please ensure your tuition fee payment is submitted to the registrar.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl">
+                      <p className="text-sm font-bold text-white flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                        Fully Paid
+                      </p>
+                      <p className="text-emerald-100 text-xs mt-1">
+                        Your course registrations are fully paid. Awaiting final administrative verification to complete your enrollment.
+                      </p>
+                    </div>
+                  )
                 ) : (
                   <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>

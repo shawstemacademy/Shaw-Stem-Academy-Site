@@ -196,33 +196,104 @@ export async function sendPushNotificationToUser(
     const tokens: string[] = [];
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      if (data.token) {
-        tokens.push(data.token);
-      }
+      if (data.token) tokens.push(data.token);
     });
 
     console.log(`Found ${tokens.length} target device token(s) for user ${userEmail || userId}.`);
-
-    // Trigger local Service Worker notification banner if active
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && Notification.permission === 'granted') {
-      try {
-        const reg = await navigator.serviceWorker.ready;
-        if (reg && 'showNotification' in reg) {
-          await reg.showNotification(title, {
-            body,
-            icon: '/favicon.png',
-            badge: '/favicon.png',
-            tag: 'shaw-stem-notification',
-            renotify: true,
-            data: { url: '/' }
-          } as any);
-        }
-      } catch (swErr) {
-        console.debug('Service Worker showNotification fallback error:', swErr);
-      }
-    }
+    await _sendFcmToTokens(tokens, title, body);
   } catch (err) {
     console.warn('Error querying user FCM tokens:', err);
+  }
+}
+
+export async function sendPushNotificationToClass(classId: string, title: string, body: string) {
+  try {
+    // 1. Find all users registered for this class
+    const usersRef = collection(db, 'schoolUsers');
+    const q = query(usersRef, where('registeredClassIds', 'array-contains', classId));
+    const userSnaps = await getDocs(q);
+    
+    const userIds: string[] = [];
+    userSnaps.forEach(doc => userIds.push(doc.id));
+    
+    if (userIds.length === 0) return;
+
+    // 2. Fetch their FCM tokens
+    const tokensRef = collection(db, 'fcmTokens');
+    const tokenQuery = query(tokensRef, where('userId', 'in', userIds));
+    const tokenSnaps = await getDocs(tokenQuery);
+    
+    const tokens: string[] = [];
+    tokenSnaps.forEach(doc => {
+      const data = doc.data();
+      if (data.token) tokens.push(data.token);
+    });
+
+    console.log(`Found ${tokens.length} target device token(s) for class ${classId}.`);
+    await _sendFcmToTokens(tokens, title, body);
+  } catch (err) {
+    console.warn('Error sending class FCM push:', err);
+  }
+}
+
+export async function sendPushNotificationToAll(title: string, body: string) {
+  try {
+    const tokensRef = collection(db, 'fcmTokens');
+    const tokenSnaps = await getDocs(tokensRef);
+    
+    const tokens: string[] = [];
+    tokenSnaps.forEach(doc => {
+      const data = doc.data();
+      if (data.token) tokens.push(data.token);
+    });
+
+    console.log(`Found ${tokens.length} target device token(s) for broadcast.`);
+    await _sendFcmToTokens(tokens, title, body);
+  } catch (err) {
+    console.warn('Error sending broadcast FCM push:', err);
+  }
+}
+
+async function _sendFcmToTokens(tokens: string[], title: string, body: string) {
+  if (tokens.length === 0) return;
+
+  const serverKey = import.meta.env.VITE_FCM_SERVER_KEY || import.meta.env.VITE_FIREBASE_API_KEY;
+  if (!serverKey) {
+    console.warn('No VITE_FIREBASE_API_KEY available to send FCM pushes.');
+    return;
+  }
+
+  // FCM legacy API allows up to 1000 tokens per request
+  const payload = {
+    registration_ids: tokens,
+    notification: {
+      title,
+      body,
+      icon: '/favicon.png',
+      image: '/favicon.png'
+    },
+    data: {
+      url: '/'
+    }
+  };
+
+  try {
+    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `key=${serverKey}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      console.error('FCM Send Error:', await response.text());
+    } else {
+      console.log('FCM Push dispatched successfully.');
+    }
+  } catch (err) {
+    console.warn('Network error sending FCM:', err);
   }
 }
 
