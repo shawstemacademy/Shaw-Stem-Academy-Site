@@ -214,6 +214,9 @@ export interface RegistrationRecord {
   }[];
   verifiedClassIds?: string[];
   grades?: {
+    id: string;
+    classId: string;
+    className: string;
     assignmentName: string;
     grade: string;
     pointsPossible?: string;
@@ -221,6 +224,17 @@ export interface RegistrationRecord {
     feedback?: string;
     updatedAt: string;
   }[];
+}
+
+export interface AttendanceRecord {
+  id: string; // e.g. "attendance-classId-date"
+  classId: string;
+  className: string;
+  date: string; // "YYYY-MM-DD"
+  studentId: string;
+  studentName: string;
+  status: 'present' | 'absent' | 'late' | 'excused';
+  timestamp: string; // Check-in time
 }
 
 export interface LandingPageSettings {

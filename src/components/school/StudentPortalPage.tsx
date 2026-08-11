@@ -36,6 +36,7 @@ import {
   ResourceCategory,
   SchoolUser,
   RegistrationRecord,
+  AttendanceRecord,
   StudentInfo,
   FormTheme
 } from '../../types';
@@ -53,6 +54,8 @@ interface StudentPortalPageProps {
   studentUser?: SchoolUser | null;
   registrationRecord?: RegistrationRecord | null;
   allRegistrations?: RegistrationRecord[];
+  attendanceRecords?: AttendanceRecord[];
+  onUpdateAttendance?: (att: AttendanceRecord) => void;
   onUpdateRegistration?: (updated: RegistrationRecord) => void;
   onUpdateUserProfile?: (updated: SchoolUser) => void;
   onOpenRegistration: () => void;
@@ -69,6 +72,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   studentUser,
   registrationRecord,
   allRegistrations = [],
+  attendanceRecords = [],
+  onUpdateAttendance,
   onUpdateRegistration,
   onUpdateUserProfile,
   onOpenRegistration,
@@ -79,6 +84,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   const [editingStudentInfo, setEditingStudentInfo] = useState<StudentInfo | null>(null);
   const [selectedReceiptRecord, setSelectedReceiptRecord] = useState<RegistrationRecord | null>(null);
   const [activePaymentMethod, setActivePaymentMethod] = useState<'zelle' | 'wire' | 'check'>('zelle');
+  const [academicTab, setAcademicTab] = useState<'schedule' | 'attendance' | 'grades'>('schedule');
 
   // FCM Notification States
   const [fcmSupported, setFcmSupported] = useState<boolean | null>(null);
@@ -535,7 +541,9 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                         Fully Paid
                       </p>
                       <p className="text-emerald-100 text-xs mt-1">
-                        Your course registrations are fully paid. Awaiting final administrative verification to complete your enrollment.
+                        {status === 'enrolled_paid' || status === 'accepted' 
+                          ? 'Your course registrations are fully paid and verified. Your enrollment is complete!'
+                          : 'Your course registrations are fully paid. Awaiting final administrative verification to complete your enrollment.'}
                       </p>
                     </div>
                   )
@@ -788,6 +796,166 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {hasCourseRegistrations && (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm mt-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-blue-600" />
+                    Student Academics
+                  </h3>
+                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                    <button
+                      onClick={() => setAcademicTab('schedule')}
+                      className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                        academicTab === 'schedule'
+                          ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                      }`}
+                    >
+                      Weekly Schedule
+                    </button>
+                    <button
+                      onClick={() => setAcademicTab('attendance')}
+                      className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                        academicTab === 'attendance'
+                          ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                      }`}
+                    >
+                      Attendance Check-In
+                    </button>
+                    <button
+                      onClick={() => setAcademicTab('grades')}
+                      className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                        academicTab === 'grades'
+                          ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                      }`}
+                    >
+                      Grade Reports
+                    </button>
+                  </div>
+                </div>
+
+                {academicTab === 'schedule' && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Your visual weekly class schedule.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => {
+                        const dayClasses = classes.filter(c => c.days?.includes(day)).sort((a, b) => {
+                          const timeA = a.startTime || a.schedule || '';
+                          const timeB = b.startTime || b.schedule || '';
+                          return timeA.localeCompare(timeB);
+                        });
+                        return (
+                          <div key={day} className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50 dark:bg-slate-900/50">
+                            <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-3 border-b border-slate-200 dark:border-slate-800 pb-2">{day}</h4>
+                            {dayClasses.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic">No classes</p>
+                            ) : (
+                              <div className="space-y-3">
+                                {dayClasses.map(cls => (
+                                  <div key={cls.id} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 shadow-xs">
+                                    <div className="text-[10px] font-bold text-blue-600 uppercase mb-1">{cls.startTime || cls.schedule?.split(' ')[0] || 'TBA'}</div>
+                                    <h5 className="font-bold text-xs text-slate-900 dark:text-slate-100 mb-1 leading-tight">{cls.title}</h5>
+                                    <p className="text-[10px] text-slate-500">{cls.location}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {academicTab === 'attendance' && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Log your presence for today's classes.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {classes.map((cls) => {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const attId = `att-\${cls.id}-\${todayStr}-\${studentUser?.id}`;
+                        const existingAtt = attendanceRecords?.find(a => a.id === attId);
+                        
+                        return (
+                          <div key={cls.id} className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-slate-900/50">
+                            <div>
+                              <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">{cls.title}</h4>
+                              <p className="text-xs text-slate-500">{cls.schedule}</p>
+                            </div>
+                            {existingAtt ? (
+                              <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Checked In
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  if (!studentUser || !studentUser.id) return;
+                                  if (onUpdateAttendance) {
+                                    onUpdateAttendance({
+                                      id: attId,
+                                      classId: cls.id,
+                                      className: cls.title,
+                                      date: todayStr,
+                                      studentId: studentUser.id,
+                                      studentName: studentUser.name,
+                                      status: 'present',
+                                      timestamp: new Date().toISOString()
+                                    });
+                                  }
+                                }}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
+                              >
+                                Check In Now
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {academicTab === 'grades' && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Your verified academic grades.</p>
+                    {(!registrationRecord?.grades || registrationRecord.grades.length === 0) ? (
+                      <div className="text-center p-8 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl">
+                        <p className="text-slate-500 dark:text-slate-400 text-sm">No grades posted yet.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="border-b border-slate-200 dark:border-slate-800">
+                              <th className="py-3 px-4 text-xs font-bold text-slate-500 uppercase">Class</th>
+                              <th className="py-3 px-4 text-xs font-bold text-slate-500 uppercase">Assignment</th>
+                              <th className="py-3 px-4 text-xs font-bold text-slate-500 uppercase">Score</th>
+                              <th className="py-3 px-4 text-xs font-bold text-slate-500 uppercase">Grade</th>
+                              <th className="py-3 px-4 text-xs font-bold text-slate-500 uppercase">Feedback</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {registrationRecord.grades.map((g, idx) => (
+                              <tr key={idx} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-900/30">
+                                <td className="py-3 px-4 text-sm font-semibold text-slate-800 dark:text-slate-200">{g.className}</td>
+                                <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300">{g.assignmentName}</td>
+                                <td className="py-3 px-4 text-sm text-slate-700 dark:text-slate-300">{g.score || '-'}/{g.pointsPossible || '-'}</td>
+                                <td className="py-3 px-4 text-sm font-bold text-blue-600 dark:text-blue-400">{g.grade}</td>
+                                <td className="py-3 px-4 text-sm text-slate-600 dark:text-slate-400">{g.feedback || '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

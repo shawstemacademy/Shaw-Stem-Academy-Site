@@ -29,7 +29,9 @@ import {
   ResourceCategory,
   SbaHubOption,
   ClassClaimItem,
-  TeacherHourlyRate
+  TeacherHourlyRate,
+  AttendanceRecord,
+  RegistrationRecord
 } from '../../types';
 import { AdminNewsManagement } from './AdminNewsManagement';
 import { HodResourceCategoryManager } from './HodResourceCategoryManager';
@@ -58,6 +60,10 @@ interface TeacherDashboardPageProps {
   schoolUsers?: SchoolUser[];
   onUpdateUserProfile?: (updated: SchoolUser) => void;
   onUpdateUser?: (updated: SchoolUser) => void;
+  attendanceRecords?: AttendanceRecord[];
+  onUpdateAttendance?: (record: AttendanceRecord) => void;
+  registrationLogs?: RegistrationRecord[];
+  onUpdateRegistration?: (updated: RegistrationRecord) => void;
 }
 
 export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
@@ -83,6 +89,10 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   schoolUsers = [],
   onUpdateUserProfile,
   onUpdateUser,
+  attendanceRecords = [],
+  onUpdateAttendance = (record: AttendanceRecord) => {},
+  registrationLogs = [],
+  onUpdateRegistration = (updated: RegistrationRecord) => {}
 }) => {
   const [activeSection, setActiveSection] = useState<'classes' | 'claims' | 'resources'>('classes');
 
@@ -102,6 +112,21 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   const teacherClasses = classes.filter((c) => 
     (currentTeacher?.assignedClassIds || []).includes(c.id) || c.instructor === currentTeacher?.name
   );
+
+  // Classes available for dropdowns (Admin sees all, HOD sees their dept + assigned, Teacher sees assigned)
+  const formClasses = currentRole === 'admin' 
+    ? classes 
+    : (currentRole === 'hod' && loggedInUser && 'role' in loggedInUser)
+      ? classes.filter(c => {
+          const deptNames = [loggedInUser.departmentName, ...(loggedInUser.departmentNames || [])].filter(Boolean);
+          const deptIds = [loggedInUser.departmentId, ...(loggedInUser.departmentIds || [])].filter(Boolean);
+          
+          // Try to match by category name or if we have department mapping
+          const isDeptMatch = deptNames.includes(c.category);
+          
+          return isDeptMatch || (currentTeacher?.assignedClassIds || []).includes(c.id) || c.instructor === currentTeacher?.name;
+        })
+      : teacherClasses;
 
   // Teacher Profile Editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -224,6 +249,9 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
 
   // State for editing class Google Classroom links
   const [editingGcClassId, setEditingGcClassId] = useState<string | null>(null);
+  const [managingAcademicsClassId, setManagingAcademicsClassId] = useState<string | null>(null);
+  const [academicManageTab, setAcademicManageTab] = useState<'attendance' | 'grades'>('attendance');
+  
   const [editGcUrl, setEditGcUrl] = useState<string>('');
   const [editMeetUrl, setEditMeetUrl] = useState<string>('');
 
@@ -504,19 +532,222 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                     <BookOpen className="w-3.5 h-3.5" />
                     <span>Open Classroom</span>
                   </a>
-                  <a
-                    href={meetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-2xs flex items-center justify-center gap-1.5 transition-all text-center"
+                  <button
+                    onClick={() => setManagingAcademicsClassId(managingAcademicsClassId === cls.id ? null : cls.id)}
+                    className="py-2 px-3 bg-slate-800 hover:bg-slate-900 text-white font-bold text-[11px] rounded-xl shadow-2xs flex items-center justify-center transition-all text-center"
                   >
-                    <span>Meet</span>
-                  </a>
+                    <span>{managingAcademicsClassId === cls.id ? 'Close' : 'Academics'}</span>
+                  </button>
                 </div>
               </div>
             );
           })}
         </div>
+        
+        {/* Academics Management Panel */}
+        {managingAcademicsClassId && (() => {
+          const cls = teacherClasses.find(c => c.id === managingAcademicsClassId);
+          if (!cls) return null;
+          
+          // Get enrolled students for this class
+          const enrolledStudents = registrationLogs.filter(log => log.verifiedClassIds?.includes(cls.id) && log.status === 'enrolled_paid');
+          const todayStr = new Date().toISOString().split('T')[0];
+          
+          return (
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm mt-8 animate-in slide-in-from-top-4 fade-in duration-300">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-blue-600" />
+                    Manage {cls.title}
+                  </h3>
+                  <p className="text-xs text-slate-500">{enrolledStudents.length} students enrolled</p>
+                </div>
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+                  <button
+                    onClick={() => setAcademicManageTab('attendance')}
+                    className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                      academicManageTab === 'attendance'
+                        ? 'bg-white text-blue-700 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Attendance
+                  </button>
+                  <button
+                    onClick={() => setAcademicManageTab('grades')}
+                    className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                      academicManageTab === 'grades'
+                        ? 'bg-white text-blue-700 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Grades
+                  </button>
+                </div>
+              </div>
+
+              {academicManageTab === 'attendance' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <h4 className="font-bold text-slate-900">Today's Attendance ({todayStr})</h4>
+                    <button
+                      onClick={() => {
+                        const classAttendance = attendanceRecords?.filter(a => a.classId === cls.id) || [];
+                        if (classAttendance.length === 0) return alert('No attendance records found for this class.');
+                        
+                        const headers = ['Date', 'Student Name', 'Status', 'Timestamp'];
+                        const rows = classAttendance.map(a => [a.date, a.studentName, a.status, a.timestamp]);
+                        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+                        
+                        const blob = new Blob([csvContent], { type: 'text/csv' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `attendance-\${cls.id}-\${todayStr}.csv`;
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                      }}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
+                    >
+                      Export All Attendance
+                    </button>
+                  </div>
+                  {enrolledStudents.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic">No students enrolled yet.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-200">
+                            <th className="py-2 px-3 text-xs font-bold text-slate-500 uppercase">Student</th>
+                            <th className="py-2 px-3 text-xs font-bold text-slate-500 uppercase">Email</th>
+                            <th className="py-2 px-3 text-xs font-bold text-slate-500 uppercase text-right">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {enrolledStudents.map(student => {
+                            const attId = `att-\${cls.id}-\${todayStr}-\${student.studentInfo.id || student.id}`;
+                            const record = attendanceRecords?.find(a => a.id === attId);
+                            return (
+                              <tr key={student.id} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="py-3 px-3 text-sm font-semibold text-slate-800">{student.studentInfo.studentName || student.studentInfo.firstName}</td>
+                                <td className="py-3 px-3 text-sm text-slate-500">{student.studentInfo.email || student.studentInfo.parentEmail}</td>
+                                <td className="py-3 px-3 text-right">
+                                  {record ? (
+                                    <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                                      <CheckCircle2 className="w-3.5 h-3.5" /> Present
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        onUpdateAttendance({
+                                          id: attId,
+                                          classId: cls.id,
+                                          className: cls.title,
+                                          date: todayStr,
+                                          studentId: student.studentInfo.id || student.id,
+                                          studentName: student.studentInfo.studentName || student.studentInfo.firstName,
+                                          status: 'present',
+                                          timestamp: new Date().toISOString()
+                                        });
+                                      }}
+                                      className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors"
+                                    >
+                                      Mark Present
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {academicManageTab === 'grades' && (
+                <div className="space-y-4">
+                  <h4 className="font-bold text-slate-900">Student Grade Reports</h4>
+                  {enrolledStudents.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic">No students enrolled yet.</p>
+                  ) : (
+                    <div className="space-y-6">
+                      {enrolledStudents.map(student => {
+                        const studentGrades = (student.grades || []).filter(g => g.classId === cls.id);
+                        return (
+                          <div key={student.id} className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                            <div className="flex items-center justify-between mb-4">
+                              <h5 className="font-bold text-slate-800">{student.studentInfo.studentName || student.studentInfo.firstName}</h5>
+                              <button
+                                onClick={() => {
+                                  const assignment = prompt('Enter assignment name:');
+                                  if (!assignment) return;
+                                  const score = prompt('Enter score:');
+                                  const possible = prompt('Enter points possible:');
+                                  const grade = prompt('Enter letter grade:');
+                                  if (assignment && grade) {
+                                    const newGrade = {
+                                      id: `grade-\${Date.now()}`,
+                                      classId: cls.id,
+                                      className: cls.title,
+                                      assignmentName: assignment,
+                                      score: score || '',
+                                      pointsPossible: possible || '',
+                                      grade,
+                                      feedback: prompt('Enter optional feedback:') || '',
+                                      updatedAt: new Date().toISOString()
+                                    };
+                                    onUpdateRegistration({
+                                      ...student,
+                                      grades: [...(student.grades || []), newGrade]
+                                    });
+                                  }
+                                }}
+                                className="text-[10px] font-bold px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded shadow-2xs"
+                              >
+                                + Add Grade
+                              </button>
+                            </div>
+                            
+                            {studentGrades.length === 0 ? (
+                              <p className="text-xs text-slate-400">No grades recorded.</p>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                  <thead>
+                                    <tr className="border-b border-slate-200 text-slate-500">
+                                      <th className="py-1.5 font-semibold">Assignment</th>
+                                      <th className="py-1.5 font-semibold">Score</th>
+                                      <th className="py-1.5 font-semibold">Grade</th>
+                                      <th className="py-1.5 font-semibold">Feedback</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {studentGrades.map(g => (
+                                      <tr key={g.id} className="border-b border-slate-100">
+                                        <td className="py-2 text-slate-800 font-medium">{g.assignmentName}</td>
+                                        <td className="py-2 text-slate-600">{g.score || '-'}/{g.pointsPossible || '-'}</td>
+                                        <td className="py-2 text-blue-700 font-bold">{g.grade}</td>
+                                        <td className="py-2 text-slate-500">{g.feedback}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
       )}
 
@@ -546,7 +777,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                 onChange={(e) => setAnnClassId(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold bg-white"
               >
-                {teacherClasses.map((c) => (
+                {formClasses.map((c) => (
                   <option key={c.id} value={c.id}>{c.title}</option>
                 ))}
               </select>
@@ -636,7 +867,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                 onChange={(e) => setResClassId(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold bg-white"
               >
-                {teacherClasses.map((c) => (
+                {formClasses.map((c) => (
                   <option key={c.id} value={c.id}>{c.title}</option>
                 ))}
               </select>

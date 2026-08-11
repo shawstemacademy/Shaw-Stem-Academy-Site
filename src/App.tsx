@@ -33,6 +33,7 @@ import {
   FormTheme,
   AppliedDiscount,
   RegistrationRecord,
+  AttendanceRecord,
   PortalTab,
   UserRole,
   StudentStatus,
@@ -199,6 +200,7 @@ export default function App() {
   const [announcements, setAnnouncements] = useState<ClassAnnouncement[]>([]);
   const [schoolNews, setSchoolNews] = useState<any[]>([]);
   const [registrationLogs, setRegistrationLogs] = useState<RegistrationRecord[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [schoolUsers, setSchoolUsers] = useState<SchoolUser[]>([]);
   const [schoolUsersLoaded, setSchoolUsersLoaded] = useState(false);
@@ -859,6 +861,7 @@ export default function App() {
     console.log(`User logged in: ${user.email}, subscribing to authenticated collections...`);
     const authUnsubs = [
       subscribeToCollection<TeacherResource>('resources', (data) => setResources(data || [])),
+      subscribeToCollection<AttendanceRecord>('attendance', (data) => setAttendanceRecords(data || [])),
       subscribeToCollection<ClassAnnouncement>('announcements', (data) => {
         setAnnouncements(data || []);
         if (data && data.length > 0) {
@@ -1696,6 +1699,15 @@ export default function App() {
     logSystemAction('registration', `Registration profile for ${updatedLog.studentInfo.studentName || updatedLog.studentInfo.firstName} updated`);
   };
 
+  const handleUpdateAttendance = (record: AttendanceRecord) => {
+    setAttendanceRecords((prev) => {
+      const exists = prev.find(r => r.id === record.id);
+      if (exists) return prev.map(r => r.id === record.id ? record : r);
+      return [...prev, record];
+    });
+    saveDocToFirestore('attendance', record.id, record);
+  };
+
   const handleUpdateUserProfile = (updatedUser: SchoolUser) => {
     setLoggedInUser(updatedUser);
     setSchoolUsers((prev) =>
@@ -1877,7 +1889,13 @@ export default function App() {
     setSchoolUsers((prev) =>
       prev.map((u) => {
         if (u.id === userId) {
-          const updated = { ...u, departmentId: targetDept.id, departmentName: targetDept.name };
+          const updated = { 
+            ...u, 
+            departmentId: targetDept.id, 
+            departmentName: targetDept.name,
+            departmentIds: [targetDept.id],
+            departmentNames: [targetDept.name] 
+          };
           saveDocToFirestore('schoolUsers', userId, updated);
           return updated;
         }
@@ -2278,6 +2296,8 @@ export default function App() {
                 studentUser={loggedInUser}
                 registrationRecord={studentRegistrationRecord}
                 allRegistrations={allStudentRegistrations}
+                attendanceRecords={attendanceRecords}
+                onUpdateAttendance={handleUpdateAttendance}
                 onUpdateRegistration={handleUpdateRegistration}
                 onUpdateUserProfile={handleUpdateUserProfile}
                 onDeleteRegistration={handleDeleteRegistration}
@@ -2296,6 +2316,10 @@ export default function App() {
               classes={classList}
               resources={resources}
               announcements={announcements}
+              attendanceRecords={attendanceRecords}
+              onUpdateAttendance={handleUpdateAttendance}
+              onUpdateRegistration={handleUpdateRegistration}
+              registrationLogs={registrationLogs}
               onAddAnnouncement={handleAddAnnouncement}
               onDeleteAnnouncement={handleDeleteAnnouncement}
               onAddResource={handleAddResource}

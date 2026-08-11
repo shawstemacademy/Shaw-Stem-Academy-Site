@@ -235,57 +235,63 @@ export const AdminRoleManagement: React.FC<AdminRoleManagementProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredUsers.map((user) => {
-            const rolesList = user.roles && user.roles.length > 0 ? user.roles : [user.role];
-            const hasCustomPerms = user.permissions && user.permissions.length > 0;
+        {filteredUsers.length === 0 ? (
+          <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-2xl text-slate-500 text-xs font-medium">
+            No user accounts found matching your search or role filter.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredUsers.map((user) => {
+              const rolesList = user.roles && user.roles.length > 0 ? user.roles : [user.role];
+              const hasCustomPerms = user.permissions && user.permissions.length > 0;
 
-            return (
-              <div
-                key={user.id}
-                className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-all flex flex-col justify-between gap-3"
-              >
-                <div className="flex items-start gap-3">
-                  <img
-                    src={user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
-                    alt={user.name}
-                    className="w-11 h-11 rounded-xl object-cover shrink-0 border border-slate-200"
-                  />
-                  <div className="overflow-hidden space-y-1">
-                    <div className="font-bold text-slate-900 text-sm truncate">{user.name}</div>
-                    <div className="text-xs text-slate-500 truncate">{user.email}</div>
-                    
-                    {/* Role Badges */}
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      {rolesList.map((r) => (
-                        <span
-                          key={r}
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${getRoleBadgeStyle(r)}`}
-                        >
-                          {r}
-                        </span>
-                      ))}
+              return (
+                <div
+                  key={user.id}
+                  className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-all flex flex-col justify-between gap-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                      alt={user.name}
+                      className="w-11 h-11 rounded-xl object-cover shrink-0 border border-slate-200"
+                    />
+                    <div className="overflow-hidden space-y-1">
+                      <div className="font-bold text-slate-900 text-sm truncate">{user.name}</div>
+                      <div className="text-xs text-slate-500 truncate">{user.email}</div>
+                      
+                      {/* Role Badges */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {rolesList.map((r) => (
+                          <span
+                            key={r}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${getRoleBadgeStyle(r)}`}
+                          >
+                            {r}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
-                  <span className="text-[11px] text-slate-500 font-medium">
-                    {hasCustomPerms ? `${user.permissions?.length} custom permission(s)` : 'Default role permissions'}
-                  </span>
+                  <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      {hasCustomPerms ? `${user.permissions?.length} custom permission(s)` : 'Default role permissions'}
+                    </span>
 
-                  <button
-                    onClick={() => handleOpenUserRoleModal(user)}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Edit Roles & Access</span>
-                  </button>
+                    <button
+                      onClick={() => handleOpenUserRoleModal(user)}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit Roles & Access</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Role Permission Matrix */}
