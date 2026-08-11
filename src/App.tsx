@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { Lock } from 'lucide-react';
+import { Lock, Loader2 } from 'lucide-react';
 import { requestNotificationPermission, sendDesktopNotification, playNotificationSound } from './lib/notifications';
 import { requestAndSaveFcmToken, DEFAULT_VAPID_KEY, sendPushNotificationToUser, sendPushNotificationToClass, sendPushNotificationToAll } from './lib/fcm';
 import {
@@ -25,7 +25,9 @@ import {
   deleteDocFromFirestore,
   toggleUserDisabledInFirestore,
   onFirestoreWrite,
+  logSecurityEvent,
 } from './lib/firebase';
+import { getRecaptchaToken, createRecaptchaAssessment, verifyRecaptcha } from './lib/recaptcha';
 import {
   ClassItem,
   DiscountRule,
@@ -1273,27 +1275,60 @@ export default function App() {
     setAuthLoading(true);
     setAuthError('');
     try {
+      // Verify reCAPTCHA token before proceeding with account creation
+      const recaptchaResult = await verifyRecaptcha('REGISTER');
+      if (!recaptchaResult.valid) {
+        setAuthError(recaptchaResult.message || 'reCAPTCHA verification failed.');
+        await logSecurityEvent({
+          eventType: 'google_auth_registration',
+          status: 'failure',
+          email: studentInfo.email,
+          details: `reCAPTCHA failed: ${recaptchaResult.message}`,
+        });
+        setAuthLoading(false);
+        return;
+      }
+
       // Save state before sign-in to preserve form data
       localStorage.setItem('pending_registration_info', JSON.stringify(studentInfo));
       const result = await googleSignIn();
       if (result && result.user) {
         await handleNewUserCreation(result.user);
+        await logSecurityEvent({
+          eventType: 'google_auth_registration',
+          status: 'success',
+          email: result.user.email || studentInfo.email,
+          userId: result.user.uid,
+          details: 'Google Authentication registration successful',
+        });
         setIsAuthModalOpen(false);
       } else {
         setAuthError('Sign-in cancelled or returned no user.');
+        await logSecurityEvent({
+          eventType: 'google_auth_registration',
+          status: 'failure',
+          email: studentInfo.email,
+          details: 'Sign-in cancelled or returned no user.',
+        });
       }
     } catch (err: any) {
       console.error('Registration error:', err);
+      let errorMsg = err?.message || 'An error occurred during Google sign-in. Please try again.';
       if (err?.code === 'auth/unauthorized-domain') {
         const domain = window.location.hostname;
-        setAuthError(`Domain Unauthorized: The domain "${domain}" is not authorized in your Firebase Console. Please add it to Authentication > Settings > Authorized Domains.`);
+        errorMsg = `Domain Unauthorized: The domain "${domain}" is not authorized in your Firebase Console. Please add it to Authentication > Settings > Authorized Domains.`;
       } else if (err?.code === 'auth/popup-blocked') {
-        setAuthError('Pop-up Blocked: Please enable pop-ups for this site, or open this app in a New Tab using the button in the top right to sign in with Google.');
+        errorMsg = 'Pop-up Blocked: Please enable pop-ups for this site, or open this app in a New Tab using the button in the top right to sign in with Google.';
       } else if (err?.code === 'auth/operation-not-supported-in-this-environment') {
-        setAuthError('Environment Error: Pop-ups are not supported inside this iframe. Please open this app in a New Tab using the button in the top right of the editor.');
-      } else {
-        setAuthError(err?.message || 'An error occurred during Google sign-in. Please try again.');
+        errorMsg = 'Environment Error: Pop-ups are not supported inside this iframe. Please open this app in a New Tab using the button in the top right of the editor.';
       }
+      setAuthError(errorMsg);
+      await logSecurityEvent({
+        eventType: 'google_auth_registration',
+        status: 'failure',
+        email: studentInfo.email,
+        details: `Google Auth Registration Error: ${errorMsg}`,
+      });
       setAuthLoading(false);
       // Open modal to show error if it wasn't already open
       setAuthModalType('google');
@@ -1335,6 +1370,14 @@ export default function App() {
       };
 
       await saveDocToFirestore('schoolUsers', newUser.id, newUser);
+      await logSecurityEvent({
+        eventType: 'google_auth_registration',
+        status: 'success',
+        email: newUser.email,
+        userId: newUser.id,
+        details: `Direct Gmail sign-in completed for ${newUser.name}`,
+      });
+
       setSchoolUsers((prev) => [...prev.filter((u) => u.id !== newUser.id), newUser]);
       setIsAuthModalOpen(false);
       setLoggedInUser(newUser);
@@ -1344,6 +1387,12 @@ export default function App() {
       alert(`School Account Created Successfully!\nWelcome to Shaw STEM Academy, ${newUser.name} (${newUser.email}). Your admissions application is being processed; you will receive a notification and be able to enroll in classes once your admission is accepted by the school.`);
     } catch (err: any) {
       setAuthError(err?.message || 'Failed to complete direct email sign-in.');
+      await logSecurityEvent({
+        eventType: 'google_auth_registration',
+        status: 'failure',
+        email: studentInfo.email,
+        details: `Direct Gmail sign-in error: ${err?.message || err}`,
+      });
     } finally {
       setAuthLoading(false);
     }
@@ -1361,6 +1410,20 @@ export default function App() {
     setAuthLoading(true);
     setAuthError('');
     try {
+      // Verify reCAPTCHA token using Enterprise REST API before proceeding with account creation
+      const recaptchaResult = await verifyRecaptcha('REGISTER');
+      if (!recaptchaResult.valid) {
+        setAuthError(recaptchaResult.message || 'reCAPTCHA verification failed.');
+        await logSecurityEvent({
+          eventType: 'password_auth_registration',
+          status: 'failure',
+          email: studentInfo.email,
+          details: `reCAPTCHA failed: ${recaptchaResult.message}`,
+        });
+        setAuthLoading(false);
+        return;
+      }
+
       const sName = studentInfo.studentName || `${studentInfo.firstName || ''} ${studentInfo.lastName || ''}`.trim() || 'Student';
       const pName = studentInfo.motherFirstName || studentInfo.fatherFirstName || studentInfo.guardianFirstName || studentInfo.parentName || '';
       const pPhone = studentInfo.parentPhone || studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone || '';
@@ -1388,6 +1451,14 @@ export default function App() {
       };
       
       await saveDocToFirestore('schoolUsers', newUser.id, newUser);
+      await logSecurityEvent({
+        eventType: 'password_auth_registration',
+        status: 'success',
+        email: newUser.email,
+        userId: newUser.id,
+        details: `Password registration account created for ${newUser.name}`,
+      });
+
       setSchoolUsers((prev) => [...prev.filter((u) => u.id !== newUser.id), newUser]);
       setIsAuthModalOpen(false);
       setLoggedInUser(newUser);
@@ -1397,7 +1468,14 @@ export default function App() {
       alert(`School Account Created Successfully!\nWelcome to Shaw STEM Academy, ${newUser.name} (${newUser.email}). Your admissions application is being processed; you will receive a notification and be able to enroll in classes once your admission is accepted by the school.`);
     } catch (err: any) {
       console.error('Password registration error:', err);
-      setAuthError(err?.message || 'Failed to create password account.');
+      const errMsg = err?.message || 'Failed to create password account.';
+      setAuthError(errMsg);
+      await logSecurityEvent({
+        eventType: 'password_auth_registration',
+        status: 'failure',
+        email: studentInfo.email,
+        details: `Password registration error: ${errMsg}`,
+      });
     } finally {
       setAuthLoading(false);
     }
@@ -2935,9 +3013,11 @@ export default function App() {
                           setIsAuthModalOpen(true);
                         }
                       }}
-                      className={`px-8 py-3 rounded-xl text-white font-bold text-sm shadow-md transition-all ${theme.buttonBg}`}
+                      className={`px-8 py-3 rounded-xl text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 ${theme.buttonBg} disabled:opacity-50`}
+                      disabled={authLoading}
                     >
-                      Create Account & Continue to Class Registration →
+                      {authLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      <span>Create Account & Continue to Class Registration →</span>
                     </button>
                   )}
                 </div>
@@ -3180,24 +3260,28 @@ export default function App() {
                   onClick={handleGoogleAuthRegistration}
                   className="w-full py-3 px-4 bg-slate-950 dark:bg-slate-850 hover:bg-slate-800 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
                 >
-                  <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
-                  </svg>
+                  {authLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24">
+                      <path
+                        fill="currentColor"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                      />
+                    </svg>
+                  )}
                   <span>{authLoading ? 'Signing in...' : 'Sign In with Google'}</span>
                 </button>
 
@@ -3213,6 +3297,7 @@ export default function App() {
                   onClick={handleDirectGoogleEmailSignIn}
                   className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
                 >
+                  {authLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>Instant Gmail Direct Sign-In ({studentInfo.email || 'shawstemacademy@gmail.com'})</span>
                 </button>
 
@@ -3268,9 +3353,16 @@ export default function App() {
                     type="button"
                     disabled={authLoading}
                     onClick={handlePasswordAuthRegistration}
-                    className="flex-1 py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer disabled:opacity-50"
+                    className="flex-1 py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {authLoading ? 'Creating...' : 'Create Account'}
+                    {authLoading ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Creating...</span>
+                      </>
+                    ) : (
+                      <span>Create Account</span>
+                    )}
                   </button>
                 </div>
               </div>

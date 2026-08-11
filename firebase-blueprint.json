@@ -137,6 +137,21 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["token", "userId", "userEmail"]
+    },
+    "securityLogs": {
+      "title": "Security Audit Logs",
+      "description": "Records authentication attempts, reCAPTCHA verifications, and security events",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "eventType": { "type": "string" },
+        "status": { "type": "string" },
+        "email": { "type": "string" },
+        "userId": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["eventType", "status"]
     }
   }
 }

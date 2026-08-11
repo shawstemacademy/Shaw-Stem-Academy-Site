@@ -117,6 +117,12 @@ service cloud.firestore {
       allow create, update: if true;
       allow delete: if isAuthenticated();
     }
+
+    // 7. Security Logs Collection
+    match /securityLogs/{logId} {
+      allow create: if true;
+      allow read: if isAuthenticated() && isStaff();
+    }
     
     // Default fallback rules
     match /{document=**} {

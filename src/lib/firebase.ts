@@ -457,3 +457,37 @@ export const saveRegistrationToFirestore = async (registrationData: any) => {
 export const subscribeToRegistrations = (callback: (registrations: any[]) => void) => {
   return subscribeToCollection('registrations', callback);
 };
+
+export interface SecurityLogEvent {
+  eventType: 'google_auth_registration' | 'password_auth_registration' | 'failed_login' | 'successful_login' | 'recaptcha_verification' | 'suspicious_activity';
+  status: 'success' | 'failure' | 'warning';
+  email?: string;
+  userId?: string;
+  details?: string;
+  userAgent?: string;
+}
+
+/**
+ * Records authentication attempts, suspicious activity, and reCAPTCHA verifications to 'securityLogs' Firestore collection
+ */
+export const logSecurityEvent = async (event: SecurityLogEvent) => {
+  try {
+    const logsRef = collection(db, 'securityLogs');
+    const logData = {
+      eventType: event.eventType,
+      status: event.status,
+      email: event.email || auth.currentUser?.email || 'unauthenticated',
+      userId: event.userId || auth.currentUser?.uid || 'anonymous',
+      details: event.details || '',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      timestamp: serverTimestamp(),
+      createdAt: new Date().toISOString(),
+    };
+    await addDoc(logsRef, logData);
+    console.log('Security event logged successfully:', logData.eventType, logData.status);
+    return true;
+  } catch (err) {
+    console.warn('logSecurityEvent warning:', err);
+    return false;
+  }
+};
