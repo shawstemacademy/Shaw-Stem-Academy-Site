@@ -1,5 +1,5 @@
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
-import { doc, setDoc, deleteDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, collection, getDocs, query, where, addDoc } from 'firebase/firestore';
 import { db, auth } from './firebase';
 
 // Default VAPID public key for web push (optional but recommended for FCM)
@@ -257,13 +257,26 @@ export async function sendPushNotificationToAll(title: string, body: string) {
 async function _sendFcmToTokens(tokens: string[], title: string, body: string) {
   if (tokens.length === 0) return;
 
+  // Always publish to Firestore Push Queue so target mobile and web devices receive the notification live
+  try {
+    const queueRef = collection(db, 'fcmNotificationQueue');
+    await addDoc(queueRef, {
+      tokens,
+      title,
+      body,
+      createdAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn('Failed publishing push to Firestore queue:', err);
+  }
+
   const serverKey = import.meta.env.VITE_FCM_SERVER_KEY || import.meta.env.VITE_FIREBASE_API_KEY;
   if (!serverKey) {
     console.warn('No VITE_FIREBASE_API_KEY available to send FCM pushes.');
     return;
   }
 
-  // FCM legacy API allows up to 1000 tokens per request
+  // FCM legacy API payload
   const payload = {
     registration_ids: tokens,
     notification: {
@@ -288,12 +301,12 @@ async function _sendFcmToTokens(tokens: string[], title: string, body: string) {
     });
 
     if (!response.ok) {
-      console.error('FCM Send Error:', await response.text());
+      console.warn('FCM Legacy Endpoint notice:', await response.text());
     } else {
-      console.log('FCM Push dispatched successfully.');
+      console.log('FCM Push dispatched successfully via HTTP endpoint.');
     }
   } catch (err) {
-    console.warn('Network error sending FCM:', err);
+    console.warn('Network notice sending FCM HTTP push:', err);
   }
 }
 

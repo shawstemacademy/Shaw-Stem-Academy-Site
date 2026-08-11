@@ -162,6 +162,36 @@ export default function App() {
     }
   }, [loggedInUser, user]);
 
+  // Real-time FCM push queue listener for live notifications across mobile and web devices
+  useEffect(() => {
+    const userEmail = (loggedInUser?.email || user?.email || '').toLowerCase().trim();
+    const unsub = subscribeToCollection('fcmNotificationQueue', (items: any[]) => {
+      if (!items || items.length === 0) return;
+      
+      const now = Date.now();
+      items.forEach((item) => {
+        if (!item.createdAt) return;
+        const createdAtTime = new Date(item.createdAt).getTime();
+        // Trigger for notifications created in the last 15 seconds
+        if (now - createdAtTime < 15000) {
+          const isTargetEmail = userEmail && item.targetEmail && item.targetEmail.toLowerCase().trim() === userEmail;
+          const isBroadcast = !item.tokens || item.tokens.length === 0;
+          
+          if (isTargetEmail || isBroadcast) {
+            sendDesktopNotification(
+              item.title || "🔔 New Academy Notification",
+              item.body || "You have a new message from Shaw STEM Academy."
+            );
+          }
+        }
+      });
+    });
+
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, [loggedInUser, user]);
+
   useEffect(() => {
     const handleFirestoreErrorEvent = (event: Event) => {
       const customEvent = event as CustomEvent;

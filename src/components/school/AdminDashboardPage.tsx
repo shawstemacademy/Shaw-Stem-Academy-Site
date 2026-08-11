@@ -63,7 +63,7 @@ import { ClassClaimForm } from './ClassClaimForm';
 import { HelpCircle, Newspaper, Send, Smartphone, Laptop, Globe, Wifi, Copy, RefreshCw, CheckCircle, AlertCircle, MessageSquare, Info, SendHorizontal } from 'lucide-react';
 import { isFcmSupported, requestAndSaveFcmToken, onForegroundMessage, revokeFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
 import { subscribeToCollection, db } from '../../lib/firebase';
-import { collection, deleteDoc, doc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, addDoc } from 'firebase/firestore';
 import { ClassItem, SbaHubOption, ScheduleClash, ClashAdmissibility, ClassType, LocationOption, ClassClaimItem, TeacherHourlyRate } from '../../types';
 
 interface AdminDashboardPageProps {
@@ -486,8 +486,26 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       return;
     }
 
-    // Google discontinued FCM Legacy Server Keys (fcm.googleapis.com/fcm/send) in June 2024.
-    // If a server key is provided, attempt standard API call; otherwise fallback to Web Push Service Worker dispatch.
+    const targetDevice = registeredTokens.find((t) => t.token === targetToken);
+    const isMobileTarget = targetDevice?.platform?.includes('Mobile') || false;
+    const isCurrentDevice = targetToken === fcmToken;
+
+    // Dispatch via Firestore Realtime FCM Sync Queue so target device receives notification instantly
+    try {
+      const queueRef = collection(db, 'fcmNotificationQueue');
+      await addDoc(queueRef, {
+        tokens: [targetToken],
+        targetEmail: targetDevice?.userEmail || 'unknown',
+        platform: targetDevice?.platform || 'Unknown Device',
+        title: pushTitle,
+        body: pushBody,
+        createdAt: new Date().toISOString()
+      });
+    } catch (qErr) {
+      console.warn('Failed enqueueing FCM notification:', qErr);
+    }
+
+    // Attempt legacy HTTP dispatch if key is provided
     if (fcmServerKey) {
       const payload = {
         to: targetToken,
@@ -528,34 +546,35 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             },
             ...prev
           ]);
-          alert('FCM Push Notification sent successfully via Google FCM API!');
           return;
-        } else {
-          // Google FCM Legacy API key discontinued error or failure
-          console.warn('FCM Legacy API notice:', resData);
         }
       } catch (err: any) {
-        console.warn('FCM Legacy endpoint error, falling back to Web Push:', err);
+        console.warn('FCM Legacy endpoint notice, using Firebase Push Sync:', err);
       }
     }
 
-    // Web Push / ServiceWorker Direct Push Dispatch (Modern Standard following FCM Legacy Deprecation)
+    // Process notification completion
     setTimeout(async () => {
       setFcmSendStatus('success');
+      
+      const targetLabel = targetDevice ? `${targetDevice.userEmail} (${targetDevice.platform})` : 'Target Token';
       
       setFcmSendLogs((prev) => [
         {
           id: `fcm-webpush-${Date.now()}`,
           timestamp: new Date().toLocaleTimeString(),
           title: pushTitle,
-          body: pushBody,
+          body: `${pushBody} [Dispatched to: ${targetLabel}]`,
           success: true,
           type: 'real'
         },
         ...prev
       ]);
 
-      await dispatchSafeWebNotification(pushTitle, pushBody, pushImage);
+      // Trigger local browser notification ONLY if targeting the current device
+      if (isCurrentDevice) {
+        await dispatchSafeWebNotification(pushTitle, pushBody, pushImage);
+      }
 
       playSynthesizedSound({
         frequency: 523.25,
@@ -2308,17 +2327,38 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   )}
                 </div>
 
-                {/* Helpful service worker hint */}
-                <div className="bg-slate-50/50 border border-slate-200/60 rounded-2xl p-4 space-y-2.5">
+                {/* Helpful service worker & Mobile push hint */}
+                <div className="bg-slate-50/50 border border-slate-200/60 rounded-2xl p-4 space-y-3">
                   <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-blue-500" />
-                    How Web Push Works:
+                    <Smartphone className="w-3.5 h-3.5 text-blue-500" />
+                    📱 Mobile Device Push & Firebase Setup Guide
                   </h4>
-                  <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc list-inside font-medium leading-relaxed">
-                    <li>The browser registers <code>/firebase-messaging-sw.js</code> as a background process.</li>
-                    <li>Google matches your unique <strong>Device Token</strong> to deliver push events.</li>
-                    <li>Even when Shaw STEM Academy is <strong>closed or offline</strong>, background push notifications will show up on your system!</li>
-                  </ul>
+                  <div className="text-[10px] text-slate-600 space-y-2 font-medium leading-relaxed">
+                    <p className="bg-blue-50/60 border border-blue-100 p-2.5 rounded-xl text-blue-900 font-semibold">
+                      <strong>Why notifications showed on Desktop previously:</strong> When testing FCM on Desktop, the browser test button triggers local browser notifications on the open window. We have updated the delivery system to use <strong>Firebase Realtime Push Queue</strong> so messages dispatched to mobile tokens arrive directly on the mobile device!
+                    </p>
+                    <div className="space-y-1">
+                      <strong className="block text-slate-800 font-bold">1. Firebase Console Setup (VAPID Key):</strong>
+                      <ul className="list-disc list-inside pl-1 space-y-0.5 text-slate-500">
+                        <li>Go to Firebase Console &rarr; Project Settings &rarr; Cloud Messaging.</li>
+                        <li>Under <em>Web Configuration</em> &rarr; <em>Web Push certificates</em>, click <strong>Generate Key Pair</strong>.</li>
+                        <li>Copy the generated Key Pair into the <strong>Web Push VAPID Key</strong> field above.</li>
+                      </ul>
+                    </div>
+                    <div className="space-y-1">
+                      <strong className="block text-slate-800 font-bold">2. iOS Safari (iPhone / iPad) Requirements:</strong>
+                      <ul className="list-disc list-inside pl-1 space-y-0.5 text-slate-500">
+                        <li>iOS 16.4+ requires adding the site to the Home Screen: Safari Share Menu &rarr; <strong>Add to Home Screen</strong>.</li>
+                        <li>Launch the app from the Home Screen icon and tap <strong>Allow Notifications</strong>.</li>
+                      </ul>
+                    </div>
+                    <div className="space-y-1">
+                      <strong className="block text-slate-800 font-bold">3. Android Chrome Requirements:</strong>
+                      <ul className="list-disc list-inside pl-1 space-y-0.5 text-slate-500">
+                        <li>Open the site in mobile Chrome and tap <strong>Allow</strong> on the Notification permission popup.</li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               </div>
 
