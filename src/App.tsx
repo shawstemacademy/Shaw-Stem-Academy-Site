@@ -1599,6 +1599,21 @@ export default function App() {
     // Save persistently to Firebase Firestore
     saveRegistrationToFirestore(record);
 
+    // Notify the student of their submission via the modern FCM framework
+    try {
+      sendPushNotificationToUser(
+        effectiveStudentInfo.email || loggedInUser?.email,
+        loggedInUser?.id || studentAccountId,
+        existingRecord ? '🎉 Registration Updated' : '📝 Class Registration Received',
+        existingRecord 
+          ? `Your class registration has been successfully updated in the portal.`
+          : `Your registration for ${record.selectedClasses?.map(c => c.title).join(', ') || 'classes'} was submitted. Status: Awaiting Acceptance.`,
+        'status'
+      );
+    } catch (err) {
+      console.warn('Failed to send FCM registration notification:', err);
+    }
+
     logSystemAction(
       'registration',
       existingRecord 
@@ -1741,9 +1756,11 @@ export default function App() {
   };
 
   const handleUpdateRegistration = (updatedLog: RegistrationRecord) => {
+    let oldLog: RegistrationRecord | undefined;
     setRegistrationLogs((prev) =>
       prev.map((log) => {
         if (log.id === updatedLog.id) {
+          oldLog = log;
           saveDocToFirestore('registrations', updatedLog.id, updatedLog);
           return updatedLog;
         }
@@ -1751,6 +1768,40 @@ export default function App() {
       })
     );
     logSystemAction('registration', `Registration profile for ${updatedLog.studentInfo.studentName || updatedLog.studentInfo.firstName} updated`);
+    
+    // Check if new grade was added or verification updated to notify student via FCM
+    if (updatedLog) {
+      const studentEmail = updatedLog.studentInfo?.email || updatedLog.studentInfo?.parentEmail;
+      const studentId = updatedLog.studentId || updatedLog.userId;
+      
+      const oldGradesLength = oldLog?.grades?.length || 0;
+      const newGradesLength = updatedLog.grades?.length || 0;
+      
+      if (newGradesLength > oldGradesLength) {
+        const latestGrade = updatedLog.grades?.[newGradesLength - 1];
+        if (latestGrade) {
+          sendPushNotificationToUser(
+            studentEmail,
+            studentId,
+            '📝 New Grade Posted!',
+            `A new grade has been posted for: ${latestGrade.assignmentName}. Grade: ${latestGrade.grade} (${latestGrade.score}).`,
+            'class'
+          );
+        }
+      } else {
+        const oldVerifiedLength = oldLog?.verifiedClassIds?.length || 0;
+        const newVerifiedLength = updatedLog.verifiedClassIds?.length || 0;
+        if (newVerifiedLength !== oldVerifiedLength && newVerifiedLength > 0) {
+          sendPushNotificationToUser(
+            studentEmail,
+            studentId,
+            '✅ Class Enrollment Verified!',
+            `Your enrolled classes have been updated and verified by the administration. Check your Student Portal.`,
+            'status'
+          );
+        }
+      }
+    }
   };
 
   const handleUpdateAttendance = (record: AttendanceRecord) => {

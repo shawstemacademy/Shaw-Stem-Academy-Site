@@ -213,6 +213,19 @@ export const AdminNewsManagement: React.FC<AdminNewsManagementProps> = ({
     setSaving(false);
 
     if (res) {
+      // Send FCM push notification to all registered devices using the modern FCM framework
+      if (!editingId) {
+        try {
+          const { sendPushNotificationToAll } = await import('../../lib/fcm');
+          await sendPushNotificationToAll(
+            `📰 News Update: ${newsData.title}`,
+            newsData.summary || `A new update has been posted in ${newsData.category}.`
+          );
+        } catch (err) {
+          console.warn('Failed to send FCM news notification:', err);
+        }
+      }
+
       setMessage({
         type: 'success',
         text: editingId ? 'News article updated successfully!' : 'New news article published successfully!',

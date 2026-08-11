@@ -206,6 +206,8 @@ export interface RegistrationRecord {
   googleFormId?: string;
   isPaid?: boolean;
   status?: 'pending_review' | 'verified' | 'partial_payment' | 'rejected' | 'completed';
+  studentId?: string;
+  userId?: string;
   payments?: {
     id: string;
     amount: number;
