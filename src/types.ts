@@ -413,6 +413,27 @@ export interface SchoolUser {
   password?: string;
   studentDetails?: StudentInfo;
   themeMode?: 'light' | 'dark';
+  notificationPreferences?: NotificationPreferences;
+}
+
+export interface NotificationPreferences {
+  statusUpdates: boolean;
+  classChanges: boolean;
+  announcements: boolean;
+  tuitionAlerts: boolean;
+}
+
+export interface NotificationLogItem {
+  id: string;
+  recipientEmail?: string;
+  recipientUserId?: string;
+  recipientEmails?: string[];
+  isBroadcast?: boolean;
+  title: string;
+  body: string;
+  type?: 'status' | 'class' | 'announcement' | 'tuition' | 'general';
+  createdAt: string;
+  read?: boolean;
 }
 
 export interface RolePermission {

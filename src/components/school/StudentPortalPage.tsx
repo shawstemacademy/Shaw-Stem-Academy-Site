@@ -25,7 +25,11 @@ import {
   ChevronRight,
   Info,
   ClipboardList,
-  Trash2
+  Trash2,
+  Settings,
+  Filter,
+  Sliders,
+  ShieldCheck
 } from 'lucide-react';
 import { 
   StudentStatus, 
@@ -38,11 +42,14 @@ import {
   RegistrationRecord,
   AttendanceRecord,
   StudentInfo,
-  FormTheme
+  FormTheme,
+  NotificationLogItem,
+  NotificationPreferences
 } from '../../types';
 import { StudentInfoForm } from '../StudentInfoForm';
 import { RegistrationReceiptModal } from '../RegistrationReceiptModal';
 import { isFcmSupported, requestAndSaveFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
+import { subscribeToCollection, saveDocToFirestore, deleteDocFromFirestore } from '../../lib/firebase';
 
 interface StudentPortalPageProps {
   status: StudentStatus;
@@ -85,6 +92,96 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   const [selectedReceiptRecord, setSelectedReceiptRecord] = useState<RegistrationRecord | null>(null);
   const [activePaymentMethod, setActivePaymentMethod] = useState<'zelle' | 'wire' | 'check'>('zelle');
   const [academicTab, setAcademicTab] = useState<'schedule' | 'attendance' | 'grades'>('schedule');
+
+  // Main navigation & notification state
+  const [mainTab, setMainTab] = useState<'portal' | 'notifications' | 'preferences'>('portal');
+  const [notificationLogs, setNotificationLogs] = useState<NotificationLogItem[]>([]);
+  const [notifCategoryFilter, setNotifCategoryFilter] = useState<string>('all');
+  const [prefSaveSuccess, setPrefSaveSuccess] = useState<boolean>(false);
+
+  // Preferences local state initialized from studentUser?.notificationPreferences
+  const [userPreferences, setUserPreferences] = useState<NotificationPreferences>({
+    statusUpdates: studentUser?.notificationPreferences?.statusUpdates ?? true,
+    classChanges: studentUser?.notificationPreferences?.classChanges ?? true,
+    announcements: studentUser?.notificationPreferences?.announcements ?? true,
+    tuitionAlerts: studentUser?.notificationPreferences?.tuitionAlerts ?? true,
+  });
+
+  // Keep preferences in sync when studentUser updates
+  React.useEffect(() => {
+    if (studentUser?.notificationPreferences) {
+      setUserPreferences({
+        statusUpdates: studentUser.notificationPreferences.statusUpdates ?? true,
+        classChanges: studentUser.notificationPreferences.classChanges ?? true,
+        announcements: studentUser.notificationPreferences.announcements ?? true,
+        tuitionAlerts: studentUser.notificationPreferences.tuitionAlerts ?? true,
+      });
+    }
+  }, [studentUser]);
+
+  // Subscribe to real-time notificationLogs from Firestore
+  React.useEffect(() => {
+    const unsub = subscribeToCollection<NotificationLogItem>('notificationLogs', (items) => {
+      setNotificationLogs(items || []);
+    });
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, []);
+
+  const studentEmail = (studentUser?.email || '').toLowerCase().trim();
+  const studentId = studentUser?.id || '';
+
+  const myNotificationLogs = notificationLogs.filter((item) => {
+    if (!item) return false;
+    if (item.isBroadcast) return true;
+    if (studentEmail && item.recipientEmail && item.recipientEmail.toLowerCase().trim() === studentEmail) return true;
+    if (studentId && item.recipientUserId && item.recipientUserId === studentId) return true;
+    if (studentEmail && item.recipientEmails && item.recipientEmails.map((e: string) => e.toLowerCase().trim()).includes(studentEmail)) return true;
+    return false;
+  }).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+  const unreadCount = myNotificationLogs.filter((n) => !n.read).length;
+
+  const filteredNotifLogs = notifCategoryFilter === 'all'
+    ? myNotificationLogs
+    : myNotificationLogs.filter((n) => n.type === notifCategoryFilter);
+
+  const handleMarkAllAsRead = async () => {
+    myNotificationLogs.forEach((item) => {
+      if (!item.read && item.id) {
+        saveDocToFirestore('notificationLogs', item.id, { ...item, read: true });
+      }
+    });
+  };
+
+  const handleMarkAsRead = async (item: NotificationLogItem) => {
+    if (item.id && !item.read) {
+      saveDocToFirestore('notificationLogs', item.id, { ...item, read: true });
+    }
+  };
+
+  const handleDeleteNotif = async (id: string) => {
+    await deleteDocFromFirestore('notificationLogs', id);
+  };
+
+  const handleTogglePref = (key: keyof NotificationPreferences) => {
+    const updatedPrefs = { ...userPreferences, [key]: !userPreferences[key] };
+    setUserPreferences(updatedPrefs);
+    if (studentUser) {
+      const updatedUser: SchoolUser = {
+        ...studentUser,
+        notificationPreferences: updatedPrefs
+      };
+      if (onUpdateUserProfile) {
+        onUpdateUserProfile(updatedUser);
+      } else {
+        saveDocToFirestore('schoolUsers', studentUser.id, updatedUser);
+      }
+      setPrefSaveSuccess(true);
+      setTimeout(() => setPrefSaveSuccess(false), 3000);
+    }
+  };
 
   // FCM Notification States
   const [fcmSupported, setFcmSupported] = useState<boolean | null>(null);
@@ -356,7 +453,52 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
         </div>
       </div>
 
-      {/* Class Registration Quick Access Section */}
+      {/* Main Student Portal Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
+        <button
+          onClick={() => setMainTab('portal')}
+          className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            mainTab === 'portal'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+          }`}
+        >
+          <GraduationCap className="w-4 h-4" />
+          <span>Student Portal & Classes</span>
+        </button>
+
+        <button
+          onClick={() => setMainTab('notifications')}
+          className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer relative ${
+            mainTab === 'notifications'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+          }`}
+        >
+          <Bell className="w-4 h-4" />
+          <span>Notifications Log</span>
+          {unreadCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setMainTab('preferences')}
+          className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            mainTab === 'preferences'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+          <span>Notification Preferences</span>
+        </button>
+      </div>
+
+      {mainTab === 'portal' && (
+        <div className="space-y-8">
       {(status === 'accepted' || status === 'enrolled_paid') && (
         <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-blue-500/20 dark:border-blue-500/30 rounded-3xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xs animate-fade-in">
           <div className="flex items-start sm:items-center gap-4">
@@ -959,6 +1101,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               </div>
             )}
           </div>
+        </div>
+      )}
 
           {/* Quick Pay Section - Only show when student has registered for courses */}
           {hasCourseRegistrations && (status === 'accepted' || status === 'pending_verification' || status === 'enrolled_paid') && (
@@ -1391,6 +1535,301 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 2. NOTIFICATIONS LOG TAB */}
+      {mainTab === 'notifications' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Notifications Header */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider border border-blue-500/20">
+                <Bell className="w-3.5 h-3.5" />
+                <span>Academy Alert Log</span>
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+                Notifications & Alert History
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium max-w-2xl">
+                All real-time status updates, hold notices, tuition payment receipts, class schedule alerts, and academy announcements sent to your account.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllAsRead}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Mark All as Read ({unreadCount})</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Category Filter Toolbar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mr-2">
+                <Filter className="w-3.5 h-3.5" /> Filter:
+              </span>
+              {[
+                { id: 'all', label: 'All Alerts' },
+                { id: 'status', label: '📋 Status Updates' },
+                { id: 'class', label: '📚 Class & Course' },
+                { id: 'tuition', label: '💳 Tuition & Billing' },
+                { id: 'announcement', label: '📢 Announcements' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setNotifCategoryFilter(cat.id)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    notifCategoryFilter === cat.id
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            <span className="text-xs font-semibold text-slate-500">
+              Showing {filteredNotifLogs.length} notification{filteredNotifLogs.length === 1 ? '' : 's'}
+            </span>
+          </div>
+
+          {/* Notifications List */}
+          {filteredNotifLogs.length === 0 ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                <Bell className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 text-base">No Notifications Found</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto font-medium">
+                You do not have any notifications under this filter category yet. Alerts dispatched to your account will automatically appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredNotifLogs.map((item) => {
+                const isUnread = !item.read;
+                const notifDate = item.createdAt ? new Date(item.createdAt).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true
+                }) : 'Recently';
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleMarkAsRead(item)}
+                    className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-start justify-between gap-4 ${
+                      isUnread
+                        ? 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/50 shadow-xs'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3.5">
+                      <div className={`p-2.5 rounded-xl shrink-0 mt-0.5 ${
+                        item.type === 'status'
+                          ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                          : item.type === 'tuition'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : item.type === 'class'
+                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                      }`}>
+                        <Bell className="w-5 h-5" />
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`px-2 py-0.5 text-[10px] font-black uppercase rounded-md ${
+                            item.type === 'status'
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                              : item.type === 'tuition'
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                              : item.type === 'class'
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                          }`}>
+                            {item.type || 'Alert'}
+                          </span>
+                          {isUnread && (
+                            <span className="px-2 py-0.5 bg-rose-500 text-white text-[10px] font-black rounded-full">
+                              UNREAD
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-400 font-medium">{notifDate}</span>
+                        </div>
+
+                        <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100">
+                          {item.title}
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                          {item.body}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-start pt-2 sm:pt-0">
+                      {isUnread && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkAsRead(item);
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 dark:bg-blue-900/40 rounded-lg cursor-pointer"
+                        >
+                          Mark Read
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteNotif(item.id);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-all cursor-pointer"
+                        title="Delete Notification Log"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. NOTIFICATION PREFERENCES TAB */}
+      {mainTab === 'preferences' && (
+        <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider border border-blue-500/20">
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>Account Alert Controls</span>
+                </div>
+                <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+                  Notification Preferences
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+                  Configure which notifications and push alerts are delivered to your registered mobile, tablet, and desktop devices.
+                </p>
+              </div>
+
+              {prefSaveSuccess && (
+                <div className="px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <span>Preferences Saved!</span>
+                </div>
+              )}
+            </div>
+
+            {/* FCM Push Device Registration Card */}
+            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100">
+                    Web & Mobile Push Notifications
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    {fcmToken 
+                      ? '✓ Web Push active on this device. Multi-device broadcast enabled.' 
+                      : 'Inactive — Enable browser push permission to receive live alerts.'}
+                  </p>
+                </div>
+              </div>
+
+              {!fcmToken && fcmSupported && (
+                <button
+                  onClick={handleRegisterFcm}
+                  disabled={isRequestingToken}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all shrink-0 cursor-pointer shadow-xs"
+                >
+                  {isRequestingToken ? 'Enrolling...' : 'Enable Push Alerts'}
+                </button>
+              )}
+            </div>
+
+            {/* Preferences Toggles List */}
+            <div className="space-y-4 pt-2">
+              <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-400">
+                Alert Subscriptions by Category
+              </h3>
+
+              {[
+                {
+                  key: 'statusUpdates' as keyof NotificationPreferences,
+                  title: '📋 Application Status & Hold Alerts',
+                  description: 'Receive notifications when your application status is updated (Accepted, On Hold, or Verification status).'
+                },
+                {
+                  key: 'classChanges' as keyof NotificationPreferences,
+                  title: '📚 Class & Course Changes',
+                  description: 'Receive notifications when course schedules, Zoom/Meet links, or Google Classroom links are updated.'
+                },
+                {
+                  key: 'tuitionAlerts' as keyof NotificationPreferences,
+                  title: '💳 Tuition & Payment Verification',
+                  description: 'Receive notifications when tuition payments are recorded, receipts are issued, or balances change.'
+                },
+                {
+                  key: 'announcements' as keyof NotificationPreferences,
+                  title: '📢 Academy Announcements & Broadcasts',
+                  description: 'Receive school-wide news bulletins, administrative notices, and campus emergency alerts.'
+                }
+              ].map((item) => {
+                const isChecked = userPreferences[item.key] !== false;
+
+                return (
+                  <div
+                    key={item.key}
+                    onClick={() => handleTogglePref(item.key)}
+                    className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer flex items-center justify-between gap-4"
+                  >
+                    <div className="space-y-1 max-w-xl">
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                        {item.title}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                        {item.description}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTogglePref(item.key);
+                      }}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        isChecked ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                          isChecked ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

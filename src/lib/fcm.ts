@@ -177,32 +177,82 @@ export async function requestAndSaveFcmToken(
 
 /**
  * Dispatch notification targeting user FCM tokens stored in Firestore `fcmTokens`.
+ * Fetches all registered devices for the user (mobile, tablet, laptop, desktop) and notifies them all simultaneously.
  */
 export async function sendPushNotificationToUser(
   userEmail: string | undefined,
   userId: string | undefined,
   title: string,
-  body: string
+  body: string,
+  type: 'status' | 'class' | 'announcement' | 'tuition' | 'general' = 'status'
 ) {
   if (!userEmail && !userId) return;
 
+  const normalizedEmail = userEmail ? userEmail.toLowerCase().trim() : '';
+
+  // 1. Honor user notification preferences if configured
+  try {
+    const usersRef = collection(db, 'schoolUsers');
+    let userDocData: any = null;
+    if (userId) {
+      const uSnap = await getDocs(query(usersRef, where('id', '==', userId)));
+      uSnap.forEach(d => { userDocData = d.data(); });
+    }
+    if (!userDocData && normalizedEmail) {
+      const eSnap = await getDocs(query(usersRef, where('email', '==', normalizedEmail)));
+      eSnap.forEach(d => { userDocData = d.data(); });
+    }
+
+    if (userDocData && userDocData.notificationPreferences) {
+      const prefs = userDocData.notificationPreferences;
+      if (type === 'status' && prefs.statusUpdates === false) {
+        console.log(`Notification skipped for ${normalizedEmail || userId}: statusUpdates disabled.`);
+        return;
+      }
+      if (type === 'class' && prefs.classChanges === false) {
+        console.log(`Notification skipped for ${normalizedEmail || userId}: classChanges disabled.`);
+        return;
+      }
+      if (type === 'announcement' && prefs.announcements === false) {
+        console.log(`Notification skipped for ${normalizedEmail || userId}: announcements disabled.`);
+        return;
+      }
+      if (type === 'tuition' && prefs.tuitionAlerts === false) {
+        console.log(`Notification skipped for ${normalizedEmail || userId}: tuitionAlerts disabled.`);
+        return;
+      }
+    }
+  } catch (prefErr) {
+    console.warn('Error checking notification preferences:', prefErr);
+  }
+
   try {
     const tokensRef = collection(db, 'fcmTokens');
-    const q = userEmail
-      ? query(tokensRef, where('userEmail', '==', userEmail.toLowerCase().trim()))
-      : query(tokensRef, where('userId', '==', userId));
-
-    const querySnapshot = await getDocs(q);
     const tokens: string[] = [];
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      if (data.token) tokens.push(data.token);
-    });
 
-    console.log(`Found ${tokens.length} target device token(s) for user ${userEmail || userId}.`);
-    await _sendFcmToTokens(tokens, title, body);
+    // Query both by email and by userId to catch ALL devices registered across all platforms
+    if (normalizedEmail) {
+      const emailSnap = await getDocs(query(tokensRef, where('userEmail', '==', normalizedEmail)));
+      emailSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.token && !tokens.includes(data.token)) tokens.push(data.token);
+      });
+    }
+
+    if (userId) {
+      const idSnap = await getDocs(query(tokensRef, where('userId', '==', userId)));
+      idSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.token && !tokens.includes(data.token)) tokens.push(data.token);
+      });
+    }
+
+    console.log(`Found ${tokens.length} target device token(s) for user ${normalizedEmail || userId}.`);
+    await _sendFcmToTokens(tokens, title, body, normalizedEmail, userId, undefined, false, type);
   } catch (err) {
     console.warn('Error querying user FCM tokens:', err);
+    // Even if token query fails, publish by email/userId so realtime queue listener on client devices triggers notification
+    await _sendFcmToTokens([], title, body, normalizedEmail, userId, undefined, false, type);
   }
 }
 
@@ -214,7 +264,12 @@ export async function sendPushNotificationToClass(classId: string, title: string
     const userSnaps = await getDocs(q);
     
     const userIds: string[] = [];
-    userSnaps.forEach(doc => userIds.push(doc.id));
+    const targetEmails: string[] = [];
+    userSnaps.forEach(doc => {
+      userIds.push(doc.id);
+      const data = doc.data();
+      if (data.email) targetEmails.push(data.email.toLowerCase().trim());
+    });
     
     if (userIds.length === 0) return;
 
@@ -226,11 +281,11 @@ export async function sendPushNotificationToClass(classId: string, title: string
     const tokens: string[] = [];
     tokenSnaps.forEach(doc => {
       const data = doc.data();
-      if (data.token) tokens.push(data.token);
+      if (data.token && !tokens.includes(data.token)) tokens.push(data.token);
     });
 
     console.log(`Found ${tokens.length} target device token(s) for class ${classId}.`);
-    await _sendFcmToTokens(tokens, title, body);
+    await _sendFcmToTokens(tokens, title, body, undefined, undefined, targetEmails, false, 'class');
   } catch (err) {
     console.warn('Error sending class FCM push:', err);
   }
@@ -244,30 +299,61 @@ export async function sendPushNotificationToAll(title: string, body: string) {
     const tokens: string[] = [];
     tokenSnaps.forEach(doc => {
       const data = doc.data();
-      if (data.token) tokens.push(data.token);
+      if (data.token && !tokens.includes(data.token)) tokens.push(data.token);
     });
 
     console.log(`Found ${tokens.length} target device token(s) for broadcast.`);
-    await _sendFcmToTokens(tokens, title, body);
+    await _sendFcmToTokens(tokens, title, body, undefined, undefined, undefined, true, 'announcement');
   } catch (err) {
     console.warn('Error sending broadcast FCM push:', err);
   }
 }
 
-async function _sendFcmToTokens(tokens: string[], title: string, body: string) {
-  if (tokens.length === 0) return;
+async function _sendFcmToTokens(
+  tokens: string[],
+  title: string,
+  body: string,
+  targetEmail?: string,
+  targetUserId?: string,
+  targetEmails?: string[],
+  isBroadcast?: boolean,
+  type: 'status' | 'class' | 'announcement' | 'tuition' | 'general' = 'general'
+) {
+  const nowStr = new Date().toISOString();
 
-  // Modern Firebase Web Push: Publish notification payload to Firestore Push Queue.
-  // Registered devices (mobile and desktop) listening via Firebase SDK receive live push notifications instantly.
+  // 1. Create durable entry in notificationLogs collection
+  try {
+    const logsRef = collection(db, 'notificationLogs');
+    await addDoc(logsRef, {
+      recipientEmail: (targetEmail || '').toLowerCase().trim(),
+      recipientUserId: targetUserId || '',
+      recipientEmails: targetEmails || [],
+      isBroadcast: !!isBroadcast,
+      title,
+      body,
+      type,
+      createdAt: nowStr,
+      read: false
+    });
+  } catch (logErr) {
+    console.warn('Error creating entry in notificationLogs:', logErr);
+  }
+
+  // 2. Publish payload to Firestore Push Queue for real-time Web/Mobile client notifications
   try {
     const queueRef = collection(db, 'fcmNotificationQueue');
     await addDoc(queueRef, {
-      tokens,
+      tokens: tokens || [],
+      targetEmail: (targetEmail || '').toLowerCase().trim(),
+      targetUserId: targetUserId || '',
+      targetEmails: targetEmails || [],
+      isBroadcast: !!isBroadcast,
       title,
       body,
-      createdAt: new Date().toISOString()
+      type,
+      createdAt: nowStr
     });
-    console.log(`Modern FCM Web Push payload queued for ${tokens.length} target device(s).`);
+    console.log(`Modern FCM Web Push payload queued for ${tokens.length} target device(s) [Target User: ${targetEmail || targetUserId || 'All'}].`);
   } catch (err) {
     console.warn('Error publishing push to Firebase notification queue:', err);
   }

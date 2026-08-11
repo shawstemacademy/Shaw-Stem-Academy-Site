@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { Lock } from 'lucide-react';
 import { requestNotificationPermission, sendDesktopNotification, playNotificationSound } from './lib/notifications';
-import { requestAndSaveFcmToken, DEFAULT_VAPID_KEY, sendPushNotificationToClass, sendPushNotificationToAll } from './lib/fcm';
+import { requestAndSaveFcmToken, DEFAULT_VAPID_KEY, sendPushNotificationToUser, sendPushNotificationToClass, sendPushNotificationToAll } from './lib/fcm';
 import {
   auth,
   initAuth,
@@ -117,6 +117,7 @@ export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('student');
   const [studentStatus, setStudentStatus] = useState<StudentStatus>('prospective');
   const [loggedInUser, setLoggedInUser] = useState<SchoolUser | null>(null);
+  const [currentFcmToken, setCurrentFcmToken] = useState<string | null>(null);
   const [resourceCategories, setResourceCategories] = useState<ResourceCategory[]>([]);
   const [dbError, setDbError] = useState<string | null>(null);
 
@@ -146,6 +147,10 @@ export default function App() {
               email: loggedInUser?.email || user?.email || undefined,
               id: loggedInUser?.id || user?.uid || undefined,
               name: loggedInUser?.name || user?.displayName || undefined
+            }).then((res) => {
+              if (res?.token) {
+                setCurrentFcmToken(res.token);
+              }
             });
             const hasShown = localStorage.getItem('notifications_welcome_shown');
             if (!hasShown) {
@@ -165,6 +170,9 @@ export default function App() {
   // Real-time FCM push queue listener for live notifications across mobile and web devices
   useEffect(() => {
     const userEmail = (loggedInUser?.email || user?.email || '').toLowerCase().trim();
+    const userId = loggedInUser?.id || user?.uid || '';
+    const myDeviceToken = currentFcmToken;
+
     const unsub = subscribeToCollection('fcmNotificationQueue', (items: any[]) => {
       if (!items || items.length === 0) return;
       
@@ -172,12 +180,20 @@ export default function App() {
       items.forEach((item) => {
         if (!item.createdAt) return;
         const createdAtTime = new Date(item.createdAt).getTime();
-        // Trigger for notifications created in the last 15 seconds
-        if (now - createdAtTime < 15000) {
-          const isTargetEmail = userEmail && item.targetEmail && item.targetEmail.toLowerCase().trim() === userEmail;
-          const isBroadcast = !item.tokens || item.tokens.length === 0;
-          
-          if (isTargetEmail || isBroadcast) {
+        // Trigger for notifications created in the last 20 seconds
+        if (now - createdAtTime < 20000) {
+          const itemTargetEmail = (item.targetEmail || '').toLowerCase().trim();
+          const itemTargetUserId = item.targetUserId || '';
+          const itemTargetEmails: string[] = item.targetEmails || [];
+          const itemTokens: string[] = item.tokens || [];
+
+          const isTargetEmailMatch = userEmail && itemTargetEmail && itemTargetEmail === userEmail;
+          const isTargetUserIdMatch = userId && itemTargetUserId && itemTargetUserId === userId;
+          const isEmailInClassList = userEmail && itemTargetEmails.map((e: string) => e.toLowerCase().trim()).includes(userEmail);
+          const isTokenMatch = myDeviceToken && itemTokens.includes(myDeviceToken);
+          const isBroadcast = item.isBroadcast || (!item.targetEmail && !item.targetUserId && itemTargetEmails.length === 0 && itemTokens.length === 0);
+
+          if (isTargetEmailMatch || isTargetUserIdMatch || isEmailInClassList || isTokenMatch || isBroadcast) {
             sendDesktopNotification(
               item.title || "🔔 New Academy Notification",
               item.body || "You have a new message from Shaw STEM Academy."
@@ -190,7 +206,7 @@ export default function App() {
     return () => {
       if (typeof unsub === 'function') unsub();
     };
-  }, [loggedInUser, user]);
+  }, [loggedInUser, user, currentFcmToken]);
 
   useEffect(() => {
     const handleFirestoreErrorEvent = (event: Event) => {
@@ -1699,7 +1715,13 @@ export default function App() {
           if (matchingUser && isPaid) {
             const updatedUser: SchoolUser = { ...matchingUser, status: 'enrolled_paid' };
             saveDocToFirestore('schoolUsers', matchingUser.id, updatedUser);
-            // We update the local state manually if we don't want to wait for snapshot
+            
+            sendPushNotificationToUser(
+              matchingUser.email,
+              matchingUser.id,
+              '🎉 Tuition Payment Verified!',
+              `Your tuition payment for Shaw STEM Academy has been verified and confirmed. Registration status: Enrolled & Paid.`
+            );
           } else if (matchingUser && !isPaid) {
             // Only revert to 'accepted' if they were already accepted or enrolled_paid
             if (matchingUser.status === 'enrolled_paid' || matchingUser.status === 'accepted') {
@@ -1859,9 +1881,23 @@ export default function App() {
     if (newStatus === 'disabled') {
       updatedUser.disabledAt = new Date().toLocaleString('en-US');
       updatedUser.disabledReason = reason || user.disabledReason || 'Administrative decision';
+      
+      sendPushNotificationToUser(
+        user.email,
+        user.id,
+        '🔒 Account Placed on Administrative Hold',
+        `Hello ${user.name}, your Shaw STEM Academy account has been placed on administrative hold. Reason: ${updatedUser.disabledReason}. Please contact support for assistance.`
+      );
     } else {
       delete updatedUser.disabledAt;
       delete updatedUser.disabledReason;
+
+      sendPushNotificationToUser(
+        user.email,
+        user.id,
+        '✅ Account Hold Lifted & Reactivated',
+        `Hello ${user.name}, your account hold at Shaw STEM Academy has been removed. Your account is now active!`
+      );
     }
 
     setSchoolUsers((prev) => prev.map((u) => (u.id === user.id ? updatedUser : u)));
@@ -1902,6 +1938,13 @@ export default function App() {
         };
         saveDocToFirestore('schoolUsers', userId, updated);
         
+        sendPushNotificationToUser(
+          u.email,
+          u.id,
+          '🛡️ Account Role & Permissions Updated',
+          `Hello ${u.name}, your role at Shaw STEM Academy has been updated to ${newRole.toUpperCase()}.`
+        );
+
         logSystemAction(
           'role_changed',
           `Changed role to ${newRole} for user: ${u.name}`,

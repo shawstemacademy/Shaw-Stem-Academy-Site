@@ -869,12 +869,22 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                           if (onUpdateUser) {
                             onUpdateUser(updatedUser);
                           }
+                          sendPushNotificationToUser(
+                            selectedStudent.email,
+                            selectedStudent.id,
+                            '⏸️ Application Status Update: On Hold',
+                            `Hello ${selectedStudent.name}, your application to Shaw STEM Academy has been placed on Hold / Awaiting Review. Please check your student portal or contact admissions for details.`
+                          );
+                          sendDesktopNotification(
+                            '⏸️ Application Status Update: On Hold',
+                            `Application for ${selectedStudent.name} set to Hold / Awaiting Review.`
+                          );
                         }
                         if (currentRegistration) {
                           const updatedReg = { ...currentRegistration, status: 'rejected' as const };
                           onUpdateRegistration(updatedReg);
                         }
-                        alert('Student application is set to Awaiting Acceptance / Hold.');
+                        alert('Student application status updated to On Hold / Awaiting Review.');
                       }}
                       className={`px-4 py-2 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 border ${
                         selectedStudent?.status === 'awaiting_acceptance'

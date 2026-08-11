@@ -487,16 +487,27 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     }
 
     const targetDevice = registeredTokens.find((t) => t.token === targetToken);
-    const isMobileTarget = targetDevice?.platform?.includes('Mobile') || false;
-    const isCurrentDevice = targetToken === fcmToken;
+    const targetUserEmail = (targetDevice?.userEmail || '').toLowerCase().trim();
+    const targetUserId = targetDevice?.userId || '';
 
-    // Dispatch via modern Firebase Realtime Push Queue so target device receives notification instantly
+    // Find ALL tokens registered for this user (e.g. mobile, tablet, laptop, desktop)
+    const userTokens = targetUserEmail
+      ? registeredTokens.filter(t => (t.userEmail || '').toLowerCase().trim() === targetUserEmail).map(t => t.token)
+      : targetUserId
+        ? registeredTokens.filter(t => t.userId === targetUserId).map(t => t.token)
+        : [targetToken];
+
+    const allUserTokens = Array.from(new Set([targetToken, ...userTokens]));
+    const isCurrentDevice = allUserTokens.includes(fcmToken);
+
+    // Dispatch via modern Firebase Realtime Push Queue so all target user devices receive notification instantly
     try {
       const queueRef = collection(db, 'fcmNotificationQueue');
       await addDoc(queueRef, {
-        tokens: [targetToken],
-        targetEmail: targetDevice?.userEmail || 'unknown',
-        platform: targetDevice?.platform || 'Unknown Device',
+        tokens: allUserTokens,
+        targetEmail: targetUserEmail,
+        targetUserId: targetUserId,
+        platform: targetDevice?.platform || 'All Registered User Devices',
         title: pushTitle,
         body: pushBody,
         createdAt: new Date().toISOString()
