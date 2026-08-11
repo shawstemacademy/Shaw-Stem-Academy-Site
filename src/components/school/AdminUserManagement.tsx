@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { SchoolUser, Department, TeacherProfile, UserRole, ClassItem, SbaHubOption } from '../../types';
 import { sendUserPasswordResetEmail } from '../../lib/firebase';
+import { WeeklyOfficeHoursSelector } from './WeeklyOfficeHoursSelector';
 
 interface AdminUserManagementProps {
   users: SchoolUser[];
@@ -911,14 +912,11 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Office Hours / Location
+                  Office Hours & Weekly Schedule
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Mon/Wed 2:30 PM - 4:00 PM (Lab A)"
+                <WeeklyOfficeHoursSelector
                   value={officeHours}
-                  onChange={(e) => setOfficeHours(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  onChange={(val) => setOfficeHours(val)}
                 />
               </div>
 

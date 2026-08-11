@@ -56,6 +56,7 @@ import {
   LocationOption,
   ClassClaimItem,
   TeacherHourlyRate,
+  AddDropRequest,
 } from './types';
 import { detectScheduleClashes } from './lib/scheduleClashUtils';
 import {
@@ -310,6 +311,114 @@ export default function App() {
 
   const handleUpdateHourlyRates = (updatedRates: TeacherHourlyRate[]) => {
     setHourlyRates(updatedRates);
+  };
+
+  // Add / Drop Requests State & Handlers
+  const [addDropRequests, setAddDropRequests] = useState<AddDropRequest[]>([]);
+
+  const handleSubmitAddDropRequest = async (req: AddDropRequest) => {
+    setAddDropRequests(prev => [req, ...prev]);
+    await saveDocToFirestore('addDropRequests', req.id, req);
+    
+    sendDesktopNotification(
+      `🔄 New Add/Drop Class Request`,
+      `${req.studentName} requested to ${req.type} class "${req.classItem?.title || 'Class'}".`
+    );
+  };
+
+  const handleApproveAddDropRequest = async (req: AddDropRequest, notes?: string) => {
+    const reg = registrationLogs.find(
+      r => r.id === req.registrationId || r.studentInfo?.email?.toLowerCase() === req.studentEmail?.toLowerCase()
+    );
+
+    let updatedRegTotalPrice = 0;
+
+    if (reg) {
+      let updatedSelectedClasses = [...(reg.selectedClasses || [])];
+      let updatedSelectedClassIds = [...(reg.selectedClassIds || [])];
+      let newTotalPrice = reg.totalPrice || 0;
+
+      const classIdToModify = req.classItem?.id;
+
+      if (req.type === 'drop') {
+        updatedSelectedClasses = updatedSelectedClasses.filter(c => c.id !== classIdToModify);
+        updatedSelectedClassIds = updatedSelectedClassIds.filter(id => id !== classIdToModify);
+
+        let priceDeduction = req.effectivePrice || 0;
+        if (!priceDeduction && req.classItem?.price) {
+          const originalSubtotal = (reg.selectedClasses || []).reduce((sum, c) => sum + (c.price || 0), 0);
+          const discountRatio = originalSubtotal > 0 ? (reg.totalPrice / originalSubtotal) : 1;
+          priceDeduction = req.classItem.price * discountRatio;
+        }
+        newTotalPrice = Math.max(0, newTotalPrice - priceDeduction);
+      } else if (req.type === 'add') {
+        if (req.classItem && !updatedSelectedClasses.some(c => c.id === req.classItem.id)) {
+          updatedSelectedClasses.push(req.classItem);
+          if (req.classItem.id && !updatedSelectedClassIds.includes(req.classItem.id)) {
+            updatedSelectedClassIds.push(req.classItem.id);
+          }
+        }
+        const fullPrice = req.effectivePrice || req.originalPrice || req.classItem?.price || 0;
+        newTotalPrice += fullPrice;
+      }
+
+      updatedRegTotalPrice = Number(newTotalPrice.toFixed(2));
+
+      const updatedReg: RegistrationRecord = {
+        ...reg,
+        selectedClasses: updatedSelectedClasses,
+        selectedClassIds: updatedSelectedClassIds,
+        totalPrice: updatedRegTotalPrice,
+      };
+
+      await saveDocToFirestore('registrations', updatedReg.id, updatedReg);
+      setRegistrationLogs(prev => prev.map(r => r.id === updatedReg.id ? updatedReg : r));
+    }
+
+    const updatedReq: AddDropRequest = {
+      ...req,
+      status: 'approved',
+      reviewedBy: loggedInUser?.name || 'Registrar',
+      reviewedDate: new Date().toISOString(),
+      reviewNotes: notes || req.reviewNotes || 'Approved by Registrar',
+    };
+
+    await saveDocToFirestore('addDropRequests', req.id, updatedReq);
+    setAddDropRequests(prev => prev.map(r => r.id === req.id ? updatedReq : r));
+
+    sendPushNotificationToUser(
+      req.studentEmail,
+      req.studentId,
+      `✅ Class ${req.type === 'add' ? 'Add' : 'Drop'} Approved`,
+      `Your request to ${req.type} "${req.classItem?.title || 'Class'}" has been approved.`,
+      'class'
+    );
+
+    sendDesktopNotification(
+      `✅ Class Request Approved`,
+      `Approved ${req.type} request for ${req.studentName} (${req.classItem?.title || 'Class'}).`
+    );
+  };
+
+  const handleRejectAddDropRequest = async (req: AddDropRequest, notes?: string) => {
+    const updatedReq: AddDropRequest = {
+      ...req,
+      status: 'rejected',
+      reviewedBy: loggedInUser?.name || 'Registrar',
+      reviewedDate: new Date().toISOString(),
+      reviewNotes: notes || 'Rejected by Registrar',
+    };
+
+    await saveDocToFirestore('addDropRequests', req.id, updatedReq);
+    setAddDropRequests(prev => prev.map(r => r.id === req.id ? updatedReq : r));
+
+    sendPushNotificationToUser(
+      req.studentEmail,
+      req.studentId,
+      `❌ Class ${req.type === 'add' ? 'Add' : 'Drop'} Declined`,
+      `Your request to ${req.type} "${req.classItem?.title || 'Class'}" was declined. ${notes ? `Notes: ${notes}` : ''}`,
+      'class'
+    );
   };
 
   // Registration Auth States
@@ -782,6 +891,7 @@ export default function App() {
           });
         }
       }),
+      subscribeToCollection<AddDropRequest>('addDropRequests', (data) => setAddDropRequests(data || [])),
       subscribeToCollection<FaqItem>('faqs', (data) => setFaqs(data || [])),
       subscribeToCollection<AcademyInfo>('academyInfo', (data) => setAcademyInfo((data && data[0]) || DEFAULT_ACADEMY_INFO)),
       subscribeToCollection<LandingPageSettings>('landingPageSettings', (data) => {
@@ -2564,6 +2674,8 @@ export default function App() {
                 announcements={announcements}
                 faqs={faqs}
                 onOpenRegistration={() => handleTabSelect('registration')}
+                addDropRequests={addDropRequests}
+                onSubmitAddDropRequest={handleSubmitAddDropRequest}
               />
             )
           )}
@@ -2655,6 +2767,9 @@ export default function App() {
               onUpdateClaims={handleUpdateClaims}
               hourlyRates={hourlyRates}
               onUpdateHourlyRates={handleUpdateHourlyRates}
+              addDropRequests={addDropRequests}
+              onApproveAddDropRequest={handleApproveAddDropRequest}
+              onRejectAddDropRequest={handleRejectAddDropRequest}
               onDeleteAllData={async () => {
                 const ok = await deleteAllSiteData();
                 if (ok) {
@@ -3131,6 +3246,16 @@ export default function App() {
                     className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden text-slate-900 dark:text-slate-100"
                   />
                 </div>
+
+                {/* reCAPTCHA Enterprise Security Widget */}
+                <div className="flex justify-center my-2">
+                  <div 
+                    className="g-recaptcha" 
+                    data-sitekey="6LdE1oAtAAAAADjSeIu16iRH5Hh4lD28HmKHqE6-" 
+                    data-action="REGISTER"
+                  ></div>
+                </div>
+
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"

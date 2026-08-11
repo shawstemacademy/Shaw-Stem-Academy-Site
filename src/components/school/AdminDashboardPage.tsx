@@ -47,7 +47,8 @@ import {
   FaqItem,
   SchoolNewsItem,
   AcademyInfo,
-  FeatureCard
+  FeatureCard,
+  AddDropRequest
 } from '../../types';
 import { FORM_THEMES } from '../../data/initialClasses';
 import { AdminUserManagement } from './AdminUserManagement';
@@ -60,6 +61,7 @@ import { AdminNewsManagement } from './AdminNewsManagement';
 import { AdminAcademyInfoManagement } from './AdminAcademyInfoManagement';
 import { StudentSearchDashboard } from './StudentSearchDashboard';
 import { ClassClaimForm } from './ClassClaimForm';
+import { AdminAddDropManager } from './AdminAddDropManager';
 import { HelpCircle, Newspaper, Send, Smartphone, Laptop, Globe, Wifi, Copy, RefreshCw, CheckCircle, AlertCircle, MessageSquare, Info, SendHorizontal } from 'lucide-react';
 import { isFcmSupported, requestAndSaveFcmToken, onForegroundMessage, revokeFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
 import { subscribeToCollection, db } from '../../lib/firebase';
@@ -120,6 +122,9 @@ interface AdminDashboardPageProps {
   onUpdateClaims?: (updated: ClassClaimItem[]) => void;
   hourlyRates?: TeacherHourlyRate[];
   onUpdateHourlyRates?: (updated: TeacherHourlyRate[]) => void;
+  addDropRequests?: AddDropRequest[];
+  onApproveAddDropRequest?: (req: AddDropRequest, notes?: string) => void;
+  onRejectAddDropRequest?: (req: AddDropRequest, notes?: string) => void;
 }
 
 export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
@@ -176,8 +181,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   onUpdateClaims = () => {},
   hourlyRates = [],
   onUpdateHourlyRates = () => {},
+  addDropRequests = [],
+  onApproveAddDropRequest = () => {},
+  onRejectAddDropRequest = () => {},
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search'>(
+  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search'>(
     currentRole === 'hod' ? 'users' : 'overview'
   );
 
@@ -868,6 +876,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       label: 'Teaching Claims & Payroll',
       icon: <FileText className="w-4 h-4 text-emerald-400" />,
       badge: `${(claims || []).filter((c) => c.status === 'claimed').length} Pending`,
+    },
+    {
+      id: 'add_drop' as const,
+      label: 'Add / Drop Requests',
+      icon: <RotateCcw className="w-4 h-4 text-purple-400" />,
+      badge: `${(addDropRequests || []).filter((r) => r.status === 'pending').length} Pending`,
     },
     {
       id: 'news' as const,
@@ -1605,6 +1619,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           onUpdateUser={onUpdateUser}
           onDeleteUser={onDeleteUser}
           onDeleteRegistration={onDeleteRegistration}
+          addDropRequests={addDropRequests}
+          onApproveAddDropRequest={onApproveAddDropRequest}
+          onRejectAddDropRequest={onRejectAddDropRequest}
+        />
+      )}
+
+      {/* ADD / DROP CLASS REQUESTS TAB */}
+      {activeAdminTab === 'add_drop' && (
+        <AdminAddDropManager
+          requests={addDropRequests}
+          onApprove={onApproveAddDropRequest}
+          onReject={onRejectAddDropRequest}
         />
       )}
 

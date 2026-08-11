@@ -1,6 +1,6 @@
 import React from 'react';
 import { RegistrationRecord, FormTheme } from '../types';
-import { X, CheckCircle2, Printer, Calendar, User, Mail, Phone, Tag, ShieldCheck, Clock, MapPin } from 'lucide-react';
+import { X, CheckCircle2, Printer, Download, Calendar, User, Mail, Phone, Tag, ShieldCheck, Clock, MapPin } from 'lucide-react';
 
 interface RegistrationReceiptModalProps {
   registration: RegistrationRecord | null;
@@ -76,6 +76,17 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
     window.print();
   };
 
+  const handleDownloadPdf = () => {
+    const originalTitle = document.title;
+    const cleanStudentName = studentNameVal.replace(/[^a-zA-Z0-9]/g, '_');
+    const receiptCode = registration.id.slice(-8).toUpperCase();
+    document.title = `Shaw_STEM_Academy_Receipt_${receiptCode}_${cleanStudentName}`;
+    window.print();
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 1000);
+  };
+
   return (
     <div className="printable-receipt-backdrop fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
       <div className="printable-receipt-card bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-gray-200 overflow-hidden my-8 print:shadow-none print:border-slate-300">
@@ -107,6 +118,14 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
             </div>
           </div>
           <div className="flex items-center gap-2 print:hidden">
+            <button
+              onClick={handleDownloadPdf}
+              title="Download PDF version of receipt"
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors flex items-center gap-1.5 text-xs font-bold shadow-xs cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Download Receipt</span>
+            </button>
             <button
               onClick={handlePrint}
               title="Print formatted receipt"
@@ -224,11 +243,18 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
 
           <div className="flex items-center gap-2">
             <button
+              onClick={handleDownloadPdf}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download Receipt (PDF)</span>
+            </button>
+            <button
               onClick={handlePrint}
               className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 active:bg-gray-100 text-gray-800 text-xs font-bold rounded-xl transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
             >
               <Printer className="w-4 h-4 text-purple-700" />
-              <span>Print Receipt</span>
+              <span>Print</span>
             </button>
             <button
               onClick={onClose}

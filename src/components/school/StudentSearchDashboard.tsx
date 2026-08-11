@@ -23,9 +23,14 @@ import {
   FileCheck2,
   AlertTriangle,
   Clock,
-  Trash2
+  Trash2,
+  RotateCcw,
+  Check,
+  X,
+  Lock,
+  CheckCircle2
 } from 'lucide-react';
-import { SchoolUser, RegistrationRecord, ClassItem, AppliedDiscount } from '../../types';
+import { SchoolUser, RegistrationRecord, ClassItem, AppliedDiscount, AddDropRequest } from '../../types';
 import { saveDocToFirestore } from '../../lib/firebase';
 import { sendPushNotificationToUser } from '../../lib/fcm';
 import { sendDesktopNotification } from '../../lib/notifications';
@@ -39,6 +44,9 @@ interface StudentSearchDashboardProps {
   onUpdateUser?: (user: SchoolUser) => void;
   onDeleteUser?: (userId: string) => void;
   onDeleteRegistration?: (logId: string) => void;
+  addDropRequests?: AddDropRequest[];
+  onApproveAddDropRequest?: (req: AddDropRequest, notes?: string) => void;
+  onRejectAddDropRequest?: (req: AddDropRequest, notes?: string) => void;
 }
 
 export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
@@ -50,13 +58,17 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
   onUpdateUser,
   onDeleteUser,
   onDeleteRegistration,
+  addDropRequests = [],
+  onApproveAddDropRequest,
+  onRejectAddDropRequest,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'info' | 'financial' | 'classes' | 'grades'>('info');
   
-  // Payment Form States
+  // Payment / Refund Form States
+  const [transactionType, setTransactionType] = useState<'payment' | 'refund'>('payment');
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [paymentNote, setPaymentNote] = useState<string>('');
   
@@ -113,7 +125,7 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
   const totalTuition = currentRegistration ? currentRegistration.totalPrice : 0;
   const appliedClasses = currentRegistration ? currentRegistration.selectedClasses || [] : [];
   const payments = currentRegistration?.payments || [];
-  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const totalPaid = payments.reduce((sum, p) => sum + (p.type === 'refund' ? -Math.abs(p.amount) : p.amount), 0);
   const verifiedClassIds = currentRegistration?.verifiedClassIds || [];
 
   // Determine pricing status based on user rules
@@ -133,10 +145,10 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
   const averageClassCost = classCount > 0 ? totalTuition / classCount : 0;
 
   // Maximum courses they paid enough to cover:
-  const coursesCoveredByPayment = averageClassCost > 0 ? Math.floor(totalPaid / averageClassCost) : 0;
+  const coursesCoveredByPayment = averageClassCost > 0 ? Math.max(0, Math.floor(totalPaid / averageClassCost)) : 0;
 
-  // Handle Recording a New Payment
-  const handleAddPayment = (e: React.FormEvent) => {
+  // Handle Recording a New Payment or Refund
+  const handleAddTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentRegistration) {
       alert('This student has not submitted any class registrations yet. Please register for classes first.');
@@ -145,22 +157,55 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
     
     const amt = parseFloat(paymentAmount);
     if (isNaN(amt) || amt <= 0) {
-      alert('Please enter a valid payment amount greater than 0.');
+      alert('Please enter a valid amount greater than 0.');
       return;
     }
 
+    const isRefund = transactionType === 'refund';
+
+    // Overpayment calculation: refunds are ONLY allowed if total payments exceed tuition due
+    const overpaymentAmount = totalPaid - totalTuition;
+    const maxRefundable = Math.max(0, overpaymentAmount);
+
+    if (isRefund) {
+      if (maxRefundable <= 0) {
+        alert(
+          `Refund Blocked!\n\n` +
+          `Refunds are ONLY allowed if total payments ($${totalPaid.toFixed(2)}) exceed total tuition due ($${totalTuition.toFixed(2)}).\n\n` +
+          `Current Financial Summary:\n` +
+          `• Total Paid: $${totalPaid.toFixed(2)}\n` +
+          `• Tuition Due: $${totalTuition.toFixed(2)}\n` +
+          `• Overpayment Available: $0.00\n\n` +
+          `If this student dropped a course, please verify that their Add/Drop request has been APPROVED by the Registrar to reduce the tuition due and unlock refund eligibility.`
+        );
+        return;
+      }
+
+      if (amt > maxRefundable + 0.001) {
+        alert(
+          `Refund Exceeds Overpayment!\n\n` +
+          `The requested refund ($${amt.toFixed(2)}) exceeds the maximum allowable overpayment refund ($${maxRefundable.toFixed(2)}).\n\n` +
+          `• Total Paid: $${totalPaid.toFixed(2)}\n` +
+          `• Tuition Due: $${totalTuition.toFixed(2)}\n` +
+          `• Maximum Allowable Refund: $${maxRefundable.toFixed(2)}`
+        );
+        return;
+      }
+    }
+
     const newPayment = {
-      id: `PAY-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      amount: amt,
+      id: isRefund ? `REF-${Date.now()}-${Math.random().toString(36).substring(2, 6)}` : `PAY-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      amount: isRefund ? -Math.abs(amt) : Math.abs(amt),
       timestamp: new Date().toISOString(),
-      notes: paymentNote.trim() || 'General Tuition Payment',
+      notes: paymentNote.trim() || (isRefund ? 'Tuition Refund Issued' : 'General Tuition Payment'),
+      type: isRefund ? ('refund' as const) : ('payment' as const),
     };
 
     const updatedPayments = [...payments, newPayment];
-    const newTotalPaid = totalPaid + amt;
+    const newTotalPaid = totalPaid + (isRefund ? -Math.abs(amt) : Math.abs(amt));
     
     // Auto-resolve paid flags and status
-    const allPaid = newTotalPaid >= totalTuition;
+    const allPaid = newTotalPaid >= totalTuition && totalTuition > 0;
     const isPartial = newTotalPaid > 0 && !allPaid;
 
     const updatedReg: RegistrationRecord = {
@@ -181,11 +226,38 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
         '🎉 Enrollment Confirmed!',
         `Your payment is complete and your enrollment at Shaw STEM Academy is finalized. Thank you!`
       );
+    } else if (isRefund && selectedStudent) {
+      sendPushNotificationToUser(
+        selectedStudent.email,
+        selectedStudent.id,
+        '💸 Tuition Refund Processed',
+        `A tuition refund of $${amt.toFixed(2)} has been recorded for your account. Revised balance: $${Math.max(0, totalTuition - newTotalPaid).toFixed(2)}.`
+      );
     }
 
     onUpdateRegistration(updatedReg);
     setPaymentAmount('');
     setPaymentNote('');
+  };
+
+  const handleDeleteTransaction = (transactionId: string) => {
+    if (!currentRegistration) return;
+    if (!window.confirm('Are you sure you want to remove this transaction record? This will adjust the student total paid amount.')) return;
+
+    const updatedPayments = payments.filter(p => p.id !== transactionId);
+    const newTotalPaid = updatedPayments.reduce((sum, p) => sum + (p.type === 'refund' ? -Math.abs(p.amount) : p.amount), 0);
+
+    const allPaid = newTotalPaid >= totalTuition && totalTuition > 0;
+    const isPartial = newTotalPaid > 0 && !allPaid;
+
+    const updatedReg: RegistrationRecord = {
+      ...currentRegistration,
+      payments: updatedPayments,
+      isPaid: allPaid,
+      status: allPaid ? 'completed' : isPartial ? 'partial_payment' : 'pending_review',
+    };
+
+    onUpdateRegistration(updatedReg);
   };
 
   // Toggle Verification of a Particular Course
@@ -981,36 +1053,117 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                       )}
                     </div>
 
-                    {/* Two Column Section: Recording Payments & Coverage Grid */}
+                    {/* Two Column Section: Recording Payments/Refunds & Coverage Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       
-                      {/* Form: Record New Payment */}
+                      {/* Form: Record New Payment or Refund */}
                       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-                        <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                          <CreditCard className="w-4 h-4 text-blue-600" />
-                          <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Record Tuition Payment</h3>
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="w-4 h-4 text-blue-600" />
+                            <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Financial Transactions</h3>
+                          </div>
+                          
+                          {/* Payment / Refund Toggle */}
+                          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                            <button
+                              type="button"
+                              onClick={() => setTransactionType('payment')}
+                              className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                                transactionType === 'payment'
+                                  ? 'bg-blue-600 text-white shadow-xs'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              + Payment
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setTransactionType('refund')}
+                              className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                                transactionType === 'refund'
+                                  ? 'bg-rose-600 text-white shadow-xs'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              - Refund
+                            </button>
+                          </div>
                         </div>
 
-                        <form onSubmit={handleAddPayment} className="space-y-4">
+                        <form onSubmit={handleAddTransaction} className="space-y-4">
+                          {/* Overpayment Refund Status Banner */}
+                          {transactionType === 'refund' && (() => {
+                            const maxRefundable = Math.max(0, totalPaid - totalTuition);
+                            const hasOverpayment = totalPaid > totalTuition;
+
+                            return hasOverpayment ? (
+                              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 text-xs">
+                                <div className="flex items-center justify-between font-extrabold text-emerald-800">
+                                  <span className="flex items-center gap-1.5">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                    Overpayment Eligible for Refund
+                                  </span>
+                                  <span className="text-xs font-black text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                                    Max ${maxRefundable.toFixed(2)}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-emerald-700 font-medium leading-relaxed">
+                                  Payments (<strong className="font-bold">${totalPaid.toFixed(2)}</strong>) exceed tuition due (<strong className="font-bold">${totalTuition.toFixed(2)}</strong>). You can issue a refund up to <strong className="font-bold">${maxRefundable.toFixed(2)}</strong>.
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1 text-xs">
+                                <div className="flex items-center justify-between font-extrabold text-rose-800">
+                                  <span className="flex items-center gap-1.5">
+                                    <AlertCircle className="w-4 h-4 text-rose-600" />
+                                    Refund Blocked (No Overpayment)
+                                  </span>
+                                  <span className="text-xs font-black text-rose-700 bg-white px-2 py-0.5 rounded border border-rose-200">
+                                    $0.00 Eligible
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-rose-700 font-medium leading-relaxed">
+                                  Refunds are restricted to accounts where payments (<strong className="font-bold">${totalPaid.toFixed(2)}</strong>) exceed tuition due (<strong className="font-bold">${totalTuition.toFixed(2)}</strong>).
+                                </p>
+                                <p className="text-[10px] text-rose-600 italic font-semibold pt-0.5">
+                                  💡 If the student requested a course drop, approve the Add/Drop request first to lower the tuition due and unlock refund eligibility.
+                                </p>
+                              </div>
+                            );
+                          })()}
+
                           <div className="space-y-1.5">
-                            <label className="block text-[11px] font-bold text-slate-600 uppercase">Amount Paid ($)</label>
+                            <label className="block text-[11px] font-bold text-slate-600 uppercase">
+                              {transactionType === 'payment' ? 'Payment Amount ($)' : 'Refund Amount ($)'}
+                            </label>
                             <div className="relative">
                               <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-sm">$</span>
                               <input
                                 type="number"
+                                step="0.01"
                                 placeholder="0.00"
+                                max={transactionType === 'refund' ? Math.max(0, totalPaid - totalTuition).toFixed(2) : undefined}
                                 value={paymentAmount}
                                 onChange={(e) => setPaymentAmount(e.target.value)}
-                                className="w-full pl-7 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                                className={`w-full pl-7 pr-3 py-2 text-sm border rounded-xl focus:ring-2 focus:outline-hidden ${
+                                  transactionType === 'refund'
+                                    ? 'border-rose-200 focus:ring-rose-500'
+                                    : 'border-slate-300 focus:ring-blue-500'
+                                }`}
                                 required
                               />
                             </div>
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="block text-[11px] font-bold text-slate-600 uppercase">Reference Notes / Comments</label>
+                            <label className="block text-[11px] font-bold text-slate-600 uppercase">Reference Notes / Reason</label>
                             <textarea
-                              placeholder="e.g. Bank Transfer Ref: 48820, Cash deposit"
+                              placeholder={
+                                transactionType === 'payment'
+                                  ? 'e.g. Bank Transfer Ref: 48820, Cash deposit'
+                                  : 'e.g. Class dropped, overpayment adjustment, administrative refund'
+                              }
                               rows={2}
                               value={paymentNote}
                               onChange={(e) => setPaymentNote(e.target.value)}
@@ -1021,10 +1174,33 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
 
                           <button
                             type="submit"
-                            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                            disabled={transactionType === 'refund' && totalPaid <= totalTuition}
+                            className={`w-full py-2.5 text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 ${
+                              transactionType === 'refund' && totalPaid <= totalTuition
+                                ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                                : transactionType === 'refund'
+                                ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20 cursor-pointer'
+                                : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20 cursor-pointer'
+                            }`}
                           >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Payment Receipt</span>
+                            {transactionType === 'refund' ? (
+                              totalPaid <= totalTuition ? (
+                                <>
+                                  <Lock className="w-3.5 h-3.5" />
+                                  <span>Refund Locked (No Overpayment)</span>
+                                </>
+                              ) : (
+                                <>
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                  <span>Issue Tuition Refund</span>
+                                </>
+                              )
+                            ) : (
+                              <>
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add Payment Receipt</span>
+                              </>
+                            )}
                           </button>
                         </form>
                       </div>
@@ -1083,7 +1259,7 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
 
                     </div>
 
-                    {/* Payment Transaction Ledger */}
+                    {/* Payment & Refund Transaction Ledger */}
                     <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
                       <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                         <div className="flex items-center gap-1.5">
@@ -1095,19 +1271,43 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
 
                       {payments.length === 0 ? (
                         <div className="text-center py-6 text-xs text-slate-400">
-                          No transactions recorded yet. Enter a payment above to seed ledger.
+                          No transactions recorded yet. Enter a payment or refund above to seed ledger.
                         </div>
                       ) : (
-                        <div className="space-y-2 max-h-[160px] overflow-y-auto">
-                          {payments.map((p, idx) => (
-                            <div key={p.id} className="flex items-start justify-between text-xs p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                              <div className="space-y-0.5">
-                                <span className="font-bold text-slate-800">Payment #{idx + 1} • ${p.amount.toFixed(2)}</span>
-                                <p className="text-[10px] text-slate-500 font-medium">Notes: {p.notes}</p>
+                        <div className="space-y-2 max-h-[180px] overflow-y-auto">
+                          {payments.map((p, idx) => {
+                            const isRefund = p.type === 'refund' || p.amount < 0;
+                            const amtAbs = Math.abs(p.amount);
+                            return (
+                              <div key={p.id} className={`flex items-start justify-between text-xs p-2.5 rounded-xl border ${
+                                isRefund ? 'bg-rose-50/60 border-rose-200' : 'bg-slate-50 border-slate-100'
+                              }`}>
+                                <div className="space-y-0.5 min-w-0 pr-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`font-extrabold ${isRefund ? 'text-rose-700' : 'text-slate-800'}`}>
+                                      {isRefund ? `Refund #${idx + 1}` : `Payment #${idx + 1}`} • {isRefund ? `-$${amtAbs.toFixed(2)}` : `$${amtAbs.toFixed(2)}`}
+                                    </span>
+                                    <span className={`px-2 py-0.2 rounded text-[9px] font-extrabold uppercase border ${
+                                      isRefund ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                    }`}>
+                                      {isRefund ? 'REFUND' : 'PAYMENT'}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-500 font-medium">Notes: {p.notes}</p>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-[10px] text-slate-400">{new Date(p.timestamp).toLocaleDateString()}</span>
+                                  <button
+                                    onClick={() => handleDeleteTransaction(p.id)}
+                                    className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                                    title="Delete Transaction"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
-                              <span className="text-[10px] text-slate-400">{new Date(p.timestamp).toLocaleDateString()}</span>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -1239,6 +1439,94 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                     })}
                   </div>
                 )}
+
+                {/* Add / Drop Requests Log for this Student */}
+                {selectedStudent && (() => {
+                  const studentRequests = addDropRequests.filter(req => 
+                    req.studentId === selectedStudent.id || 
+                    req.studentEmail?.toLowerCase() === selectedStudent.email?.toLowerCase()
+                  );
+                  return (
+                    <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4 pt-4 mt-6">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="w-4 h-4 text-purple-600" />
+                          <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                            Student Add / Drop Requests
+                          </h4>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400">{studentRequests.length} Request(s)</span>
+                      </div>
+
+                      {studentRequests.length === 0 ? (
+                        <p className="text-xs text-slate-400 text-center py-4">
+                          No add/drop requests submitted by this student.
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {studentRequests.map(req => {
+                            const isAdd = req.requestType === 'add';
+                            return (
+                              <div key={req.id} className="p-3.5 bg-white rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                                      isAdd ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'
+                                    }`}>
+                                      {isAdd ? 'ADD CLASS' : 'DROP CLASS'}
+                                    </span>
+                                    <span className="font-extrabold text-xs text-slate-900">{req.classTitle}</span>
+                                    <span className="text-[10px] text-slate-400">• {new Date(req.createdAt).toLocaleDateString()}</span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 font-medium">
+                                    Class Price: <strong className="text-slate-800">${req.classPrice}</strong> • {isAdd ? 'Will charge full price' : 'Will deduct discounted price'}
+                                  </p>
+                                  {req.reason && (
+                                    <p className="text-[10px] text-slate-400 italic">"Reason: {req.reason}"</p>
+                                  )}
+                                  {req.notes && (
+                                    <p className="text-[10px] text-purple-600 font-semibold">Admin Notes: {req.notes}</p>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {req.status === 'pending' ? (
+                                    <>
+                                      {onApproveAddDropRequest && (
+                                        <button
+                                          onClick={() => onApproveAddDropRequest(req)}
+                                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
+                                        >
+                                          <Check className="w-3.5 h-3.5" />
+                                          <span>Approve</span>
+                                        </button>
+                                      )}
+                                      {onRejectAddDropRequest && (
+                                        <button
+                                          onClick={() => onRejectAddDropRequest(req)}
+                                          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                          <span>Reject</span>
+                                        </button>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                      req.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    }`}>
+                                      {req.status}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

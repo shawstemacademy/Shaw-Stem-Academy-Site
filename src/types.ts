@@ -213,8 +213,10 @@ export interface RegistrationRecord {
     amount: number;
     timestamp: string;
     notes?: string;
+    type?: 'payment' | 'refund';
   }[];
   verifiedClassIds?: string[];
+  addDropRequests?: AddDropRequest[];
   grades?: {
     id: string;
     classId: string;
@@ -226,6 +228,24 @@ export interface RegistrationRecord {
     feedback?: string;
     updatedAt: string;
   }[];
+}
+
+export interface AddDropRequest {
+  id: string;
+  registrationId: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  type: 'add' | 'drop';
+  classItem: ClassItem;
+  effectivePrice: number; // Discounted price for drop, full price for add
+  originalPrice: number;
+  reason?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestDate: string;
+  reviewedBy?: string;
+  reviewedDate?: string;
+  reviewNotes?: string;
 }
 
 export interface AttendanceRecord {
