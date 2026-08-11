@@ -490,7 +490,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     const isMobileTarget = targetDevice?.platform?.includes('Mobile') || false;
     const isCurrentDevice = targetToken === fcmToken;
 
-    // Dispatch via Firestore Realtime FCM Sync Queue so target device receives notification instantly
+    // Dispatch via modern Firebase Realtime Push Queue so target device receives notification instantly
     try {
       const queueRef = collection(db, 'fcmNotificationQueue');
       await addDoc(queueRef, {
@@ -503,54 +503,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       });
     } catch (qErr) {
       console.warn('Failed enqueueing FCM notification:', qErr);
-    }
-
-    // Attempt legacy HTTP dispatch if key is provided
-    if (fcmServerKey) {
-      const payload = {
-        to: targetToken,
-        notification: {
-          title: pushTitle,
-          body: pushBody,
-          image: pushImage,
-          sound: 'default'
-        },
-        data: {
-          click_action: 'FLUTTER_NOTIFICATION_CLICK',
-          school: 'Shaw STEM Academy',
-          sentAt: new Date().toISOString()
-        }
-      };
-
-      try {
-        const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `key=${fcmServerKey}`
-          },
-          body: JSON.stringify(payload)
-        });
-
-        const resData = await response.json();
-        if (response.ok && (!resData.failure || resData.failure === 0)) {
-          setFcmSendStatus('success');
-          setFcmSendLogs((prev) => [
-            {
-              id: `fcm-real-${Date.now()}`,
-              timestamp: new Date().toLocaleTimeString(),
-              title: pushTitle,
-              body: pushBody,
-              success: true,
-              type: 'real'
-            },
-            ...prev
-          ]);
-          return;
-        }
-      } catch (err: any) {
-        console.warn('FCM Legacy endpoint notice, using Firebase Push Sync:', err);
-      }
     }
 
     // Process notification completion
@@ -2408,21 +2360,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                     />
                   </div>
 
-                  {/* Firebase Legacy Server Key */}
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                      <span>FCM Server Key (Optional / Deprecated by Google):</span>
-                      <span className="text-[9px] text-amber-400 font-semibold">Web Push Enabled</span>
-                    </label>
-                    <input
-                      type="password"
-                      value={fcmServerKey}
-                      onChange={(e) => setFcmServerKey(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-xs font-semibold px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden text-white placeholder:text-slate-600"
-                      placeholder="Legacy Key discontinued by Google in June 2024 — Web Push works automatically!"
-                    />
-                    <p className="text-[10px] text-slate-400 leading-tight">
-                      Google retired FCM HTTP Legacy Keys in June 2024. Web Push Notifications via Service Worker and VAPID keys are used directly to deliver push messages to registered devices.
+                  {/* Modern Firebase Messaging Banner */}
+                  <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-xl space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-300">
+                      <span>Firebase Cloud Messaging Framework:</span>
+                      <span className="text-[9px] text-emerald-400 font-extrabold bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-md">
+                        Modern Firebase v10/v11 SDK Active
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 leading-normal">
+                      This application uses the modern Firebase Web Push VAPID protocol, Modular Messaging SDK (<code className="text-blue-300 font-mono">firebase/messaging</code>), and background Service Workers (<code className="text-blue-300 font-mono">firebase-messaging-sw.js</code>). The deprecated FCM Legacy Server Keys discontinued by Google in June 2024 are fully superseded.
                     </p>
                   </div>
 

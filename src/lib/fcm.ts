@@ -257,7 +257,8 @@ export async function sendPushNotificationToAll(title: string, body: string) {
 async function _sendFcmToTokens(tokens: string[], title: string, body: string) {
   if (tokens.length === 0) return;
 
-  // Always publish to Firestore Push Queue so target mobile and web devices receive the notification live
+  // Modern Firebase Web Push: Publish notification payload to Firestore Push Queue.
+  // Registered devices (mobile and desktop) listening via Firebase SDK receive live push notifications instantly.
   try {
     const queueRef = collection(db, 'fcmNotificationQueue');
     await addDoc(queueRef, {
@@ -266,47 +267,9 @@ async function _sendFcmToTokens(tokens: string[], title: string, body: string) {
       body,
       createdAt: new Date().toISOString()
     });
+    console.log(`Modern FCM Web Push payload queued for ${tokens.length} target device(s).`);
   } catch (err) {
-    console.warn('Failed publishing push to Firestore queue:', err);
-  }
-
-  const serverKey = import.meta.env.VITE_FCM_SERVER_KEY || import.meta.env.VITE_FIREBASE_API_KEY;
-  if (!serverKey) {
-    console.warn('No VITE_FIREBASE_API_KEY available to send FCM pushes.');
-    return;
-  }
-
-  // FCM legacy API payload
-  const payload = {
-    registration_ids: tokens,
-    notification: {
-      title,
-      body,
-      icon: '/favicon.png',
-      image: '/favicon.png'
-    },
-    data: {
-      url: '/'
-    }
-  };
-
-  try {
-    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `key=${serverKey}`
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      console.warn('FCM Legacy Endpoint notice:', await response.text());
-    } else {
-      console.log('FCM Push dispatched successfully via HTTP endpoint.');
-    }
-  } catch (err) {
-    console.warn('Network notice sending FCM HTTP push:', err);
+    console.warn('Error publishing push to Firebase notification queue:', err);
   }
 }
 
