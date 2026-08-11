@@ -30,7 +30,8 @@ import {
   X,
   Activity,
   Sparkles,
-  Edit3
+  Edit3,
+  AlertTriangle
 } from 'lucide-react';
 import { ImageUploadInput } from '../common/ImageUploadInput';
 import { 
@@ -178,10 +179,31 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     currentRole === 'hod' ? 'users' : 'overview'
   );
 
-  // Wiping States
+  // Wiping States & Delete Modal
   const [isWiping, setIsWiping] = useState(false);
-  const [wipeConfirm, setWipeConfirm] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
   const [wipeStatus, setWipeStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  const handleDeleteAllSiteData = async () => {
+    if (deleteConfirmInput.trim() !== 'DELETE') return;
+    setIsWiping(true);
+    try {
+      let ok = false;
+      if (onDeleteAllData) {
+        ok = await onDeleteAllData();
+      } else if (onClearAndInitFirebase) {
+        ok = await onClearAndInitFirebase();
+      }
+      setWipeStatus(ok ? 'success' : 'error');
+    } catch (err) {
+      setWipeStatus('error');
+    } finally {
+      setIsWiping(false);
+      setShowDeleteModal(false);
+      setDeleteConfirmInput('');
+    }
+  };
 
   // Edit Registration States
   const [editingLog, setEditingLog] = useState<RegistrationRecord | null>(null);
@@ -1244,56 +1266,97 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
             <div className="border-t border-slate-800/80 pt-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               <div className="space-y-1">
-                <h4 className="text-sm font-bold text-slate-200">Reset & Clear Demo Data</h4>
+                <h4 className="text-sm font-bold text-slate-200">Delete All Site Data</h4>
                 <p className="text-slate-400 text-xs max-w-xl">
                   This action clears all existing classes, discounts, announcements, registrations, and secondary users from Firebase Firestore. Only system administrator accounts will be retained, giving you a clean slate to build your own academy data.
                 </p>
               </div>
 
               <div className="shrink-0">
-                {!wipeConfirm ? (
-                  <button
-                    onClick={() => {
-                      setWipeConfirm(true);
-                      setWipeStatus('idle');
-                    }}
-                    className="px-4 py-2.5 bg-rose-950/30 hover:bg-rose-900/30 border border-rose-800/40 text-rose-300 hover:text-rose-200 font-bold text-xs rounded-xl transition-all"
-                  >
-                    Clear Demo Data & Start Fresh
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2 bg-slate-800/40 p-1.5 rounded-xl border border-slate-700/50">
-                    <span className="text-[11px] font-extrabold text-rose-300 px-2">Are you absolutely sure? This will delete all demo records.</span>
-                    <button
-                      onClick={async () => {
-                        if (!onClearAndInitFirebase) return;
-                        setIsWiping(true);
-                        try {
-                          const ok = await onClearAndInitFirebase();
-                          setWipeStatus(ok ? 'success' : 'error');
-                        } catch (err) {
-                          setWipeStatus('error');
-                        } finally {
-                          setIsWiping(false);
-                          setWipeConfirm(false);
-                        }
-                      }}
-                      disabled={isWiping}
-                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg transition-all disabled:opacity-50"
-                    >
-                      {isWiping ? 'Wiping...' : 'Yes, Wipe Database'}
-                    </button>
-                    <button
-                      onClick={() => setWipeConfirm(false)}
-                      className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs rounded-lg transition-all"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(true);
+                    setDeleteConfirmInput('');
+                    setWipeStatus('idle');
+                  }}
+                  className="px-4 py-2.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 text-rose-300 hover:text-rose-100 font-bold text-xs rounded-xl transition-all shadow-2xs flex items-center gap-2 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-400" />
+                  <span>Delete All Site Data</span>
+                </button>
               </div>
             </div>
           </div>
+
+          {/* CONFIRMATION MODAL FOR DELETE ALL SITE DATA */}
+          {showDeleteModal && (
+            <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-rose-100 relative animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-rose-100 rounded-2xl text-rose-600 shrink-0">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-extrabold text-slate-900">Delete All Site Data</h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      This action is permanent and cannot be undone. All classes, student registrations, discount rules, announcements, and secondary user accounts will be wiped.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 bg-rose-50/70 p-4 rounded-2xl border border-rose-200/80">
+                  <label className="block text-xs font-bold text-slate-800">
+                    To confirm, please type <span className="font-mono text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded font-black">DELETE</span> below:
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteConfirmInput}
+                    onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                    placeholder="Type DELETE to confirm"
+                    className="w-full px-3.5 py-2.5 bg-white border border-rose-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-rose-500 transition-all placeholder:text-slate-400"
+                    autoFocus
+                  />
+                  {deleteConfirmInput.length > 0 && deleteConfirmInput.trim() !== 'DELETE' && (
+                    <p className="text-[11px] font-semibold text-rose-600">
+                      Requirement: You must type DELETE in exact capital letters to proceed.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setDeleteConfirmInput('');
+                    }}
+                    disabled={isWiping}
+                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteAllSiteData}
+                    disabled={deleteConfirmInput.trim() !== 'DELETE' || isWiping}
+                    className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {isWiping ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Deleting Site Data...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        <span>Delete All Site Data</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Student Registration Logs Table */}
           <div className="space-y-4">
