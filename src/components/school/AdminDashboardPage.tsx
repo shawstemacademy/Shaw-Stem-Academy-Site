@@ -88,6 +88,7 @@ interface AdminDashboardPageProps {
   onUpdateDepartment: (dept: Department) => void;
   onDeleteDepartment: (deptId: string) => void;
   onAssignUserToDepartment: (userId: string, deptId: string) => void;
+  onRemoveUserFromDepartment?: (userId: string, deptId: string) => void;
   onTogglePermission: (permissionId: string, role: 'teacher' | 'admin') => void;
   onToggleUserDisabled?: (user: SchoolUser) => void;
   currentRole?: UserRole;
@@ -143,6 +144,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   onUpdateDepartment,
   onDeleteDepartment,
   onAssignUserToDepartment,
+  onRemoveUserFromDepartment,
   onTogglePermission,
   onToggleUserDisabled,
   currentRole,
@@ -1735,6 +1737,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           onUpdateDepartment={onUpdateDepartment}
           onDeleteDepartment={onDeleteDepartment}
           onAssignUserToDepartment={onAssignUserToDepartment}
+          onRemoveUserFromDepartment={onRemoveUserFromDepartment}
           logoUrl={landingPageSettings.logoUrl}
           locations={locations}
           onSaveLocation={onSaveLocation}

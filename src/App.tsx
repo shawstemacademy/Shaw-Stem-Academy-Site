@@ -1650,7 +1650,8 @@ export default function App() {
     sendPushNotificationToClass(
       newAnn.classId,
       `New Announcement: ${newAnn.className}`,
-      newAnn.title
+      newAnn.title,
+      'announcement'
     );
   };
 
@@ -1665,7 +1666,8 @@ export default function App() {
     sendPushNotificationToClass(
       newRes.classId,
       `New Resource Uploaded: ${newRes.className}`,
-      `A new ${newRes.category} titled "${newRes.title}" has been uploaded by ${newRes.teacherName}.`
+      `A new ${newRes.category} titled "${newRes.title}" has been uploaded by ${newRes.teacherName}.`,
+      'class'
     );
   };
 
@@ -1797,6 +1799,8 @@ export default function App() {
         name: newUser.name,
         title: newUser.title,
         department: newUser.departmentName,
+        departmentIds: newUser.departmentIds,
+        departmentNames: newUser.departmentNames,
         email: newUser.email,
         bio: newUser.bio || 'New faculty member at Shaw STEM Academy.',
         officeHours: newUser.officeHours || 'By Appointment',
@@ -1825,6 +1829,8 @@ export default function App() {
               name: updatedUser.name,
               title: updatedUser.title,
               department: updatedUser.departmentName,
+              departmentIds: updatedUser.departmentIds,
+              departmentNames: updatedUser.departmentNames,
               email: updatedUser.email,
               bio: updatedUser.bio || t.bio,
               officeHours: updatedUser.officeHours || t.officeHours,
@@ -1962,12 +1968,19 @@ export default function App() {
     setSchoolUsers((prev) =>
       prev.map((u) => {
         if (u.id === userId) {
+          const currentIds = u.departmentIds || (u.departmentId ? [u.departmentId] : []);
+          const nextIds = currentIds.includes(targetDept.id) ? currentIds : [...currentIds, targetDept.id];
+          const deptNames = nextIds.map(id => {
+            const d = departments.find(dep => dep.id === id);
+            return d ? d.name : '';
+          }).filter(Boolean);
+
           const updated = { 
             ...u, 
             departmentId: targetDept.id, 
             departmentName: targetDept.name,
-            departmentIds: [targetDept.id],
-            departmentNames: [targetDept.name] 
+            departmentIds: nextIds,
+            departmentNames: deptNames 
           };
           saveDocToFirestore('schoolUsers', userId, updated);
           return updated;
@@ -1976,7 +1989,25 @@ export default function App() {
       })
     );
     setTeacherProfiles((prev) =>
-      prev.map((t) => (t.id === userId ? { ...t, department: targetDept.name } : t))
+      prev.map((t) => {
+        if (t.id === userId) {
+          const u = schoolUsers.find(user => user.id === userId);
+          const currentIds = t.departmentIds || (u?.departmentIds) || [];
+          const nextIds = currentIds.includes(targetDept.id) ? currentIds : [...currentIds, targetDept.id];
+          const deptNames = nextIds.map(id => {
+            const d = departments.find(dep => dep.id === id);
+            return d ? d.name : '';
+          }).filter(Boolean);
+
+          return { 
+            ...t, 
+            department: targetDept.name,
+            departmentIds: nextIds,
+            departmentNames: deptNames
+          };
+        }
+        return t;
+      })
     );
   };
 
@@ -2012,7 +2043,110 @@ export default function App() {
   };
 
   const handleAssignUserToDepartment = (userId: string, deptId: string) => {
-    handleDepartmentChange(userId, deptId);
+    const targetDept = departments.find((d) => d.id === deptId);
+    if (!targetDept) return;
+    
+    setSchoolUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === userId) {
+          const currentIds = u.departmentIds || (u.departmentId ? [u.departmentId] : []);
+          const nextIds = currentIds.includes(deptId) ? currentIds : [...currentIds, deptId];
+          const deptNames = nextIds.map(id => {
+            const d = departments.find(dep => dep.id === id);
+            return d ? d.name : '';
+          }).filter(Boolean);
+
+          const updated = { 
+            ...u, 
+            departmentId: deptId,
+            departmentName: targetDept.name,
+            departmentIds: nextIds,
+            departmentNames: deptNames 
+          };
+          saveDocToFirestore('schoolUsers', userId, updated);
+          return updated;
+        }
+        return u;
+      })
+    );
+
+    setTeacherProfiles((prev) =>
+      prev.map((t) => {
+        if (t.id === userId) {
+          const u = schoolUsers.find(user => user.id === userId);
+          const currentIds = t.departmentIds || (u?.departmentIds) || [];
+          const nextIds = currentIds.includes(deptId) ? currentIds : [...currentIds, deptId];
+          const deptNames = nextIds.map(id => {
+            const d = departments.find(dep => dep.id === id);
+            return d ? d.name : '';
+          }).filter(Boolean);
+
+          return {
+            ...t,
+            department: targetDept.name,
+            departmentIds: nextIds,
+            departmentNames: deptNames
+          };
+        }
+        return t;
+      })
+    );
+  };
+
+  const handleRemoveUserFromDepartment = (userId: string, deptId: string) => {
+    setSchoolUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === userId) {
+          const currentIds = u.departmentIds || (u.departmentId ? [u.departmentId] : []);
+          const nextIds = currentIds.filter((id) => id !== deptId);
+          
+          const primaryDeptId = nextIds[0] || '';
+          const primaryDept = departments.find((d) => d.id === primaryDeptId);
+          const primaryDeptName = primaryDept ? primaryDept.name : '';
+          const deptNames = nextIds.map(id => {
+            const d = departments.find(dep => dep.id === id);
+            return d ? d.name : '';
+          }).filter(Boolean);
+
+          const updated = { 
+            ...u, 
+            departmentId: primaryDeptId,
+            departmentName: primaryDeptName,
+            departmentIds: nextIds,
+            departmentNames: deptNames 
+          };
+          saveDocToFirestore('schoolUsers', userId, updated);
+          return updated;
+        }
+        return u;
+      })
+    );
+
+    setTeacherProfiles((prev) =>
+      prev.map((t) => {
+        if (t.id === userId) {
+          const u = schoolUsers.find(user => user.id === userId);
+          const currentIds = t.departmentIds || (u?.departmentIds) || [];
+          const nextIds = currentIds.filter((id) => id !== deptId);
+          
+          const primaryDeptId = nextIds[0] || '';
+          const primaryDept = departments.find((d) => d.id === primaryDeptId);
+          const primaryDeptName = primaryDept ? primaryDept.name : '';
+          const deptNames = nextIds.map(id => {
+            const d = departments.find(dep => dep.id === id);
+            return d ? d.name : '';
+          }).filter(Boolean);
+
+          return {
+            ...t,
+            department: primaryDeptName,
+            departmentIds: nextIds,
+            departmentNames: deptNames
+          };
+        }
+        return t;
+      })
+    );
   };
 
   const handleTogglePermission = (permissionId: string, role: 'teacher' | 'admin') => {
@@ -2442,6 +2576,7 @@ export default function App() {
               onUpdateDepartment={handleUpdateDepartment}
               onDeleteDepartment={handleDeleteDepartment}
               onAssignUserToDepartment={handleAssignUserToDepartment}
+              onRemoveUserFromDepartment={handleRemoveUserFromDepartment}
               onTogglePermission={handleTogglePermission}
               onToggleUserDisabled={handleToggleUserDisabled}
               onTogglePaymentStatus={handleTogglePaymentStatus}

@@ -345,6 +345,8 @@ export interface TeacherProfile {
   name: string;
   title: string;
   department: string;
+  departmentIds?: string[];
+  departmentNames?: string[];
   email: string;
   bio: string;
   officeHours: string;

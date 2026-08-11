@@ -256,36 +256,135 @@ export async function sendPushNotificationToUser(
   }
 }
 
-export async function sendPushNotificationToClass(classId: string, title: string, body: string) {
+export async function sendPushNotificationToClass(
+  classId: string,
+  title: string,
+  body: string,
+  type: 'status' | 'class' | 'announcement' | 'tuition' | 'general' = 'class'
+) {
   try {
-    // 1. Find all users registered for this class
-    const usersRef = collection(db, 'schoolUsers');
-    const q = query(usersRef, where('registeredClassIds', 'array-contains', classId));
-    const userSnaps = await getDocs(q);
-    
-    const userIds: string[] = [];
-    const targetEmails: string[] = [];
-    userSnaps.forEach(doc => {
-      userIds.push(doc.id);
-      const data = doc.data();
-      if (data.email) targetEmails.push(data.email.toLowerCase().trim());
-    });
-    
-    if (userIds.length === 0) return;
+    const targetEmails = new Set<string>();
+    const userIds = new Set<string>();
 
-    // 2. Fetch their FCM tokens
-    const tokensRef = collection(db, 'fcmTokens');
-    const tokenQuery = query(tokensRef, where('userId', 'in', userIds));
-    const tokenSnaps = await getDocs(tokenQuery);
-    
+    // 1. Get from schoolUsers collection
+    try {
+      const usersRef = collection(db, 'schoolUsers');
+      const q = query(usersRef, where('registeredClassIds', 'array-contains', classId));
+      const userSnaps = await getDocs(q);
+      userSnaps.forEach(doc => {
+        userIds.add(doc.id);
+        const data = doc.data();
+        if (data.id) userIds.add(data.id);
+        if (data.email) targetEmails.add(data.email.toLowerCase().trim());
+      });
+    } catch (err) {
+      console.warn('Error querying schoolUsers for class:', err);
+    }
+
+    // 2. Get from registrations collection (verifiedClassIds contains classId)
+    try {
+      const registrationsRef = collection(db, 'registrations');
+      const qReg = query(registrationsRef, where('verifiedClassIds', 'array-contains', classId));
+      const regSnaps = await getDocs(qReg);
+      regSnaps.forEach(doc => {
+        const data = doc.data();
+        if (data.studentInfo?.email) {
+          targetEmails.add(data.studentInfo.email.toLowerCase().trim());
+        }
+        if (data.studentId) userIds.add(data.studentId);
+        if (data.studentInfo?.userId) userIds.add(data.studentInfo.userId);
+        if (data.userId) userIds.add(data.userId);
+      });
+    } catch (err) {
+      console.warn('Error querying registrations by verifiedClassIds for class:', err);
+    }
+
+    // 3. Get from registrations collection (by checking selectedClasses array, including pending or verified)
+    try {
+      const registrationsRef = collection(db, 'registrations');
+      const regSnaps = await getDocs(registrationsRef);
+      regSnaps.forEach(doc => {
+        const data = doc.data();
+        const hasClass = (data.selectedClasses || []).some((c: any) => c.id === classId) ||
+                         (data.verifiedClassIds || []).includes(classId);
+        if (hasClass) {
+          if (data.studentInfo?.email) {
+            targetEmails.add(data.studentInfo.email.toLowerCase().trim());
+          }
+          if (data.studentId) userIds.add(data.studentId);
+          if (data.studentInfo?.userId) userIds.add(data.studentInfo.userId);
+          if (data.userId) userIds.add(data.userId);
+        }
+      });
+    } catch (err) {
+      console.warn('Error querying all registrations for class:', err);
+    }
+
+    // 4. Resolve userIds for targetEmails so we can fetch their FCM tokens
+    if (targetEmails.size > 0) {
+      try {
+        const usersRef = collection(db, 'schoolUsers');
+        const usersSnap = await getDocs(usersRef);
+        usersSnap.forEach(doc => {
+          const data = doc.data();
+          if (data.email && targetEmails.has(data.email.toLowerCase().trim())) {
+            userIds.add(doc.id);
+            if (data.id) userIds.add(data.id);
+          }
+        });
+      } catch (err) {
+        console.warn('Error resolving userIds by emails:', err);
+      }
+    }
+
+    const userIdsArray = Array.from(userIds).filter(Boolean);
+    const targetEmailsArray = Array.from(targetEmails).filter(Boolean);
+
+    if (userIdsArray.length === 0 && targetEmailsArray.length === 0) {
+      console.log(`No users found enrolled in class ${classId}`);
+      return;
+    }
+
+    // 5. Fetch their FCM tokens
     const tokens: string[] = [];
-    tokenSnaps.forEach(doc => {
-      const data = doc.data();
-      if (data.token && !tokens.includes(data.token)) tokens.push(data.token);
-    });
+    if (userIdsArray.length > 0) {
+      try {
+        const tokensRef = collection(db, 'fcmTokens');
+        const chunkSize = 30;
+        for (let i = 0; i < userIdsArray.length; i += chunkSize) {
+          const chunk = userIdsArray.slice(i, i + chunkSize);
+          const tokenQuery = query(tokensRef, where('userId', 'in', chunk));
+          const tokenSnaps = await getDocs(tokenQuery);
+          tokenSnaps.forEach(doc => {
+            const data = doc.data();
+            if (data.token && !tokens.includes(data.token)) tokens.push(data.token);
+          });
+        }
+      } catch (err) {
+        console.warn('Error fetching FCM tokens by userId for class:', err);
+      }
+    }
+
+    if (targetEmailsArray.length > 0) {
+      try {
+        const tokensRef = collection(db, 'fcmTokens');
+        const chunkSize = 30;
+        for (let i = 0; i < targetEmailsArray.length; i += chunkSize) {
+          const chunk = targetEmailsArray.slice(i, i + chunkSize);
+          const tokenQuery = query(tokensRef, where('userEmail', 'in', chunk));
+          const tokenSnaps = await getDocs(tokenQuery);
+          tokenSnaps.forEach(doc => {
+            const data = doc.data();
+            if (data.token && !tokens.includes(data.token)) tokens.push(data.token);
+          });
+        }
+      } catch (err) {
+        console.warn('Error fetching FCM tokens by userEmail for class:', err);
+      }
+    }
 
     console.log(`Found ${tokens.length} target device token(s) for class ${classId}.`);
-    await _sendFcmToTokens(tokens, title, body, undefined, undefined, targetEmails, false, 'class');
+    await _sendFcmToTokens(tokens, title, body, undefined, undefined, targetEmailsArray, false, type);
   } catch (err) {
     console.warn('Error sending class FCM push:', err);
   }

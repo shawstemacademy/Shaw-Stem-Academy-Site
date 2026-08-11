@@ -28,6 +28,7 @@ interface AdminDepartmentManagementProps {
   onUpdateDepartment: (dept: Department) => void;
   onDeleteDepartment: (deptId: string) => void;
   onAssignUserToDepartment: (userId: string, deptId: string) => void;
+  onRemoveUserFromDepartment?: (userId: string, deptId: string) => void;
   logoUrl?: string;
   locations?: LocationOption[];
   onSaveLocation?: (location: LocationOption) => void;
@@ -66,6 +67,7 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
   onUpdateDepartment,
   onDeleteDepartment,
   onAssignUserToDepartment,
+  onRemoveUserFromDepartment,
   logoUrl,
   locations = [],
   onSaveLocation,
@@ -298,7 +300,7 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
       {activeSubTab === 'departments' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {departments.map((dept) => {
-            const deptMembers = users.filter((u) => u.departmentId === dept.id);
+            const deptMembers = users.filter((u) => u.departmentId === dept.id || (u.departmentIds || []).includes(dept.id));
             const teachers = deptMembers.filter((u) => u.role === 'teacher');
             const admins = deptMembers.filter((u) => u.role === 'admin');
 
@@ -493,19 +495,35 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
                                 alt={member.name}
                                 className="w-6 h-6 rounded-lg object-cover"
                               />
-                              <span className="text-xs font-semibold text-slate-800 truncate max-w-[130px]">
+                              <span className="text-xs font-semibold text-slate-800 truncate max-w-[120px]">
                                 {member.name}
                               </span>
                             </div>
-                            <span
-                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                member.role === 'teacher'
-                                  ? 'bg-purple-100 text-purple-700'
-                                  : 'bg-emerald-100 text-emerald-700'
-                              }`}
-                            >
-                              {member.role === 'teacher' ? 'Teacher' : 'Admin'}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                  member.role === 'teacher'
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : 'bg-emerald-100 text-emerald-700'
+                                }`}
+                              >
+                                {member.role === 'teacher' ? 'Teacher' : 'Admin'}
+                              </span>
+                              {!isReadOnly && onRemoveUserFromDepartment && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (confirm(`Are you sure you want to remove ${member.name} from the ${dept.name} department?`)) {
+                                      onRemoveUserFromDepartment(member.id, dept.id);
+                                    }
+                                  }}
+                                  className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
+                                  title={`Remove from ${dept.code}`}
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1092,11 +1110,16 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
                 >
                   {users
                     .filter((u) => u.role !== 'student')
-                    .map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} ({u.role.toUpperCase()}) {u.departmentName ? `- currently in ${u.departmentName}` : ''}
-                      </option>
-                    ))}
+                    .map((u) => {
+                      const deptText = u.departmentNames && u.departmentNames.length > 0
+                        ? u.departmentNames.join(', ')
+                        : u.departmentName || '';
+                      return (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.role.toUpperCase()}) {deptText ? `- currently in ${deptText}` : '- no departments'}
+                        </option>
+                      );
+                    })}
                 </select>
               </div>
 

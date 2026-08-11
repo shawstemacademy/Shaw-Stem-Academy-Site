@@ -96,6 +96,19 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
 }) => {
   const [activeSection, setActiveSection] = useState<'classes' | 'claims' | 'resources'>('classes');
 
+  // Fallback teacher profile if the teachers collection is empty (e.g., when an admin first logs in and views the overseer dashboard)
+  const fallbackTeacher: TeacherProfile = {
+    id: loggedInUser?.id || 'admin-overseer',
+    name: loggedInUser?.name || 'Administrator Overseer',
+    title: (loggedInUser as SchoolUser)?.title || 'Academy Administrator',
+    department: (loggedInUser as SchoolUser)?.departmentName || (loggedInUser as SchoolUser)?.department || 'Administration',
+    email: loggedInUser?.email || 'admin@shawstemacademy.edu',
+    bio: (loggedInUser as SchoolUser)?.bio || 'Academic administrator and overseer of Shaw STEM Academy faculty operations.',
+    officeHours: (loggedInUser as SchoolUser)?.officeHours || 'Monday - Friday, 8:00 AM - 4:00 PM',
+    avatar: loggedInUser?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+    assignedClassIds: classes.map((c) => c.id),
+  };
+
   // If logged in as a specific teacher user, default to their profile
   const matchedTeacher = teachers.find(
     (t) => loggedInUser && (t.id === loggedInUser.id || (t?.email || '').toLowerCase() === (loggedInUser?.email || '').toLowerCase())
@@ -103,10 +116,24 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
 
   const [activeTeacherId, setActiveTeacherId] = useState<string>(matchedTeacher?.id || teachers[0]?.id || '');
 
+  // Keep activeTeacherId updated if teachers list loads/changes
+  React.useEffect(() => {
+    if (teachers.length > 0 && !activeTeacherId) {
+      const matched = teachers.find(
+        (t) => loggedInUser && (t.id === loggedInUser.id || (t?.email || '').toLowerCase() === (loggedInUser?.email || '').toLowerCase())
+      ) || teachers[0];
+      if (matched) {
+        setActiveTeacherId(matched.id);
+      }
+    }
+  }, [teachers, loggedInUser, activeTeacherId]);
+
   // For teacher role, strictly enforce showing ONLY their own dashboard and information
-  const currentTeacher = (currentRole === 'teacher' && loggedInUser)
+  const currentTeacherRaw = (currentRole === 'teacher' && loggedInUser)
     ? (teachers.find((t) => t.id === loggedInUser.id || (t?.email || '').toLowerCase() === (loggedInUser?.email || '').toLowerCase()) || matchedTeacher)
     : (teachers.find((t) => t.id === activeTeacherId) || matchedTeacher);
+
+  const currentTeacher = currentTeacherRaw || fallbackTeacher;
 
   // Assigned classes for this teacher
   const teacherClasses = classes.filter((c) => 
@@ -199,6 +226,19 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   const [resClassId, setResClassId] = useState(teacherClasses[0]?.id || 'cls-101');
   const [resSuccess, setResSuccess] = useState(false);
 
+  // Automatically select the first available course in the dropdowns when formClasses change
+  React.useEffect(() => {
+    if (formClasses.length > 0) {
+      const ids = formClasses.map(c => c.id);
+      if (!annClassId || !ids.includes(annClassId) || annClassId === 'cls-101') {
+        setAnnClassId(formClasses[0].id);
+      }
+      if (!resClassId || !ids.includes(resClassId) || resClassId === 'cls-101') {
+        setResClassId(formClasses[0].id);
+      }
+    }
+  }, [formClasses, annClassId, resClassId]);
+
   const handlePublishAnnouncement = (e: React.FormEvent) => {
     e.preventDefault();
     if (!annTitle.trim() || !annContent.trim()) return;
@@ -280,6 +320,20 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   const teacherAnnouncements = announcements.filter((a) => a.teacherName === currentTeacher?.name);
   const teacherResources = resources.filter((r) => r.teacherName === currentTeacher?.name);
 
+  // Match currentTeacher to their schoolUser to get multiple department names
+  const matchedUserObj = schoolUsers.find(
+    (u) => currentTeacher && (u.id === currentTeacher.id || (u.email && u.email.toLowerCase() === (currentTeacher.email || '').toLowerCase()))
+  );
+  
+  // Resolve multiple department names
+  const teacherDepartmentNames = matchedUserObj?.departmentNames && matchedUserObj.departmentNames.length > 0
+    ? matchedUserObj.departmentNames
+    : matchedUserObj?.departmentName
+      ? [matchedUserObj.departmentName]
+      : currentTeacher?.department
+        ? [currentTeacher.department]
+        : [];
+
   return (
     <div className="space-y-10 pb-16">
       {/* Teacher Profile & Selector Bar */}
@@ -287,16 +341,21 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
             <img
-              src={currentTeacher?.avatar}
-              alt={currentTeacher?.name}
-              className="w-20 h-20 rounded-2xl object-cover border border-slate-700 shrink-0"
+              src={currentTeacher?.avatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150"}
+              alt={currentTeacher?.name || "Instructor Profile"}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150";
+              }}
+              className="w-20 h-20 rounded-2xl object-cover border border-slate-700 shrink-0 bg-slate-800"
             />
             <div className="space-y-1">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-wider border border-blue-500/20">
                 <span>Faculty & Instructor Dashboard</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold">{currentTeacher?.name}</h1>
-              <p className="text-xs sm:text-sm text-slate-400">{currentTeacher?.title} • {currentTeacher?.department}</p>
+              <p className="text-xs sm:text-sm text-slate-400">
+                {currentTeacher?.title} • {teacherDepartmentNames.length > 0 ? teacherDepartmentNames.join(', ') : 'General Faculty'}
+              </p>
               
               <button
                 onClick={handleOpenEditProfileModal}
@@ -315,15 +374,29 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                 Admin Overseer • Switch Faculty View:
               </label>
               <select
-                value={activeTeacherId}
+                value={activeTeacherId || 'admin-overseer'}
                 onChange={(e) => setActiveTeacherId(e.target.value)}
-                className="bg-slate-900 text-white border border-slate-700 text-xs font-semibold px-3 py-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                className="bg-slate-900 text-white border border-slate-700 text-xs font-semibold px-3 py-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden min-w-[180px]"
               >
-                {teachers.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.department})
+                {teachers.length === 0 ? (
+                  <option value="admin-overseer">
+                    {loggedInUser?.name || 'Administrator Overseer'} (Admin)
                   </option>
-                ))}
+                ) : (
+                  teachers.map((t) => {
+                    const matchedUser = schoolUsers.find(
+                      (u) => u.id === t.id || (u.email && u.email.toLowerCase() === (t.email || '').toLowerCase())
+                    );
+                    const deptText = matchedUser?.departmentNames && matchedUser.departmentNames.length > 0
+                      ? matchedUser.departmentNames.join(', ')
+                      : t.department || 'General Faculty';
+                    return (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({deptText})
+                      </option>
+                    );
+                  })
+                )}
               </select>
             </div>
           ) : (
