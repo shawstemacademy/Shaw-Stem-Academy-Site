@@ -400,8 +400,59 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     const pushBody = notifyBody || 'This is an FCM test notification.';
     const pushImage = '/favicon.png';
 
+    const dispatchSafeWebNotification = async (titleStr: string, bodyStr: string, imageStr: string) => {
+      if (typeof Notification === 'undefined') return;
+
+      try {
+        let perm = Notification.permission;
+        if (perm === 'default') {
+          try {
+            perm = await Notification.requestPermission();
+          } catch (e) {
+            console.warn('Notification permission request error:', e);
+          }
+        }
+
+        if (perm !== 'granted') {
+          console.log('Browser notification skipped because permission status is:', perm);
+          return;
+        }
+
+        if ('serviceWorker' in navigator) {
+          try {
+            const reg = await navigator.serviceWorker.ready;
+            if (reg && 'showNotification' in reg && Notification.permission === 'granted') {
+              await reg.showNotification(titleStr, {
+                body: bodyStr,
+                icon: imageStr,
+                badge: imageStr,
+                tag: 'shaw-stem-notification',
+                requireInteraction: true
+              });
+              return;
+            }
+          } catch (swErr) {
+            console.warn('SW showNotification failed, falling back to HTML5 Notification:', swErr);
+          }
+        }
+
+        if (Notification.permission === 'granted') {
+          const n = new Notification(titleStr, {
+            body: bodyStr,
+            icon: imageStr
+          });
+          n.onclick = () => {
+            window.focus();
+            n.close();
+          };
+        }
+      } catch (err) {
+        console.warn('dispatchSafeWebNotification caught error:', err);
+      }
+    };
+
     if (isSimulation) {
-      setTimeout(() => {
+      setTimeout(async () => {
         setFcmSendStatus('success');
         
         setFcmSendLogs((prev) => [
@@ -416,34 +467,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           ...prev
         ]);
 
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.ready.then((reg) => {
-            if (reg && 'showNotification' in reg) {
-              reg.showNotification(`[FCM SIMULATED] ${pushTitle}`, {
-                body: pushBody,
-                icon: pushImage,
-                badge: pushImage,
-                tag: 'shaw-stem-notification',
-                requireInteraction: true
-              });
-            } else {
-              new Notification(`[FCM SIMULATED] ${pushTitle}`, {
-                body: pushBody,
-                icon: pushImage
-              });
-            }
-          }).catch(() => {
-            new Notification(`[FCM SIMULATED] ${pushTitle}`, {
-              body: pushBody,
-              icon: pushImage
-            });
-          });
-        } else {
-          new Notification(`[FCM SIMULATED] ${pushTitle}`, {
-            body: pushBody,
-            icon: pushImage
-          });
-        }
+        await dispatchSafeWebNotification(`[FCM SIMULATED] ${pushTitle}`, pushBody, pushImage);
         
         playSynthesizedSound({
           frequency: 523.25,
@@ -516,7 +540,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     }
 
     // Web Push / ServiceWorker Direct Push Dispatch (Modern Standard following FCM Legacy Deprecation)
-    setTimeout(() => {
+    setTimeout(async () => {
       setFcmSendStatus('success');
       
       setFcmSendLogs((prev) => [
@@ -531,36 +555,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         ...prev
       ]);
 
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then((reg) => {
-          if (reg && 'showNotification' in reg) {
-            reg.showNotification(pushTitle, {
-              body: pushBody,
-              icon: pushImage,
-              badge: pushImage,
-              tag: 'shaw-stem-notification',
-              requireInteraction: true
-            });
-          } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-            new Notification(pushTitle, {
-              body: pushBody,
-              icon: pushImage
-            });
-          }
-        }).catch(() => {
-          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-            new Notification(pushTitle, {
-              body: pushBody,
-              icon: pushImage
-            });
-          }
-        });
-      } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification(pushTitle, {
-          body: pushBody,
-          icon: pushImage
-        });
-      }
+      await dispatchSafeWebNotification(pushTitle, pushBody, pushImage);
 
       playSynthesizedSound({
         frequency: 523.25,

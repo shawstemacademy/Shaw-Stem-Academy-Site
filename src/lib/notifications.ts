@@ -82,7 +82,16 @@ export async function sendDesktopNotification(title: string, body: string, iconU
     return;
   }
 
-  if (Notification.permission === 'granted') {
+  let perm = Notification.permission;
+  if (perm === 'default') {
+    try {
+      perm = await Notification.requestPermission();
+    } catch (e) {
+      console.warn('Failed requesting notification permission:', e);
+    }
+  }
+
+  if (perm === 'granted') {
     try {
       const icon = iconUrl || '/favicon.png';
       
@@ -90,7 +99,7 @@ export async function sendDesktopNotification(title: string, body: string, iconU
       if ('serviceWorker' in navigator) {
         try {
           const reg = await navigator.serviceWorker.ready;
-          if (reg && 'showNotification' in reg) {
+          if (reg && 'showNotification' in reg && Notification.permission === 'granted') {
             await reg.showNotification(title, {
               body,
               icon,
@@ -101,22 +110,24 @@ export async function sendDesktopNotification(title: string, body: string, iconU
             return;
           }
         } catch (swErr) {
-          console.debug('Service Worker not ready or does not support showNotification, falling back.', swErr);
+          console.debug('Service Worker not ready or showNotification failed, falling back.', swErr);
         }
       }
 
-      // Standard standard browser fallback
-      const n = new Notification(title, {
-        body,
-        icon,
-        tag: 'shaw-stem-notification',
-      });
-      n.onclick = () => {
-        window.focus();
-        n.close();
-      };
+      // Standard browser fallback
+      if (Notification.permission === 'granted') {
+        const n = new Notification(title, {
+          body,
+          icon,
+          tag: 'shaw-stem-notification',
+        });
+        n.onclick = () => {
+          window.focus();
+          n.close();
+        };
+      }
     } catch (err) {
-      console.warn('Failed to dispatch standard HTML5 notification, trying fallback:', err);
+      console.warn('Failed to dispatch standard HTML5 notification:', err);
     }
   }
 }
