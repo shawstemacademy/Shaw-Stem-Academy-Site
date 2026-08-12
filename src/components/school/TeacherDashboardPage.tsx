@@ -52,7 +52,8 @@ import {
   ClassClaimItem,
   TeacherHourlyRate,
   AttendanceRecord,
-  RegistrationRecord
+  RegistrationRecord,
+  LocationOption
 } from '../../types';
 import { AdminNewsManagement } from './AdminNewsManagement';
 import { HodResourceCategoryManager } from './HodResourceCategoryManager';
@@ -85,6 +86,7 @@ interface TeacherDashboardPageProps {
   onUpdateAttendance?: (record: AttendanceRecord) => void;
   registrationLogs?: RegistrationRecord[];
   onUpdateRegistration?: (updated: RegistrationRecord) => void;
+  locations?: LocationOption[];
 }
 
 export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
@@ -113,7 +115,8 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   attendanceRecords = [],
   onUpdateAttendance = (record: AttendanceRecord) => {},
   registrationLogs = [],
-  onUpdateRegistration = (updated: RegistrationRecord) => {}
+  onUpdateRegistration = (updated: RegistrationRecord) => {},
+  locations = [],
 }) => {
   const [activeSection, setActiveSection] = useState<'classes' | 'performance' | 'claims' | 'resources'>('classes');
   const [performanceClassFilter, setPerformanceClassFilter] = useState<string>('all');
@@ -1591,6 +1594,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                 <WeeklyOfficeHoursSelector
                   value={editOfficeHours}
                   onChange={(newSchedule) => setEditOfficeHours(newSchedule)}
+                  locations={locations}
                 />
               </div>
 

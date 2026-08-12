@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { ConfirmationModal } from '../ConfirmationModal';
 import { 
   Search, 
   User, 
@@ -63,6 +64,45 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
   onRejectAddDropRequest,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Confirmation Modal States
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'danger' | 'warning' | 'info';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const requestConfirmation = (config: {
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'danger' | 'warning' | 'info';
+    onConfirm: () => void;
+  }) => {
+    setConfirmModal({
+      isOpen: true,
+      title: config.title,
+      message: config.message,
+      confirmText: config.confirmText,
+      cancelText: config.cancelText,
+      type: config.type,
+      onConfirm: () => {
+        config.onConfirm();
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
+
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'info' | 'financial' | 'classes' | 'grades'>('info');
@@ -242,22 +282,29 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
 
   const handleDeleteTransaction = (transactionId: string) => {
     if (!currentRegistration) return;
-    if (!window.confirm('Are you sure you want to remove this transaction record? This will adjust the student total paid amount.')) return;
+    
+    requestConfirmation({
+      title: 'Remove Transaction Record?',
+      message: 'Are you sure you want to remove this transaction record? This will adjust the student total paid amount.',
+      confirmText: 'Remove',
+      type: 'danger',
+      onConfirm: () => {
+        const updatedPayments = payments.filter(p => p.id !== transactionId);
+        const newTotalPaid = updatedPayments.reduce((sum, p) => sum + (p.type === 'refund' ? -Math.abs(p.amount) : p.amount), 0);
 
-    const updatedPayments = payments.filter(p => p.id !== transactionId);
-    const newTotalPaid = updatedPayments.reduce((sum, p) => sum + (p.type === 'refund' ? -Math.abs(p.amount) : p.amount), 0);
+        const allPaid = newTotalPaid >= totalTuition && totalTuition > 0;
+        const isPartial = newTotalPaid > 0 && !allPaid;
 
-    const allPaid = newTotalPaid >= totalTuition && totalTuition > 0;
-    const isPartial = newTotalPaid > 0 && !allPaid;
+        const updatedReg: RegistrationRecord = {
+          ...currentRegistration,
+          payments: updatedPayments,
+          isPaid: allPaid,
+          status: allPaid ? 'completed' : isPartial ? 'partial_payment' : 'pending_review',
+        };
 
-    const updatedReg: RegistrationRecord = {
-      ...currentRegistration,
-      payments: updatedPayments,
-      isPaid: allPaid,
-      status: allPaid ? 'completed' : isPartial ? 'partial_payment' : 'pending_review',
-    };
-
-    onUpdateRegistration(updatedReg);
+        onUpdateRegistration(updatedReg);
+      }
+    });
   };
 
   // Toggle Verification of a Particular Course
@@ -669,14 +716,21 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
-                      if (window.confirm(`Are you sure you want to ${selectedStudent.status === 'disabled' ? 'enable' : 'disable'} this student account?`)) {
-                        if (onUpdateUser) {
-                          onUpdateUser({
-                            ...selectedStudent,
-                            status: selectedStudent.status === 'disabled' ? 'active' : 'disabled'
-                          });
+                      const isDisabled = selectedStudent.status === 'disabled';
+                      requestConfirmation({
+                        title: isDisabled ? 'Enable Account?' : 'Disable Account?',
+                        message: `Are you sure you want to ${isDisabled ? 'enable' : 'disable'} the student account for ${selectedStudent.name}?`,
+                        confirmText: isDisabled ? 'Enable' : 'Disable',
+                        type: isDisabled ? 'info' : 'warning',
+                        onConfirm: () => {
+                          if (onUpdateUser) {
+                            onUpdateUser({
+                              ...selectedStudent,
+                              status: isDisabled ? 'active' : 'disabled'
+                            });
+                          }
                         }
-                      }
+                      });
                     }}
                     className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 ${
                       selectedStudent.status === 'disabled'
@@ -689,12 +743,18 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                   </button>
                   <button
                     onClick={() => {
-                      if (window.confirm('Are you sure you want to permanently delete this student account? This cannot be undone.')) {
-                        if (onDeleteUser) {
-                          onDeleteUser(selectedStudent.id);
-                          setSelectedStudentId(null);
+                      requestConfirmation({
+                        title: 'Delete Student Account?',
+                        message: `Are you sure you want to permanently delete the account for ${selectedStudent.name}? This cannot be undone and will delete all enrollment and financial logs.`,
+                        confirmText: 'Delete Permanently',
+                        type: 'danger',
+                        onConfirm: () => {
+                          if (onDeleteUser) {
+                            onDeleteUser(selectedStudent.id);
+                            setSelectedStudentId(null);
+                          }
                         }
-                      }
+                      });
                     }}
                     className="px-3 py-1.5 text-xs font-bold rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-all flex items-center gap-1.5"
                   >
@@ -1361,9 +1421,15 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      if (confirm(`Are you sure you want to delete this registration log (Receipt #${reg.id.slice(-8).toUpperCase()})?`)) {
-                                        onDeleteRegistration(reg.id);
-                                      }
+                                      requestConfirmation({
+                                        title: 'Delete Registration Log?',
+                                        message: `Are you sure you want to delete this registration log (Receipt #${reg.id.slice(-8).toUpperCase()})?`,
+                                        confirmText: 'Delete Log',
+                                        type: 'danger',
+                                        onConfirm: () => {
+                                          onDeleteRegistration(reg.id);
+                                        }
+                                      });
                                     }}
                                     className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 font-bold rounded-lg text-xs transition-colors flex items-center gap-1 self-start sm:self-center cursor-pointer"
                                     title="Delete Registration Record"
@@ -1690,6 +1756,17 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
           </div>
         )}
       </div>
+
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        type={confirmModal.type}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

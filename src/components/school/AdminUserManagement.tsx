@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ImageUploadInput } from '../common/ImageUploadInput';
 import { 
   Users, 
@@ -21,9 +21,11 @@ import {
   Ban,
   RotateCcw,
   FileText,
-  Lock
+  Lock,
+  CheckSquare,
+  Square
 } from 'lucide-react';
-import { SchoolUser, Department, TeacherProfile, UserRole, ClassItem, SbaHubOption } from '../../types';
+import { SchoolUser, Department, TeacherProfile, UserRole, ClassItem, SbaHubOption, LocationOption } from '../../types';
 import { sendUserPasswordResetEmail } from '../../lib/firebase';
 import { WeeklyOfficeHoursSelector } from './WeeklyOfficeHoursSelector';
 
@@ -42,6 +44,7 @@ interface AdminUserManagementProps {
   onToggleUserDisabled?: (user: SchoolUser) => void;
   onUpdateClassList?: (updated: ClassItem[]) => void;
   logoUrl?: string;
+  locations?: LocationOption[];
 }
 
 export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
@@ -59,10 +62,121 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   onToggleUserDisabled,
   onUpdateClassList,
   logoUrl,
+  locations = [],
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'teacher' | 'admin' | 'disabled'>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
+  // Reset selection when filters change to prevent off-screen mistakes
+  useEffect(() => {
+    setSelectedUserIds([]);
+  }, [searchQuery, roleFilter, departmentFilter]);
+
+  const handleSelectUserToggle = (userId: string) => {
+    setSelectedUserIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const handleSelectAllToggle = () => {
+    const visibleIds = filteredUsers.map((u) => u.id);
+    const allVisibleSelected = visibleIds.every((id) => selectedUserIds.includes(id));
+
+    if (allVisibleSelected) {
+      setSelectedUserIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+    } else {
+      setSelectedUserIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const handleBulkChangeRole = (targetRole: 'teacher' | 'admin' | 'registrar' | 'hod') => {
+    if (selectedUserIds.length === 0) return;
+    const confirmMsg = `Are you sure you want to change the role of ${selectedUserIds.length} selected users to ${targetRole.toUpperCase()}?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    selectedUserIds.forEach((id) => {
+      const user = users.find((u) => u.id === id);
+      if (user) {
+        if (targetRole === 'teacher' || targetRole === 'admin') {
+          onRoleChange(id, targetRole);
+        } else {
+          const updated: SchoolUser = {
+            ...user,
+            role: targetRole,
+            permissions:
+              targetRole === 'registrar'
+                ? [
+                    'manage_curriculum',
+                    'upload_resources',
+                    'post_announcements',
+                    'manage_discounts',
+                    'export_forms',
+                  ]
+                : ['manage_curriculum', 'upload_resources', 'post_announcements'],
+          };
+          onUpdateUser(updated);
+        }
+      }
+    });
+
+    setSelectedUserIds([]);
+  };
+
+  const handleBulkDisable = () => {
+    if (selectedUserIds.length === 0) return;
+    const reason = window.prompt(
+      'Enter an administrative reason for disabling these accounts (optional):',
+      'Bulk administrative deactivation'
+    );
+    if (reason === null) return; // cancel
+
+    selectedUserIds.forEach((id) => {
+      const user = users.find((u) => u.id === id);
+      if (user && user.status !== 'disabled') {
+        if (onToggleUserDisabled) {
+          onToggleUserDisabled(user, reason);
+        } else {
+          const disabledUser: SchoolUser = {
+            ...user,
+            status: 'disabled',
+            disabledAt: new Date().toLocaleString('en-US'),
+            disabledReason: reason,
+          };
+          onUpdateUser(disabledUser);
+        }
+      }
+    });
+
+    setSelectedUserIds([]);
+  };
+
+  const handleBulkEnable = () => {
+    if (selectedUserIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to re-enable ${selectedUserIds.length} selected accounts?`)) return;
+
+    selectedUserIds.forEach((id) => {
+      const user = users.find((u) => u.id === id);
+      if (user && user.status === 'disabled') {
+        if (onToggleUserDisabled) {
+          onToggleUserDisabled(user);
+        } else {
+          const restoredUser: SchoolUser = {
+            ...user,
+            status: 'active',
+          };
+          delete restoredUser.disabledAt;
+          delete restoredUser.disabledReason;
+          onUpdateUser(restoredUser);
+        }
+      }
+    });
+
+    setSelectedUserIds([]);
+  };
 
   // HOD Access Determination
   const isHOD = currentRole === 'hod' || loggedInUser?.role === 'hod';
@@ -292,17 +406,39 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   };
 
   const [resettingPasswordUserId, setResettingPasswordUserId] = useState<string | null>(null);
+  const [confirmingResetUserId, setConfirmingResetUserId] = useState<string | null>(null);
+  const [resetStatusMap, setResetStatusMap] = useState<Record<string, { status: 'success' | 'error'; message: string }>>({});
 
   const handlePasswordReset = async (user: SchoolUser) => {
-    if (!confirm(`Send password reset email to ${user.email}?`)) return;
     try {
       setResettingPasswordUserId(user.id);
       await sendUserPasswordResetEmail(user.email);
-      alert(`Password reset email sent to ${user.email}`);
-    } catch (error) {
-      alert(`Failed to send password reset email: ${(error as Error).message}`);
+      setResetStatusMap((prev) => ({
+        ...prev,
+        [user.id]: { status: 'success', message: 'Reset email sent!' },
+      }));
+      setTimeout(() => {
+        setResetStatusMap((prev) => {
+          const next = { ...prev };
+          delete next[user.id];
+          return next;
+        });
+      }, 5000);
+    } catch (error: any) {
+      setResetStatusMap((prev) => ({
+        ...prev,
+        [user.id]: { status: 'error', message: error.message || 'Failed to send' },
+      }));
+      setTimeout(() => {
+        setResetStatusMap((prev) => {
+          const next = { ...prev };
+          delete next[user.id];
+          return next;
+        });
+      }, 5000);
     } finally {
       setResettingPasswordUserId(null);
+      setConfirmingResetUserId(null);
     }
   };
 
@@ -481,10 +617,76 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
           </span>
         </div>
 
+        {/* Bulk Action Toolbar */}
+        {selectedUserIds.length > 0 && (
+          <div className="bg-slate-900 text-white px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 transition-all duration-200">
+            <div className="flex items-center gap-3">
+              <CheckSquare className="w-5 h-5 text-blue-400 shrink-0" />
+              <div className="text-xs">
+                <span className="font-extrabold text-blue-300 mr-1">{selectedUserIds.length}</span>
+                <span className="font-semibold text-slate-300">staff members selected</span>
+              </div>
+              <button
+                onClick={() => setSelectedUserIds([])}
+                className="text-xs text-slate-400 hover:text-white underline font-semibold transition-colors ml-2"
+              >
+                Deselect all
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Batch Actions:</span>
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleBulkChangeRole(e.target.value as any);
+                      e.target.value = '';
+                    }
+                  }}
+                  className="bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value="">Change Role...</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="admin">Admin</option>
+                  <option value="registrar">Registrar</option>
+                  <option value="hod">HOD</option>
+                </select>
+              </div>
+
+              {roleFilter === 'disabled' ? (
+                <button
+                  onClick={handleBulkEnable}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>Bulk Enable Accounts</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleBulkDisable}
+                  className="bg-rose-600 hover:bg-rose-500 text-white rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                >
+                  <UserX className="w-3.5 h-3.5" />
+                  <span>Bulk Disable Accounts</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <th className="py-3.5 px-4 w-12 text-center">
+                  <input
+                    type="checkbox"
+                    className="rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                    checked={filteredUsers.length > 0 && filteredUsers.every((u) => selectedUserIds.includes(u.id))}
+                    onChange={handleSelectAllToggle}
+                  />
+                </th>
                 <th className="py-3.5 px-4">Staff Member</th>
                 <th className="py-3.5 px-4">Role & Privilege</th>
                 <th className="py-3.5 px-4">Department</th>
@@ -496,7 +698,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
             <tbody className="divide-y divide-slate-100 text-xs">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                  <td colSpan={7} className="py-12 text-center text-slate-500">
                     {roleFilter === 'disabled'
                       ? 'No disabled users found. Disabled accounts will be logged here.'
                       : 'No staff members match the selected filters or search query.'}
@@ -512,8 +714,16 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                       key={u.id || u.email || `usr-${uIdx}`}
                       className={`transition-colors ${
                         isDisabled ? 'bg-rose-50/30 hover:bg-rose-50/60' : 'hover:bg-slate-50/70'
-                      }`}
+                      } ${selectedUserIds.includes(u.id) ? 'bg-blue-50/30' : ''}`}
                     >
+                      <td className="py-4 px-4 text-center w-12">
+                        <input
+                          type="checkbox"
+                          className="rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                          checked={selectedUserIds.includes(u.id)}
+                          onChange={() => handleSelectUserToggle(u.id)}
+                        />
+                      </td>
                       {/* Name & Email */}
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
@@ -642,19 +852,48 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                       {/* Edit, Disable, Re-enable Actions */}
                       <td className="py-4 px-4 text-right">
                         <div className="inline-flex items-center gap-1.5">
-                          <button
-                            onClick={() => handlePasswordReset(u)}
-                            disabled={resettingPasswordUserId === u.id}
-                            className={`px-2.5 py-1 font-bold text-[11px] rounded-lg border transition-colors flex items-center gap-1 ${
-                              resettingPasswordUserId === u.id
-                                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                            }`}
-                            title="Send Password Reset Email"
-                          >
-                            <Mail className="w-3 h-3" />
-                            <span>{resettingPasswordUserId === u.id ? 'Sending...' : 'Reset PWD'}</span>
-                          </button>
+                          {resetStatusMap[u.id] ? (
+                            <div
+                              className={`px-2 py-1 text-[10px] font-black rounded-lg border flex items-center gap-1 transition-all ${
+                                resetStatusMap[u.id].status === 'success'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200'
+                              }`}
+                              title={resetStatusMap[u.id].message}
+                            >
+                              <span>{resetStatusMap[u.id].status === 'success' ? '✓ Sent!' : '✗ Error'}</span>
+                            </div>
+                          ) : confirmingResetUserId === u.id ? (
+                            <div className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-lg p-0.5 text-[10px] font-bold text-amber-800 transition-all">
+                              <span className="px-1 text-[9px]">Send PWD reset?</span>
+                              <button
+                                onClick={() => handlePasswordReset(u)}
+                                className="px-1.5 py-0.5 bg-amber-600 text-white rounded hover:bg-amber-700 cursor-pointer text-[9px] font-black"
+                              >
+                                Yes
+                              </button>
+                              <button
+                                onClick={() => setConfirmingResetUserId(null)}
+                                className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded hover:bg-slate-300 cursor-pointer text-[9px]"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmingResetUserId(u.id)}
+                              disabled={resettingPasswordUserId !== null}
+                              className={`px-2.5 py-1 font-bold text-[11px] rounded-lg border transition-colors flex items-center gap-1 cursor-pointer ${
+                                resettingPasswordUserId !== null
+                                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                              }`}
+                              title="Send Password Reset Email"
+                            >
+                              <Mail className="w-3 h-3" />
+                              <span>Reset PWD</span>
+                            </button>
+                          )}
 
                           <button
                             onClick={() => openEditModal(u)}
@@ -917,6 +1156,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                 <WeeklyOfficeHoursSelector
                   value={officeHours}
                   onChange={(val) => setOfficeHours(val)}
+                  locations={locations}
                 />
               </div>
 

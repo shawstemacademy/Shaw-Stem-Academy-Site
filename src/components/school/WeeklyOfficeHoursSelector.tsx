@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Copy, Check, Info, Calendar, MapPin, RotateCcw } from 'lucide-react';
+import { LocationOption } from '../../types';
 
 export interface DaySchedule {
   day: string;
@@ -172,11 +173,13 @@ export function buildScheduleString(schedules: DaySchedule[], locationNote: stri
 interface WeeklyOfficeHoursSelectorProps {
   value: string;
   onChange: (newValue: string) => void;
+  locations?: LocationOption[];
 }
 
 export const WeeklyOfficeHoursSelector: React.FC<WeeklyOfficeHoursSelectorProps> = ({
   value,
   onChange,
+  locations = [],
 }) => {
   const [schedules, setSchedules] = useState<DaySchedule[]>(() => {
     const { schedules } = parseScheduleFromText(value);
@@ -386,17 +389,35 @@ export const WeeklyOfficeHoursSelector: React.FC<WeeklyOfficeHoursSelectorProps>
       {/* Location / Note */}
       <div className="pt-2 border-t border-slate-200">
         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-          Location / Consultation Notes (Optional)
+          Assigned Campus Location
         </label>
         <div className="relative">
-          <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="e.g. STEM Building Room 302 or Virtual via Google Meet"
+          <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 z-10" />
+          <select
             value={locationNote}
             onChange={(e) => setLocationNote(e.target.value)}
-            className="w-full pl-8 pr-3.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-          />
+            className="w-full pl-8 pr-3 bg-white border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden py-1.5 cursor-pointer appearance-none"
+          >
+            <option value="">-- No Location Selected --</option>
+            {locations.map((loc) => (
+              <option key={loc.id} value={loc.name}>
+                {loc.name} {loc.building ? `(${loc.building})` : ''}
+              </option>
+            ))}
+            <option value="Online / Virtual Consultation">Online / Virtual Consultation</option>
+            {/* Fallback option to keep existing values from breaking */}
+            {locationNote && 
+              !locations.some(l => l.name === locationNote) && 
+              locationNote !== 'Online / Virtual Consultation' && (
+                <option value={locationNote}>{locationNote}</option>
+              )
+            }
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+            </svg>
+          </div>
         </div>
       </div>
 

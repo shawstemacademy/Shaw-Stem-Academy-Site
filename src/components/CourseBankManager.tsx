@@ -288,22 +288,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
   const [customLocationInput, setCustomLocationInput] = useState('');
 
   // Dynamically compute list of available locations
-  const defaultLocations = [
-    'STEM Lab A',
-    'Innovation Lab A',
-    'Mechatronics Studio',
-    'Computer Studio 2',
-    'Art Studio B',
-    'Music Hall 1',
-    'Science Lab 3',
-    'Online SBA Hub',
-    'Main Auditorium',
-  ];
-  const departmentRooms = departments.map((d) => d.room).filter((r): r is string => Boolean(r));
-
-  const availableLocations = (locations && locations.length > 0)
-    ? locations.map((l) => l.name)
-    : Array.from(new Set([...defaultLocations, ...departmentRooms, ...customLocations]));
+  const availableLocations = locations.map((l) => l.name);
 
   const handleAddCustomLocation = (locationName: string, building?: string, roomNumber?: string) => {
     const trimmed = locationName.trim();
@@ -1813,7 +1798,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                 ? locations
                 : availableLocations.map((name, idx) => ({ id: `loc-temp-${idx}`, name }))
               ).map((locItem) => {
-                const isDeptRoom = departmentRooms.includes(locItem.name);
+                const isDeptRoom = departments.some((d) => d.room === locItem.name);
                 return (
                   <div
                     key={locItem.id}

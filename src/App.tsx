@@ -627,6 +627,51 @@ export default function App() {
     }
   }, [classList]);
 
+  // Automatically clean up users with orphaned/deleted departments
+  useEffect(() => {
+    if (schoolUsersLoaded && departments.length > 0 && schoolUsers.length > 0) {
+      schoolUsers.forEach((u) => {
+        const currentIds = u.departmentIds && u.departmentIds.length > 0 ? u.departmentIds : (u.departmentId ? [u.departmentId] : []);
+        if (currentIds.length === 0 && !u.departmentId && !u.departmentName) return;
+
+        const validIds = currentIds.filter(id => departments.some(d => d.id === id));
+        const hasInvalidPrimary = u.departmentId && !departments.some(d => d.id === u.departmentId);
+        const hasInvalidName = u.departmentName && !departments.some(d => d.name === u.departmentName);
+        const hasOrphanedIds = validIds.length !== currentIds.length;
+
+        if (hasOrphanedIds || hasInvalidPrimary || hasInvalidName) {
+          const nextIds = validIds;
+          const primaryDeptId = nextIds[0] || '';
+          const primaryDept = departments.find(d => d.id === primaryDeptId);
+          const primaryDeptName = primaryDept ? primaryDept.name : '';
+          const deptNames = nextIds.map(id => departments.find(d => d.id === id)?.name || '');
+          
+          const updatedUser = {
+            ...u,
+            departmentId: primaryDeptId,
+            departmentName: primaryDeptName,
+            departmentIds: nextIds,
+            departmentNames: deptNames,
+            department: primaryDeptName // for backwards compatibility
+          };
+          
+          saveDocToFirestore('schoolUsers', u.id, updatedUser);
+
+          // Sync with teacherProfile if exists
+          const teacherProfile = teacherProfiles.find(t => t.id === u.id);
+          if (teacherProfile) {
+            saveDocToFirestore('teachers', teacherProfile.id, {
+              ...teacherProfile,
+              department: primaryDeptName,
+              departmentIds: nextIds,
+              departmentNames: deptNames
+            });
+          }
+        }
+      });
+    }
+  }, [schoolUsersLoaded, departments, schoolUsers, teacherProfiles]);
+
   const handleUpdateClashStatus = (clashId: string, status: ClashAdmissibility, notes?: string) => {
     setClashes((prev) =>
       prev.map((c) => (c.id === clashId ? { ...c, status, reasonNotes: notes ?? c.reasonNotes } : c))
@@ -794,26 +839,7 @@ export default function App() {
       subscribeToCollection<DiscountRule>('discountRules', (data) => setDiscountRules(data || [])),
       subscribeToCollection<ClassType>('classTypes', (data) => setClassTypes(data || [])),
       subscribeToCollection<LocationOption>('locations', (data) => {
-        if (data && data.length > 0) {
-          setLocations(data);
-        } else {
-          // Default locations to seed if database locations collection is empty
-          const DEFAULT_LOCS: LocationOption[] = [
-            { id: 'loc-stem-lab-a', name: 'STEM Lab A' },
-            { id: 'loc-innovation-lab-a', name: 'Innovation Lab A' },
-            { id: 'loc-mechatronics-studio', name: 'Mechatronics Studio' },
-            { id: 'loc-computer-studio-2', name: 'Computer Studio 2' },
-            { id: 'loc-art-studio-b', name: 'Art Studio B' },
-            { id: 'loc-music-hall-1', name: 'Music Hall 1' },
-            { id: 'loc-science-lab-3', name: 'Science Lab 3' },
-            { id: 'loc-online-sba-hub', name: 'Online SBA Hub' },
-            { id: 'loc-main-auditorium', name: 'Main Auditorium' },
-          ];
-          setLocations(DEFAULT_LOCS);
-          DEFAULT_LOCS.forEach((loc) => {
-            saveDocToFirestore('locations', loc.id, loc);
-          });
-        }
+        setLocations(data || []);
       }),
       subscribeToCollection<TeacherProfile>('teachers', (data) => setTeacherProfiles(data || [])),
       subscribeToCollection<any>('schoolNews', (data) => {
@@ -837,61 +863,7 @@ export default function App() {
         }
       }),
       subscribeToCollection<Department>('departments', (data) => {
-        if (data && data.length > 0) {
-          setDepartments(data);
-        } else {
-          const DEFAULT_DEPTS: Department[] = [
-            {
-              id: 'dept-stem',
-              name: 'STEM & Robotics',
-              code: 'STEM',
-              description: 'Science, Technology, Engineering, Mathematics, and Robotics labs.',
-              headOfDepartment: '',
-              color: 'bg-purple-600',
-              room: 'STEM Lab A',
-            },
-            {
-              id: 'dept-coding',
-              name: 'Coding & AI',
-              code: 'CODE',
-              description: 'Software development, artificial intelligence, and machine learning.',
-              headOfDepartment: '',
-              color: 'bg-blue-600',
-              room: 'Computer Studio 2',
-            },
-            {
-              id: 'dept-arts',
-              name: 'Arts & Design',
-              code: 'ARTS',
-              description: 'Visual arts, graphic design, animation, and digital media.',
-              headOfDepartment: '',
-              color: 'bg-pink-600',
-              room: 'Art Studio B',
-            },
-            {
-              id: 'dept-languages',
-              name: 'Languages & Music',
-              code: 'LANG',
-              description: 'Foreign languages, speech, vocal training, and music theory.',
-              headOfDepartment: '',
-              color: 'bg-amber-600',
-              room: 'Music Hall 1',
-            },
-            {
-              id: 'dept-admin',
-              name: 'Administration & Registrar',
-              code: 'ADMIN',
-              description: 'Academy governance, admissions registration, and system operations.',
-              headOfDepartment: 'adm-1',
-              color: 'bg-emerald-600',
-              room: 'Admin Suite 100',
-            },
-          ];
-          setDepartments(DEFAULT_DEPTS);
-          DEFAULT_DEPTS.forEach((d) => {
-            saveDocToFirestore('departments', d.id, d);
-          });
-        }
+        setDepartments(data || []);
       }),
       subscribeToCollection<AddDropRequest>('addDropRequests', (data) => setAddDropRequests(data || [])),
       subscribeToCollection<FaqItem>('faqs', (data) => setFaqs(data || [])),
@@ -981,23 +953,7 @@ export default function App() {
         }
       }),
       subscribeToCollection<ResourceCategory>('resourceCategories', (data) => {
-        if (data && data.length > 0) {
-          setResourceCategories(data);
-        } else {
-          const DEFAULT_RESOURCE_CATEGORIES: ResourceCategory[] = [
-            { id: 'rc-lecture-notes', name: 'Lecture Notes', description: 'Course slide decks, notes, and study guides' },
-            { id: 'rc-robotics', name: 'Robotics Schematics', description: 'Arduino pinouts, wiring diagrams, and CAD models' },
-            { id: 'rc-lab-worksheet', name: 'Lab Worksheet', description: 'Practical lab instructions and experiment logs' },
-            { id: 'rc-project-files', name: 'Project Files', description: 'Source code, datasets, and starter kits' },
-            { id: 'rc-video-tutorial', name: 'Video Tutorials', description: 'Recorded demonstrations and walkthroughs' },
-            { id: 'rc-sba-guidelines', name: 'SBA Guidelines', description: 'School Based Assessment criteria and samples' },
-            { id: 'rc-syllabus', name: 'Syllabus', description: 'Course syllabus and academic calendar' },
-          ];
-          setResourceCategories(DEFAULT_RESOURCE_CATEGORIES);
-          DEFAULT_RESOURCE_CATEGORIES.forEach((cat) => {
-            saveDocToFirestore('resourceCategories', cat.id, cat);
-          });
-        }
+        setResourceCategories(data || []);
       }),
     ];
 
@@ -2085,8 +2041,37 @@ export default function App() {
     );
   };
 
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = async (userId: string) => {
     const userToDel = schoolUsers.find(u => u.id === userId);
+    const displayName = userToDel ? `${userToDel.name} (${userToDel.role.toUpperCase()})` : userId;
+
+    // Immediately trigger a visual loading state / toast notification
+    setFirestoreToast({
+      id: `toast-${Date.now()}`,
+      title: 'Deleting User Profile...',
+      message: `Initiating secure deletion for account '${displayName}' across Firebase Auth & Firestore database. Please wait...`,
+      type: 'info'
+    });
+
+    // Attempt to delete user from Firebase Authentication via server-side API
+    try {
+      const response = await fetch('/api/delete-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      });
+      const resData = await response.json();
+      if (response.ok) {
+        console.log('Successfully deleted user from Firebase Authentication:', resData.message);
+      } else {
+        console.warn('Firebase Authentication user deletion notice:', resData.error || resData.message);
+      }
+    } catch (apiErr) {
+      console.warn('Firebase Authentication user deletion API connection notice:', apiErr);
+    }
+
     if (userToDel) {
       const studentEmail = (userToDel.email || '').toLowerCase();
       const studentName = (userToDel.name || '').toLowerCase();
@@ -2113,6 +2098,75 @@ export default function App() {
     deleteDocFromFirestore('schoolUsers', userId);
     setTeacherProfiles((prev) => prev.filter((t) => t.id !== userId));
     deleteDocFromFirestore('teachers', userId);
+
+    // Trigger a success toast when the full process finishes
+    setFirestoreToast({
+      id: `toast-${Date.now()}`,
+      title: 'Account Permanently Deleted ⚡',
+      message: `Account '${displayName}' and all matching registrations/assigned profiles have been removed successfully.`,
+      type: 'success'
+    });
+  };
+
+  const handleSystemDataExport = () => {
+    try {
+      // Notify starting compile
+      setFirestoreToast({
+        id: `toast-${Date.now()}`,
+        title: 'Preparing Database Backup... ⚙️',
+        message: 'Compiling real-time Firestore collections for administrative backup. Please do not close this window...',
+        type: 'info'
+      });
+
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        exportedBy: loggedInUser?.email || 'admin',
+        schoolUsers,
+        departments,
+        rolePermissions,
+        registrationLogs,
+        classList,
+        sbaHubOptions,
+        discountRules,
+        announcements,
+        schoolNews,
+        faqs,
+        resourceCategories,
+        resources,
+        classTypes,
+        locations,
+        claims,
+        hourlyRates,
+        addDropRequests,
+        systemActionLogs,
+        academyInfo,
+        featureCards,
+        landingPageSettings
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `shaw_stem_academy_backup_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+
+      setFirestoreToast({
+        id: `toast-${Date.now()}`,
+        title: 'System Export Successful 💾',
+        message: 'All system collections compiled and downloaded successfully as a JSON backup file.',
+        type: 'success',
+      });
+    } catch (err) {
+      console.error('Error exporting system data:', err);
+      setFirestoreToast({
+        id: `toast-${Date.now()}`,
+        title: 'System Export Failed ⚠️',
+        message: err instanceof Error ? err.message : 'Unknown error during export.',
+        type: 'error',
+      });
+    }
   };
 
   const handleToggleUserDisabled = (user: SchoolUser, reason?: string) => {
@@ -2276,9 +2330,75 @@ export default function App() {
     );
   };
 
-  const handleDeleteDepartment = (deptId: string) => {
+  const handleDeleteDepartment = async (deptId: string) => {
+    // 1. Remove department from state and Firestore
     setDepartments((prev) => prev.filter((d) => d.id !== deptId));
-    deleteDocFromFirestore('departments', deptId);
+    await deleteDocFromFirestore('departments', deptId);
+
+    // 2. Cascade delete: Remove this department from all users
+    setSchoolUsers((prev) => {
+      let hasChanges = false;
+      const updatedUsers = prev.map((u) => {
+        const currentIds = u.departmentIds || (u.departmentId ? [u.departmentId] : []);
+        if (currentIds.includes(deptId) || u.departmentId === deptId) {
+          hasChanges = true;
+          const nextIds = currentIds.filter((id) => id !== deptId);
+          const primaryDeptId = nextIds[0] || '';
+          const primaryDept = departments.find((d) => d.id === primaryDeptId && d.id !== deptId);
+          const primaryDeptName = primaryDept ? primaryDept.name : '';
+          const deptNames = nextIds
+            .map((id) => {
+              const d = departments.find((dep) => dep.id === id && dep.id !== deptId);
+              return d ? d.name : '';
+            })
+            .filter(Boolean);
+
+          const updated = {
+            ...u,
+            departmentId: primaryDeptId,
+            departmentName: primaryDeptName,
+            departmentIds: nextIds,
+            departmentNames: deptNames,
+            department: primaryDeptName, // backwards compatibility
+          };
+          saveDocToFirestore('schoolUsers', u.id, updated);
+          return updated;
+        }
+        return u;
+      });
+      return hasChanges ? updatedUsers : prev;
+    });
+
+    setTeacherProfiles((prev) => {
+      let hasChanges = false;
+      const updatedTeachers = prev.map((t) => {
+        const currentIds = t.departmentIds || [];
+        if (currentIds.includes(deptId) || t.department === departments.find(d => d.id === deptId)?.name) {
+          hasChanges = true;
+          const nextIds = currentIds.filter((id) => id !== deptId);
+          const primaryDeptId = nextIds[0] || '';
+          const primaryDept = departments.find((d) => d.id === primaryDeptId && d.id !== deptId);
+          const primaryDeptName = primaryDept ? primaryDept.name : '';
+          const deptNames = nextIds
+            .map((id) => {
+              const d = departments.find((dep) => dep.id === id && dep.id !== deptId);
+              return d ? d.name : '';
+            })
+            .filter(Boolean);
+
+          const updated = {
+            ...t,
+            department: primaryDeptName,
+            departmentIds: nextIds,
+            departmentNames: deptNames,
+          };
+          saveDocToFirestore('teachers', t.id, updated);
+          return updated;
+        }
+        return t;
+      });
+      return hasChanges ? updatedTeachers : prev;
+    });
   };
 
   const handleAssignUserToDepartment = (userId: string, deptId: string) => {
@@ -2785,6 +2905,7 @@ export default function App() {
               schoolUsers={schoolUsers}
               onUpdateUserProfile={handleUpdateUserProfile}
               onUpdateUser={handleUpdateUser}
+              locations={locations}
             />
           )}
 
@@ -2811,6 +2932,7 @@ export default function App() {
               onAddUser={handleAddUser}
               onUpdateUser={handleUpdateUser}
               onDeleteUser={handleDeleteUser}
+              onSystemDataExport={handleSystemDataExport}
               onRoleChange={handleRoleChange}
               onDepartmentChange={handleDepartmentChange}
               onAddDepartment={handleAddDepartment}

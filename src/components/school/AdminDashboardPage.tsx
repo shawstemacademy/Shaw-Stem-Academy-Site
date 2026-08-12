@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ConfirmationModal } from '../ConfirmationModal';
 import { 
   ShieldCheck, 
   Settings2, 
@@ -62,7 +63,7 @@ import { AdminAcademyInfoManagement } from './AdminAcademyInfoManagement';
 import { StudentSearchDashboard } from './StudentSearchDashboard';
 import { ClassClaimForm } from './ClassClaimForm';
 import { AdminAddDropManager } from './AdminAddDropManager';
-import { HelpCircle, Newspaper, Send, Smartphone, Laptop, Globe, Wifi, Copy, RefreshCw, CheckCircle, AlertCircle, MessageSquare, Info, SendHorizontal } from 'lucide-react';
+import { HelpCircle, Newspaper, Send, Smartphone, Laptop, Globe, Wifi, Copy, RefreshCw, CheckCircle, AlertCircle, MessageSquare, Info, SendHorizontal, Download, Database } from 'lucide-react';
 import { isFcmSupported, requestAndSaveFcmToken, onForegroundMessage, revokeFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
 import { subscribeToCollection, db } from '../../lib/firebase';
 import { collection, deleteDoc, doc, addDoc } from 'firebase/firestore';
@@ -125,6 +126,7 @@ interface AdminDashboardPageProps {
   addDropRequests?: AddDropRequest[];
   onApproveAddDropRequest?: (req: AddDropRequest, notes?: string) => void;
   onRejectAddDropRequest?: (req: AddDropRequest, notes?: string) => void;
+  onSystemDataExport?: () => void;
 }
 
 export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
@@ -184,10 +186,49 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   addDropRequests = [],
   onApproveAddDropRequest = () => {},
   onRejectAddDropRequest = () => {},
+  onSystemDataExport,
 }) => {
   const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search'>(
     currentRole === 'hod' ? 'users' : 'overview'
   );
+
+  // Confirmation Modal States
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'danger' | 'warning' | 'info';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const requestConfirmation = (config: {
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'danger' | 'warning' | 'info';
+    onConfirm: () => void;
+  }) => {
+    setConfirmModal({
+      isOpen: true,
+      title: config.title,
+      message: config.message,
+      confirmText: config.confirmText,
+      cancelText: config.cancelText,
+      type: config.type,
+      onConfirm: () => {
+        config.onConfirm();
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
 
   // Wiping States & Delete Modal
   const [isWiping, setIsWiping] = useState(false);
@@ -1259,6 +1300,25 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
             <div className="border-t border-slate-800/80 pt-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               <div className="space-y-1">
+                <h4 className="text-sm font-bold text-slate-200">System Data Export</h4>
+                <p className="text-slate-400 text-xs max-w-xl">
+                  Compile and export all current Firestore database collections (student enrollments, departments, class course banks, discount rules, news, and system configuration logs) into a single offline JSON backup file for local auditing.
+                </p>
+              </div>
+
+              <div className="shrink-0">
+                <button
+                  onClick={onSystemDataExport}
+                  className="px-4 py-2.5 bg-blue-950/40 hover:bg-blue-900/60 border border-blue-800/50 text-blue-300 hover:text-blue-100 font-bold text-xs rounded-xl transition-all shadow-2xs flex items-center gap-2 cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-blue-400" />
+                  <span>System Data Export</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-800/80 pt-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="space-y-1">
                 <h4 className="text-sm font-bold text-slate-200">Delete All Site Data</h4>
                 <p className="text-slate-400 text-xs max-w-xl">
                   This action clears all existing classes, discounts, announcements, registrations, and secondary users from Firebase Firestore. Only system administrator accounts will be retained, giving you a clean slate to build your own academy data.
@@ -1585,9 +1645,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                               {onDeleteRegistration && (
                                 <button
                                   onClick={() => {
-                                    if (confirm(`Are you sure you want to delete the registration record for ${studentName}?`)) {
-                                      onDeleteRegistration(log.id);
-                                    }
+                                    requestConfirmation({
+                                      title: 'Delete Registration Record?',
+                                      message: `Are you sure you want to delete the registration record for ${studentName}? This cannot be undone.`,
+                                      confirmText: 'Delete Record',
+                                      type: 'danger',
+                                      onConfirm: () => {
+                                        onDeleteRegistration(log.id);
+                                      }
+                                    });
                                   }}
                                   className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition-colors"
                                   title="Delete Registration"
@@ -1651,6 +1717,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           onToggleUserDisabled={onToggleUserDisabled}
           onUpdateClassList={onUpdateClassList}
           logoUrl={landingPageSettings.logoUrl}
+          locations={locations}
         />
       )}
 
@@ -3136,6 +3203,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        type={confirmModal.type}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

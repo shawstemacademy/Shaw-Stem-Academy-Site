@@ -48,18 +48,6 @@ const COLOR_OPTIONS = [
   { label: 'Rose', value: 'bg-rose-600', border: 'border-rose-500', text: 'text-rose-600' },
 ];
 
-const DEFAULT_LOCATIONS: LocationOption[] = [
-  { id: 'loc-stem-lab-a', name: 'STEM Lab A' },
-  { id: 'loc-innovation-lab-a', name: 'Innovation Lab A' },
-  { id: 'loc-mechatronics-studio', name: 'Mechatronics Studio' },
-  { id: 'loc-computer-studio-2', name: 'Computer Studio 2' },
-  { id: 'loc-art-studio-b', name: 'Art Studio B' },
-  { id: 'loc-music-hall-1', name: 'Music Hall 1' },
-  { id: 'loc-science-lab-3', name: 'Science Lab 3' },
-  { id: 'loc-online-sba-hub', name: 'Online SBA Hub' },
-  { id: 'loc-main-auditorium', name: 'Main Auditorium' },
-];
-
 export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps> = ({
   departments,
   users,
@@ -105,7 +93,10 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
   const [newLocBuilding, setNewLocBuilding] = useState('');
   const [newLocRoomNumber, setNewLocRoomNumber] = useState('');
 
-  const effectiveLocations = locations.length > 0 ? locations : DEFAULT_LOCATIONS;
+  const [deletingDeptId, setDeletingDeptId] = useState<string | null>(null);
+  const [removingMemberKey, setRemovingMemberKey] = useState<string | null>(null);
+
+  const effectiveLocations = locations;
 
   const openAddModal = () => {
     setEditingDept(null);
@@ -322,28 +313,45 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => openEditModal(dept)}
-                          className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                          className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
                           title="Edit Department"
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => {
-                            if (
-                              deptMembers.length > 0 &&
-                              !confirm(
-                                `There are ${deptMembers.length} staff members assigned to ${dept.name}. Are you sure you want to delete this department?`
-                              )
-                            ) {
-                              return;
-                            }
-                            onDeleteDepartment(dept.id);
-                          }}
-                          className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                          title="Delete Department"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {deletingDeptId === dept.id ? (
+                          <div className="flex items-center gap-1 bg-rose-700/90 rounded-lg px-2 py-1 text-[10px] font-bold text-white transition-all shadow-md">
+                            <span>Delete?</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteDepartment(dept.id);
+                                setDeletingDeptId(null);
+                              }}
+                              className="px-1.5 py-0.5 bg-white text-rose-700 rounded hover:bg-rose-100 cursor-pointer text-[9px] font-extrabold"
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletingDeptId(null);
+                              }}
+                              className="px-1.5 py-0.5 bg-black/20 text-white rounded hover:bg-black/45 cursor-pointer text-[9px]"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setDeletingDeptId(dept.id);
+                            }}
+                            className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Department"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -510,18 +518,41 @@ export const AdminDepartmentManagement: React.FC<AdminDepartmentManagementProps>
                                 {member.role === 'teacher' ? 'Teacher' : 'Admin'}
                               </span>
                               {!isReadOnly && onRemoveUserFromDepartment && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (confirm(`Are you sure you want to remove ${member.name} from the ${dept.name} department?`)) {
-                                      onRemoveUserFromDepartment(member.id, dept.id);
-                                    }
-                                  }}
-                                  className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
-                                  title={`Remove from ${dept.code}`}
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
+                                <React.Fragment>
+                                  {removingMemberKey === `${dept.id}-${member.id}` ? (
+                                    <div className="flex items-center gap-1 bg-red-100 text-red-700 rounded px-1 py-0.5 text-[9px] font-bold">
+                                      <span>Remove?</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          onRemoveUserFromDepartment(member.id, dept.id);
+                                          setRemovingMemberKey(null);
+                                        }}
+                                        className="px-1 bg-red-600 text-white rounded cursor-pointer text-[8px]"
+                                      >
+                                        Yes
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setRemovingMemberKey(null)}
+                                        className="px-1 bg-slate-300 text-slate-800 rounded cursor-pointer text-[8px]"
+                                      >
+                                        No
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setRemovingMemberKey(`${dept.id}-${member.id}`);
+                                      }}
+                                      className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
+                                      title={`Remove from ${dept.code}`}
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </React.Fragment>
                               )}
                             </div>
                           </div>
