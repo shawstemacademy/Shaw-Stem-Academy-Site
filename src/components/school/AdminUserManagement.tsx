@@ -25,12 +25,13 @@ import {
   CheckSquare,
   Square
 } from 'lucide-react';
-import { SchoolUser, Department, TeacherProfile, UserRole, ClassItem, SbaHubOption, LocationOption } from '../../types';
+import { SchoolUser, Department, TeacherProfile, UserRole, ClassItem, SbaHubOption, LocationOption, RolePermission } from '../../types';
 import { sendUserPasswordResetEmail } from '../../lib/firebase';
 import { WeeklyOfficeHoursSelector } from './WeeklyOfficeHoursSelector';
 
 interface AdminUserManagementProps {
   users: SchoolUser[];
+  permissions?: RolePermission[];
   departments: Department[];
   classList?: ClassItem[];
   sbaHubOptions?: SbaHubOption[];
@@ -39,7 +40,7 @@ interface AdminUserManagementProps {
   onAddUser: (user: SchoolUser) => void;
   onUpdateUser: (user: SchoolUser) => void;
   onDeleteUser: (userId: string) => void;
-  onRoleChange: (userId: string, newRole: 'teacher' | 'admin') => void;
+  onRoleChange: (userId: string, newRole: 'teacher' | 'admin' | 'student' | 'registrar' | 'hod') => void;
   onDepartmentChange: (userId: string, newDepartmentId: string) => void;
   onToggleUserDisabled?: (user: SchoolUser) => void;
   onUpdateClassList?: (updated: ClassItem[]) => void;
@@ -49,6 +50,7 @@ interface AdminUserManagementProps {
 
 export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   users = [],
+  permissions = [],
   departments = [],
   classList = [],
   sbaHubOptions = [],
@@ -65,7 +67,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   locations = [],
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'teacher' | 'admin' | 'disabled'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'teacher' | 'admin' | 'registrar' | 'hod' | 'disabled'>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
@@ -93,7 +95,32 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
     }
   };
 
-  const handleBulkChangeRole = (targetRole: 'teacher' | 'admin' | 'registrar' | 'hod') => {
+  const getPermissionsForRole = (r: 'teacher' | 'admin' | 'registrar' | 'hod' | 'student') => {
+    if (r === 'student') return [];
+    
+    if (permissions && permissions.length > 0) {
+        return permissions.filter(p => {
+          if (r === 'admin') return p.adminDefault;
+          if (r === 'teacher') return p.teacherDefault;
+          if (r === 'registrar') return p.registrarDefault;
+          if (r === 'hod') return p.hodDefault;
+          return false;
+        }).map(p => p.id);
+    }
+    
+    // Fallback if matrix is not yet loaded
+    if (r === 'admin') {
+      return ['manage_curriculum', 'upload_resources', 'post_announcements', 'manage_discounts', 'export_forms', 'view_logs', 'manage_users', 'manage_departments', 'assign_staff', 'manage_form_options'];
+    } else if (r === 'hod') {
+      return ['manage_curriculum', 'upload_resources', 'post_announcements', 'make_academy_news', 'edit_resource_material_type'];
+    } else if (r === 'registrar') {
+      return ['monitor_enrollment', 'edit_enrollment', 'verify_payment', 'manage_form_options'];
+    } else {
+      return ['manage_curriculum', 'upload_resources', 'post_announcements'];
+    }
+  };
+
+  const handleBulkChangeRole = (targetRole: 'teacher' | 'admin' | 'registrar' | 'hod' | 'student') => {
     if (selectedUserIds.length === 0) return;
     const confirmMsg = `Are you sure you want to change the role of ${selectedUserIds.length} selected users to ${targetRole.toUpperCase()}?`;
     if (!window.confirm(confirmMsg)) return;
@@ -101,25 +128,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
     selectedUserIds.forEach((id) => {
       const user = users.find((u) => u.id === id);
       if (user) {
-        if (targetRole === 'teacher' || targetRole === 'admin') {
-          onRoleChange(id, targetRole);
-        } else {
-          const updated: SchoolUser = {
-            ...user,
-            role: targetRole,
-            permissions:
-              targetRole === 'registrar'
-                ? [
-                    'manage_curriculum',
-                    'upload_resources',
-                    'post_announcements',
-                    'manage_discounts',
-                    'export_forms',
-                  ]
-                : ['manage_curriculum', 'upload_resources', 'post_announcements'],
-          };
-          onUpdateUser(updated);
-        }
+        onRoleChange(id, targetRole);
       }
     });
 
@@ -218,12 +227,23 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
 
   const DEFAULT_AVATAR = logoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
 
+  const getTitleForRole = (r: UserRole) => {
+    const map: Record<string, string> = {
+      teacher: 'Teacher',
+      admin: 'Admin',
+      registrar: 'Registrar',
+      hod: 'HOD',
+      student: 'Student',
+    };
+    return map[r] || 'Teacher';
+  };
+
   const openAddModal = () => {
     setEditingUser(null);
     setName('');
     setEmail('');
     setRole('teacher');
-    setTitle('');
+    setTitle('Teacher');
     setSelectedDeptIds([hodDepartmentId || departments[0]?.id || 'dept-1']);
     setStatus('active');
     setAvatar('');
@@ -239,7 +259,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
     setName(user.name);
     setEmail(user.email);
     setRole(user.role);
-    setTitle(user.title || '');
+    setTitle(getTitleForRole(user.role));
     setSelectedDeptIds(user.departmentIds && user.departmentIds.length > 0 ? user.departmentIds : [user.departmentId]);
     setStatus(user.status);
     setAvatar(user.avatar || '');
@@ -270,8 +290,8 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !title.trim()) {
-      alert('Please fill out Name, Email, and Title.');
+    if (!name.trim() || !email.trim()) {
+      alert('Please fill out Name and Email.');
       return;
     }
 
@@ -290,19 +310,8 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
       return d ? d.name : id;
     });
 
-    const getPermissionsForRole = (r: 'teacher' | 'admin' | 'registrar' | 'hod') => {
-      if (r === 'admin') {
-        return ['manage_curriculum', 'upload_resources', 'post_announcements', 'manage_discounts', 'export_forms', 'view_logs', 'manage_users', 'manage_departments', 'assign_staff', 'manage_form_options'];
-      } else if (r === 'hod') {
-        return ['manage_curriculum', 'upload_resources', 'post_announcements', 'make_academy_news', 'edit_resource_material_type'];
-      } else if (r === 'registrar') {
-        return ['monitor_enrollment', 'edit_enrollment', 'verify_payment', 'manage_form_options'];
-      } else {
-        return ['manage_curriculum', 'upload_resources', 'post_announcements'];
-      }
-    };
-
     const finalRole = isHOD ? (editingUser?.role === 'hod' ? 'hod' : 'teacher') : role;
+    const finalTitle = getTitleForRole(finalRole);
 
     if (editingUser) {
       const updated: SchoolUser = {
@@ -310,7 +319,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
         name: name.trim(),
         email: email.trim(),
         role: finalRole,
-        title: title.trim(),
+        title: finalTitle,
         departmentId: primaryDeptId,
         departmentName: primaryDeptName,
         departmentIds: selectedDeptIds,
@@ -331,7 +340,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
         name: name.trim(),
         email: email.trim(),
         role: finalRole,
-        title: title.trim(),
+        title: finalTitle,
         departmentId: primaryDeptId,
         departmentName: primaryDeptName,
         departmentIds: selectedDeptIds,
@@ -475,6 +484,8 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
 
   const teacherCount = activeUsers.filter((u) => u.role === 'teacher').length;
   const adminCount = activeUsers.filter((u) => u.role === 'admin').length;
+  const registrarCount = activeUsers.filter((u) => u.role === 'registrar').length;
+  const hodCount = activeUsers.filter((u) => u.role === 'hod').length;
 
   return (
     <div className="space-y-8">
@@ -534,17 +545,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            Active Staff ({activeUsers.length})
-          </button>
-          <button
-            onClick={() => setRoleFilter('teacher')}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-              roleFilter === 'teacher'
-                ? 'bg-purple-600 text-white'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Teachers ({teacherCount})
+            All Roles ({activeUsers.length})
           </button>
           <button
             onClick={() => setRoleFilter('admin')}
@@ -554,7 +555,37 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            Admins ({adminCount})
+            Admin ({adminCount})
+          </button>
+          <button
+            onClick={() => setRoleFilter('teacher')}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+              roleFilter === 'teacher'
+                ? 'bg-purple-600 text-white'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            Teacher ({teacherCount})
+          </button>
+          <button
+            onClick={() => setRoleFilter('registrar')}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+              roleFilter === 'registrar'
+                ? 'bg-teal-600 text-white'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            Registrar ({registrarCount})
+          </button>
+          <button
+            onClick={() => setRoleFilter('hod')}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+              roleFilter === 'hod'
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            HOD ({hodCount})
           </button>
           <button
             onClick={() => setRoleFilter('disabled')}
@@ -1050,14 +1081,18 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                   </label>
                   <select
                     value={role}
-                    onChange={(e) => setRole(e.target.value as 'teacher' | 'admin' | 'registrar' | 'hod')}
+                    onChange={(e) => {
+                      const selectedRole = e.target.value as 'teacher' | 'admin' | 'registrar' | 'hod';
+                      setRole(selectedRole);
+                      setTitle(getTitleForRole(selectedRole));
+                    }}
                     disabled={isHOD}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-hidden disabled:bg-slate-100 disabled:text-slate-500"
                   >
-                    <option value="teacher">Teacher / Instructor</option>
-                    {!isHOD && <option value="admin">School Administrator</option>}
+                    <option value="teacher">Teacher</option>
+                    {!isHOD && <option value="admin">Admin</option>}
                     {!isHOD && <option value="registrar">Registrar</option>}
-                    {!isHOD && <option value="hod">Head of Department (HOD)</option>}
+                    {!isHOD && <option value="hod">HOD</option>}
                   </select>
                   {isHOD && (
                     <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 p-2 rounded-lg mt-1 flex items-center gap-1 font-medium">
@@ -1104,10 +1139,10 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Chair of Robotics or Registrar"
+                    disabled
+                    placeholder="Automatically matched to Role"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-3 py-2 border border-slate-300 bg-slate-100 text-slate-500 rounded-xl text-xs font-bold focus:outline-hidden"
                   />
                 </div>
 

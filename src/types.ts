@@ -467,6 +467,9 @@ export interface RolePermission {
   description: string;
   teacherDefault: boolean;
   adminDefault: boolean;
+  registrarDefault?: boolean;
+  hodDefault?: boolean;
+  studentDefault?: boolean;
 }
 
 export interface SystemActionLog {

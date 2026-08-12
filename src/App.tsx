@@ -672,6 +672,29 @@ export default function App() {
     }
   }, [schoolUsersLoaded, departments, schoolUsers, teacherProfiles]);
 
+  // Synchronize loggedInUser and currentRole with live changes from schoolUsers
+  useEffect(() => {
+    if (loggedInUser && schoolUsersLoaded && schoolUsers.length > 0) {
+      const liveUser = schoolUsers.find(u => u.id === loggedInUser.id);
+      if (liveUser) {
+        const roleChanged = liveUser.role !== loggedInUser.role;
+        const statusChanged = liveUser.status !== loggedInUser.status;
+        const permissionsChanged = JSON.stringify(liveUser.permissions) !== JSON.stringify(loggedInUser.permissions);
+        const departmentChanged = liveUser.departmentId !== loggedInUser.departmentId;
+
+        if (roleChanged || statusChanged || permissionsChanged || departmentChanged) {
+          setLoggedInUser(liveUser);
+          if (roleChanged) {
+             setCurrentRole(liveUser.role);
+          }
+          if (statusChanged && liveUser.role === 'student') {
+             setStudentStatus(liveUser.status || 'unverified');
+          }
+        }
+      }
+    }
+  }, [schoolUsers, schoolUsersLoaded, loggedInUser?.id]);
+
   const handleUpdateClashStatus = (clashId: string, status: ClashAdmissibility, notes?: string) => {
     setClashes((prev) =>
       prev.map((c) => (c.id === clashId ? { ...c, status, reasonNotes: notes ?? c.reasonNotes } : c))
@@ -996,7 +1019,17 @@ export default function App() {
           }
         }
       }),
-      subscribeToCollection<RolePermission>('rolePermissions', (data) => setRolePermissions(data || [])),
+      subscribeToCollection<RolePermission>('rolePermissions', (data) => {
+        if (!data || data.length === 0) {
+          // Initialize role matrix if it's completely empty
+          DEMO_ROLE_PERMISSIONS.forEach((perm) => {
+            saveDocToFirestore('rolePermissions', perm.id, perm);
+          });
+          setRolePermissions(DEMO_ROLE_PERMISSIONS);
+        } else {
+          setRolePermissions(data);
+        }
+      }),
     ];
 
     return () => {
@@ -2016,23 +2049,49 @@ export default function App() {
   const handleUpdateUser = (updatedUser: SchoolUser) => {
     setSchoolUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
     saveDocToFirestore('schoolUsers', updatedUser.id, updatedUser);
-    setTeacherProfiles((prev) =>
-      prev.map((t) =>
-        t.id === updatedUser.id
-          ? {
-              ...t,
-              name: updatedUser.name,
-              title: updatedUser.title,
-              department: updatedUser.departmentName,
-              departmentIds: updatedUser.departmentIds,
-              departmentNames: updatedUser.departmentNames,
-              email: updatedUser.email,
-              bio: updatedUser.bio || t.bio,
-              officeHours: updatedUser.officeHours || t.officeHours,
-            }
-          : t
-      )
-    );
+
+    if (updatedUser.role === 'teacher' || updatedUser.role === 'hod') {
+      setTeacherProfiles((prev) => {
+        const exists = prev.find(t => t.id === updatedUser.id);
+        if (exists) {
+          return prev.map((t) =>
+            t.id === updatedUser.id
+              ? {
+                  ...t,
+                  name: updatedUser.name,
+                  title: updatedUser.title,
+                  department: updatedUser.departmentName,
+                  departmentIds: updatedUser.departmentIds,
+                  departmentNames: updatedUser.departmentNames,
+                  email: updatedUser.email,
+                  bio: updatedUser.bio || t.bio,
+                  officeHours: updatedUser.officeHours || t.officeHours,
+                }
+              : t
+          );
+        } else {
+          // Promote to teacher
+          const newProfile: TeacherProfile = {
+            id: updatedUser.id,
+            name: updatedUser.name,
+            title: updatedUser.title || 'Instructor',
+            department: updatedUser.departmentName || 'General',
+            departmentIds: updatedUser.departmentIds || [],
+            departmentNames: updatedUser.departmentNames || [],
+            email: updatedUser.email,
+            bio: updatedUser.bio || 'Faculty member.',
+            officeHours: updatedUser.officeHours || 'By Appointment',
+            avatar: updatedUser.avatar,
+            assignedClassIds: [],
+          };
+          saveDocToFirestore('teachers', newProfile.id, newProfile);
+          return [newProfile, ...prev];
+        }
+      });
+    } else {
+      // Demote from teacher
+      setTeacherProfiles((prev) => prev.filter(t => t.id !== updatedUser.id));
+    }
     
     logSystemAction(
       'user_updated',
@@ -2213,29 +2272,68 @@ export default function App() {
     );
   };
 
-  const handleRoleChange = (userId: string, newRole: 'teacher' | 'admin') => {
+  const handleRoleChange = (userId: string, newRole: 'teacher' | 'admin' | 'student' | 'registrar' | 'hod') => {
     setSchoolUsers((prev) =>
       prev.map((u) => {
         if (u.id !== userId) return u;
+        
+        // Dynamically compute permissions from the live matrix
+        const defaultPerms = rolePermissions
+          .filter(p => {
+            if (newRole === 'admin') return p.adminDefault;
+            if (newRole === 'teacher') return p.teacherDefault;
+            if (newRole === 'registrar') return p.registrarDefault;
+            if (newRole === 'hod') return p.hodDefault;
+            if (newRole === 'student') return p.studentDefault;
+            return false;
+          })
+          .map(p => p.id);
+
         const updated: SchoolUser = {
           ...u,
           role: newRole,
-          permissions:
-            newRole === 'admin'
-              ? [
-                  'manage_curriculum',
-                  'upload_resources',
-                  'post_announcements',
-                  'manage_discounts',
-                  'export_forms',
-                  'view_logs',
-                  'manage_users',
-                  'manage_departments',
-                  'assign_staff',
-                ]
-              : ['manage_curriculum', 'upload_resources', 'post_announcements'],
+          permissions: defaultPerms,
         };
+        
+        // When downgrading a teacher or admin to student, ensure we clear any residual specific data if needed
+        if (newRole === 'student') {
+            updated.departmentId = undefined;
+            updated.departmentIds = [];
+        } else {
+            // When promoting to staff, ensure they aren't registered as a student in the current cycle
+            updated.registeredClassIds = [];
+            updated.studentDetails = undefined;
+            updated.status = 'enrolled_paid'; // Staff are active by default
+        }
+
         saveDocToFirestore('schoolUsers', userId, updated);
+        
+        // Ensure teacherProfiles is also synced
+        if (newRole === 'teacher' || newRole === 'hod') {
+          setTeacherProfiles((tpPrev) => {
+             const exists = tpPrev.find(t => t.id === userId);
+             if (!exists) {
+               const newProfile: TeacherProfile = {
+                  id: updated.id,
+                  name: updated.name,
+                  title: updated.title || 'Instructor',
+                  department: updated.departmentName || 'General',
+                  departmentIds: updated.departmentIds || [],
+                  departmentNames: updated.departmentNames || [],
+                  email: updated.email,
+                  bio: updated.bio || 'Faculty member.',
+                  officeHours: updated.officeHours || 'By Appointment',
+                  avatar: updated.avatar,
+                  assignedClassIds: [],
+                };
+                saveDocToFirestore('teachers', newProfile.id, newProfile);
+                return [newProfile, ...tpPrev];
+             }
+             return tpPrev;
+          });
+        } else {
+           setTeacherProfiles((tpPrev) => tpPrev.filter(t => t.id !== userId));
+        }
         
         sendPushNotificationToUser(
           u.email,
@@ -2508,13 +2606,17 @@ export default function App() {
     );
   };
 
-  const handleTogglePermission = (permissionId: string, role: 'teacher' | 'admin') => {
+  const handleTogglePermission = (permissionId: string, role: 'teacher' | 'admin' | 'registrar' | 'hod' | 'student') => {
     setRolePermissions((prev) =>
       prev.map((p) => {
         if (p.id === permissionId) {
-          const updated = role === 'teacher'
-            ? { ...p, teacherDefault: !p.teacherDefault }
-            : { ...p, adminDefault: !p.adminDefault };
+          const updated = { ...p };
+          if (role === 'teacher') updated.teacherDefault = !p.teacherDefault;
+          if (role === 'admin') updated.adminDefault = !p.adminDefault;
+          if (role === 'registrar') updated.registrarDefault = !p.registrarDefault;
+          if (role === 'hod') updated.hodDefault = !p.hodDefault;
+          if (role === 'student') updated.studentDefault = !p.studentDefault;
+          
           saveDocToFirestore('rolePermissions', permissionId, updated);
           return updated;
         }

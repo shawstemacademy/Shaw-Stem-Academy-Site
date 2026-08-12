@@ -1643,8 +1643,22 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                           <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-1">Course Performance Summary</h4>
                           <p className="text-xs text-slate-500 mb-2">Individual breakdown for active courses.</p>
                           <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
-                            {filteredEnrolledCourses.map((c, idx) => {
-                              const score = 88 + (idx * 3);
+                            {filteredEnrolledCourses.map((c) => {
+                              const courseGrades = (registrationRecord?.grades || []).filter(g => g.classId === c.id || g.className === c.title);
+                              const totalScore = courseGrades.reduce((sum, g) => sum + (Number(g.score) || 0), 0);
+                              const totalPossible = courseGrades.reduce((sum, g) => sum + (Number(g.pointsPossible) || 0), 0);
+                              
+                              let scorePercentage = null;
+                              let gradeLetter = 'N/A';
+                              if (totalPossible > 0) {
+                                scorePercentage = Math.round((totalScore / totalPossible) * 100);
+                                if (scorePercentage >= 90) gradeLetter = 'A';
+                                else if (scorePercentage >= 80) gradeLetter = 'B';
+                                else if (scorePercentage >= 70) gradeLetter = 'C';
+                                else if (scorePercentage >= 60) gradeLetter = 'D';
+                                else gradeLetter = 'F';
+                              }
+
                               return (
                                 <div key={c.id} className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                                   <div>
@@ -1652,8 +1666,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                                     <p className="text-[10px] text-slate-500">Instructor: {c.instructor || 'STEM Faculty'}</p>
                                   </div>
                                   <div className="text-right">
-                                    <span className="px-2.5 py-1 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-black">
-                                      {score}% ({score >= 90 ? 'A' : 'B'})
+                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-black ${scorePercentage === null ? 'bg-slate-100 text-slate-500' : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'}`}>
+                                      {scorePercentage !== null ? `${scorePercentage}% (${gradeLetter})` : 'No Grades'}
                                     </span>
                                   </div>
                                 </div>

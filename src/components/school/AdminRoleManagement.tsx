@@ -22,8 +22,8 @@ import { RolePermission, SchoolUser, UserRole } from '../../types';
 interface AdminRoleManagementProps {
   permissions: RolePermission[];
   users: SchoolUser[];
-  onTogglePermission: (permissionId: string, role: 'teacher' | 'admin') => void;
-  onRoleChange: (userId: string, newRole: 'teacher' | 'admin') => void;
+  onTogglePermission: (permissionId: string, role: 'teacher' | 'admin' | 'registrar' | 'hod' | 'student') => void;
+  onRoleChange: (userId: string, newRole: 'teacher' | 'admin' | 'registrar' | 'hod' | 'student') => void;
   onUpdateUser?: (updated: SchoolUser) => void;
 }
 
@@ -83,20 +83,40 @@ export const AdminRoleManagement: React.FC<AdminRoleManagementProps> = ({
     return matchesSearch && matchesRole;
   });
 
+  const getDefaultPermissionsForRoles = (rolesList: UserRole[]) => {
+    return permissions
+      .filter((p) => {
+        return rolesList.some((r) => {
+          if (r === 'admin') return p.adminDefault;
+          if (r === 'teacher') return p.teacherDefault;
+          if (r === 'registrar') return p.registrarDefault;
+          if (r === 'hod') return p.hodDefault;
+          if (r === 'student') return p.studentDefault;
+          return false;
+        });
+      })
+      .map((p) => p.id);
+  };
+
   const handleOpenUserRoleModal = (user: SchoolUser) => {
     setEditingUserModal(user);
     const existingRoles: UserRole[] = user.roles && user.roles.length > 0 ? user.roles : [user.role];
     setSelectedRoles(existingRoles);
-    setCustomPermissions(user.permissions || []);
+    // Initialize custom permissions directly to configured matrix defaults for these roles
+    setCustomPermissions(getDefaultPermissionsForRoles(existingRoles));
   };
 
   const handleToggleRoleSelection = (roleToToggle: UserRole) => {
+    let nextRoles: UserRole[];
     if (selectedRoles.includes(roleToToggle)) {
       if (selectedRoles.length === 1) return; // Keep at least one role
-      setSelectedRoles(selectedRoles.filter((r) => r !== roleToToggle));
+      nextRoles = selectedRoles.filter((r) => r !== roleToToggle);
     } else {
-      setSelectedRoles([...selectedRoles, roleToToggle]);
+      nextRoles = [...selectedRoles, roleToToggle];
     }
+    setSelectedRoles(nextRoles);
+    // Automatically keep permissions in sync with role defaults
+    setCustomPermissions(getDefaultPermissionsForRoles(nextRoles));
   };
 
   const handleToggleCustomPermission = (permId: string) => {
@@ -210,19 +230,28 @@ export const AdminRoleManagement: React.FC<AdminRoleManagementProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             {/* Filter by Role Pills */}
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-              {['all', 'admin', 'teacher', 'registrar', 'student'].map((r) => (
+              {['all', 'admin', 'teacher', 'registrar', 'hod', 'student'].map((r) => {
+                let label = r;
+                if (r === 'all') label = 'All Roles';
+                if (r === 'admin') label = 'Admin';
+                if (r === 'teacher') label = 'Teacher';
+                if (r === 'registrar') label = 'Registrar';
+                if (r === 'hod') label = 'HOD';
+                if (r === 'student') label = 'Student';
+                return (
                 <button
                   key={r}
                   onClick={() => setUserRoleFilter(r)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all capitalize ${
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                     userRoleFilter === r
                       ? 'bg-white text-slate-900 shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  {r === 'all' ? 'All Roles' : r}
+                  {label}
                 </button>
-              ))}
+                );
+              })}
             </div>
 
             <input
@@ -331,8 +360,11 @@ export const AdminRoleManagement: React.FC<AdminRoleManagementProps> = ({
               <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 <th className="py-3.5 px-6">Permission Privilege</th>
                 <th className="py-3.5 px-4">Category</th>
-                <th className="py-3.5 px-4 text-center">Teacher Role</th>
-                <th className="py-3.5 px-4 text-center">Admin Role</th>
+                <th className="py-3.5 px-4 text-center">Admin</th>
+                <th className="py-3.5 px-4 text-center">Teacher</th>
+                <th className="py-3.5 px-4 text-center">Registrar</th>
+                <th className="py-3.5 px-4 text-center">HOD</th>
+                <th className="py-3.5 px-4 text-center">Student</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
@@ -349,6 +381,19 @@ export const AdminRoleManagement: React.FC<AdminRoleManagementProps> = ({
                   </td>
                   <td className="py-4 px-4 text-center">
                     <button
+                      onClick={() => onTogglePermission(perm.id, 'admin')}
+                      className={`inline-flex items-center justify-center w-8 h-8 rounded-xl transition-all ${
+                        perm.adminDefault
+                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-300'
+                          : 'bg-slate-100 text-slate-400 hover:bg-slate-200 border border-slate-200'
+                      }`}
+                      title={perm.adminDefault ? 'Revoke from Admins' : 'Grant to Admins'}
+                    >
+                      {perm.adminDefault ? <CheckCircle2 className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />}
+                    </button>
+                  </td>
+                  <td className="py-4 px-4 text-center">
+                    <button
                       onClick={() => onTogglePermission(perm.id, 'teacher')}
                       className={`inline-flex items-center justify-center w-8 h-8 rounded-xl transition-all ${
                         perm.teacherDefault
@@ -362,15 +407,41 @@ export const AdminRoleManagement: React.FC<AdminRoleManagementProps> = ({
                   </td>
                   <td className="py-4 px-4 text-center">
                     <button
-                      onClick={() => onTogglePermission(perm.id, 'admin')}
+                      onClick={() => onTogglePermission(perm.id, 'registrar')}
                       className={`inline-flex items-center justify-center w-8 h-8 rounded-xl transition-all ${
-                        perm.adminDefault
-                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-300'
+                        perm.registrarDefault
+                          ? 'bg-teal-100 text-teal-700 hover:bg-teal-200 border border-teal-300'
                           : 'bg-slate-100 text-slate-400 hover:bg-slate-200 border border-slate-200'
                       }`}
-                      title={perm.adminDefault ? 'Revoke from Admins' : 'Grant to Admins'}
+                      title={perm.registrarDefault ? 'Revoke from Registrars' : 'Grant to Registrars'}
                     >
-                      {perm.adminDefault ? <CheckCircle2 className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />}
+                      {perm.registrarDefault ? <CheckCircle2 className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />}
+                    </button>
+                  </td>
+                  <td className="py-4 px-4 text-center">
+                    <button
+                      onClick={() => onTogglePermission(perm.id, 'hod')}
+                      className={`inline-flex items-center justify-center w-8 h-8 rounded-xl transition-all ${
+                        perm.hodDefault
+                          ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border border-indigo-300'
+                          : 'bg-slate-100 text-slate-400 hover:bg-slate-200 border border-slate-200'
+                      }`}
+                      title={perm.hodDefault ? 'Revoke from HODs' : 'Grant to HODs'}
+                    >
+                      {perm.hodDefault ? <CheckCircle2 className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />}
+                    </button>
+                  </td>
+                  <td className="py-4 px-4 text-center">
+                    <button
+                      onClick={() => onTogglePermission(perm.id, 'student')}
+                      className={`inline-flex items-center justify-center w-8 h-8 rounded-xl transition-all ${
+                        perm.studentDefault
+                          ? 'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300'
+                          : 'bg-slate-100 text-slate-400 hover:bg-slate-200 border border-slate-200'
+                      }`}
+                      title={perm.studentDefault ? 'Revoke from Students' : 'Grant to Students'}
+                    >
+                      {perm.studentDefault ? <CheckCircle2 className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />}
                     </button>
                   </td>
                 </tr>
@@ -418,10 +489,10 @@ export const AdminRoleManagement: React.FC<AdminRoleManagementProps> = ({
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {[
-                    { id: 'admin', label: 'Administrator', color: 'emerald' },
-                    { id: 'teacher', label: 'Teacher / Faculty', color: 'purple' },
+                    { id: 'admin', label: 'Admin', color: 'emerald' },
+                    { id: 'teacher', label: 'Teacher', color: 'purple' },
                     { id: 'registrar', label: 'Registrar', color: 'teal' },
-                    { id: 'hod', label: 'Head of Department (HOD)', color: 'indigo' },
+                    { id: 'hod', label: 'HOD', color: 'indigo' },
                     { id: 'student', label: 'Student', color: 'blue' },
                   ].map((roleObj) => {
                     const isSelected = selectedRoles.includes(roleObj.id as UserRole);
@@ -450,16 +521,25 @@ export const AdminRoleManagement: React.FC<AdminRoleManagementProps> = ({
                   <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider">
                     Granular Custom Permission Overrides
                   </label>
-                  <span className="text-[11px] font-bold text-blue-600">
-                    {customPermissions.length} Enabled
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setCustomPermissions(getDefaultPermissionsForRoles(selectedRoles))}
+                      className="text-[11px] font-extrabold text-blue-600 hover:text-blue-800 underline transition-colors cursor-pointer"
+                    >
+                      Reset to Matrix Defaults
+                    </button>
+                    <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {customPermissions.length} Enabled
+                    </span>
+                  </div>
                 </div>
                 <p className="text-xs text-slate-500">
                   Select specific permission privileges for this user. Enabled permissions grant explicit access regardless of default role rules.
                 </p>
 
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  {ALL_SYSTEM_PERMISSIONS.map((perm) => {
+                  {permissions.map((perm) => {
                     const isChecked = customPermissions.includes(perm.id);
                     return (
                       <label

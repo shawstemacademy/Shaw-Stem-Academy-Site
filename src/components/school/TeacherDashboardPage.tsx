@@ -137,7 +137,17 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   // If logged in as a specific teacher user, default to their profile
   const matchedTeacher = teachers.find(
     (t) => loggedInUser && (t.id === loggedInUser.id || (t?.email || '').toLowerCase() === (loggedInUser?.email || '').toLowerCase())
-  ) || teachers[0];
+  ) || (loggedInUser && (loggedInUser.role === 'teacher' || loggedInUser.role === 'hod') ? {
+    id: loggedInUser.id,
+    name: loggedInUser.name,
+    title: loggedInUser.title || 'Instructor',
+    department: loggedInUser.departmentName || loggedInUser.department || 'General',
+    email: loggedInUser.email,
+    bio: loggedInUser.bio || 'Faculty member.',
+    officeHours: loggedInUser.officeHours || 'By Appointment',
+    avatar: loggedInUser.avatar,
+    assignedClassIds: loggedInUser.assignedClassIds || [],
+  } : teachers[0]);
 
   const [activeTeacherId, setActiveTeacherId] = useState<string>(matchedTeacher?.id || teachers[0]?.id || '');
 
@@ -492,7 +502,21 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
       </div>
 
       {activeSection === 'performance' && (() => {
-        const performanceClasses = teacherClasses.length > 0 ? teacherClasses : classes.slice(0, 4);
+        const performanceClasses = teacherClasses;
+
+        if (performanceClasses.length === 0) {
+          return (
+            <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-xs text-center space-y-4">
+              <div className="mx-auto w-16 h-16 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
+                <BarChart3 className="w-8 h-8 text-slate-400" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800">No Assigned Classes</h3>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto">
+                You are not currently assigned to teach any active classes. Once classes are assigned, you will be able to monitor student performance metrics here.
+              </p>
+            </div>
+          );
+        }
 
         const filteredPerformanceClasses = performanceClassFilter === 'all'
           ? performanceClasses
@@ -502,7 +526,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
           const classGrades: number[] = [];
           (registrationLogs || []).forEach(reg => {
             (reg.grades || []).forEach(g => {
-              if ((g.classId === cls.id || g.className === cls.title) && g.score && g.pointsPossible) {
+              if ((g.classId === cls.id || g.className === cls.title) && g.score !== undefined && g.pointsPossible) {
                 classGrades.push(Math.round((g.score / g.pointsPossible) * 100));
               }
             });
@@ -514,17 +538,14 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
           let gradeD = classGrades.filter(s => s >= 60 && s < 70).length;
           let gradeF = classGrades.filter(s => s < 60).length;
 
-          if (classGrades.length === 0) {
-            gradeA = 7 + (idx * 3) % 4;
-            gradeB = 11 + (idx * 2) % 5;
-            gradeC = 4 + (idx * 1) % 3;
-            gradeD = 2;
-            gradeF = 1;
-          }
+          const totalStudents = classGrades.length;
+          let avgScore = 0;
+          let passRate = 0;
 
-          const totalStudents = gradeA + gradeB + gradeC + gradeD + gradeF;
-          const avgScore = Math.round(((gradeA * 95) + (gradeB * 85) + (gradeC * 75) + (gradeD * 65) + (gradeF * 50)) / totalStudents);
-          const passRate = Math.round(((gradeA + gradeB + gradeC) / totalStudents) * 100);
+          if (totalStudents > 0) {
+            avgScore = Math.round(classGrades.reduce((sum, s) => sum + s, 0) / totalStudents);
+            passRate = Math.round(((gradeA + gradeB + gradeC) / totalStudents) * 100);
+          }
 
           return {
             id: cls.id,
@@ -543,13 +564,19 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
         });
 
         const totalAssessedStudents = classPerformanceStats.reduce((sum, c) => sum + c.totalStudents, 0);
-        const overallTeacherAvg = classPerformanceStats.length > 0
-          ? Math.round(classPerformanceStats.reduce((sum, c) => sum + c.avgScore, 0) / classPerformanceStats.length)
-          : 85;
-        const topClassStat = [...classPerformanceStats].sort((a, b) => b.avgScore - a.avgScore)[0];
-        const overallPassRate = classPerformanceStats.length > 0
-          ? Math.round(classPerformanceStats.reduce((sum, c) => sum + c.passRate, 0) / classPerformanceStats.length)
-          : 92;
+        
+        let overallTeacherAvg = 0;
+        let overallPassRate = 0;
+        const classesWithData = classPerformanceStats.filter(c => c.totalStudents > 0);
+        
+        if (classesWithData.length > 0) {
+          overallTeacherAvg = Math.round(classesWithData.reduce((sum, c) => sum + c.avgScore, 0) / classesWithData.length);
+          overallPassRate = Math.round(classesWithData.reduce((sum, c) => sum + c.passRate, 0) / classesWithData.length);
+        }
+
+        const topClassStat = classesWithData.length > 0 
+          ? [...classesWithData].sort((a, b) => b.avgScore - a.avgScore)[0] 
+          : null;
 
         return (
           <div className="space-y-6">
@@ -606,8 +633,12 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                 <div>
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Overall Average</p>
                   <h3 className="text-2xl font-black text-slate-900">{overallTeacherAvg}%</h3>
-                  <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
-                    <span>+3.2% vs target benchmark</span>
+                  <p className={`text-[10px] font-bold flex items-center gap-1 ${overallTeacherAvg >= 85 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    <span>
+                      {overallTeacherAvg > 0 
+                        ? (overallTeacherAvg >= 85 ? `+${(overallTeacherAvg - 85).toFixed(1)}% vs target benchmark` : `${(overallTeacherAvg - 85).toFixed(1)}% vs target benchmark`) 
+                        : 'No Data'}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -635,168 +666,183 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
               </div>
             </div>
 
-            {/* Performance Visualizations */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Grouped Bar Chart - Grade Distribution across Taught Classes */}
-              <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-base">Grade Distribution Tiers per Course</h3>
-                    <p className="text-xs text-slate-500">Student count broken down by letter grade (A, B, C, D, F) for each class.</p>
-                  </div>
-                  <div className="hidden sm:flex items-center gap-2 text-[10px] font-bold">
-                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"/> Grade A (90-100%)</span>
-                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"/> Grade B (80-89%)</span>
-                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"/> Grade C (70-79%)</span>
-                  </div>
+            {/* Performance Visualizations & Detail Table */}
+            {totalAssessedStudents === 0 ? (
+              <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-xs text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
+                  <BarChart3 className="w-8 h-8 text-slate-400" />
                 </div>
-
-                <div className="h-80 w-full pt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={classPerformanceStats} margin={{ top: 20, right: 20, left: -10, bottom: 25 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis 
-                        dataKey="shortTitle" 
-                        tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }}
-                        interval={0}
-                        angle={-15}
-                        textAnchor="end"
-                      />
-                      <YAxis tick={{ fontSize: 11, fill: '#64748b' }} allowDecimals={false} label={{ value: 'Number of Students', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#94a3b8' } }} />
-                      <RechartsTooltip
-                        content={({ active, payload, label }) => {
-                          if (active && payload && payload.length) {
-                            return (
-                              <div className="bg-slate-900 text-white p-3.5 rounded-2xl shadow-xl border border-slate-800 text-xs space-y-2">
-                                <p className="font-bold text-amber-300 border-b border-slate-800 pb-1.5">{label}</p>
-                                {payload.map((entry: any, index: number) => (
-                                  <div key={index} className="flex items-center justify-between gap-6">
-                                    <span style={{ color: entry.color }} className="font-bold">{entry.name}:</span>
-                                    <span className="font-black text-white">{entry.value} students</span>
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
-                      <Bar dataKey="gradeA" name="Grade A (90-100%)" fill="#10b981" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="gradeB" name="Grade B (80-89%)" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="gradeC" name="Grade C (70-79%)" fill="#f59e0b" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="gradeD" name="Grade D (60-69%)" fill="#f97316" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="gradeF" name="Grade F (<60%)" fill="#ef4444" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <h3 className="text-lg font-bold text-slate-800">No Student Enrollments or Grades Recorded</h3>
+                <p className="text-sm text-slate-500 max-w-sm mx-auto">
+                  There are currently no students registered or graded in your assigned courses. Once student applications are verified and grade records are logged, these analytics and distribution charts will automatically update here.
+                </p>
               </div>
+            ) : (
+              <>
+                {/* Performance Visualizations */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Grouped Bar Chart - Grade Distribution across Taught Classes */}
+                  <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-base">Grade Distribution Tiers per Course</h3>
+                        <p className="text-xs text-slate-500">Student count broken down by letter grade (A, B, C, D, F) for each class.</p>
+                      </div>
+                      <div className="hidden sm:flex items-center gap-2 text-[10px] font-bold">
+                        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"/> Grade A (90-100%)</span>
+                        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"/> Grade B (80-89%)</span>
+                        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"/> Grade C (70-79%)</span>
+                      </div>
+                    </div>
 
-              {/* Course Average vs Target Benchmark */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-                <div className="border-b border-slate-100 pb-4">
-                  <h3 className="font-bold text-slate-900 text-base">Class Average vs Target</h3>
-                  <p className="text-xs text-slate-500">Course average score compared against the 85% target benchmark.</p>
-                </div>
-
-                <div className="h-80 w-full pt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={classPerformanceStats} layout="vertical" margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                      <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11, fill: '#64748b' }} />
-                      <YAxis type="category" dataKey="shortTitle" tick={{ fontSize: 10, fill: '#334155', fontWeight: 600 }} width={100} />
-                      <RechartsTooltip
-                        formatter={(value: any) => [`${value}%`, 'Class Average']}
-                        contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', color: '#fff', fontSize: '12px' }}
-                      />
-                      <Bar dataKey="avgScore" name="Class Average" radius={[0, 8, 8, 0]}>
-                        {classPerformanceStats.map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={entry.avgScore >= 88 ? '#10b981' : entry.avgScore >= 80 ? '#6366f1' : '#f59e0b'} 
+                    <div className="h-80 w-full pt-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={classPerformanceStats} margin={{ top: 20, right: 20, left: -10, bottom: 25 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis 
+                            dataKey="shortTitle" 
+                            tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }}
+                            interval={0}
+                            angle={-15}
+                            textAnchor="end"
                           />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
+                          <YAxis tick={{ fontSize: 11, fill: '#64748b' }} allowDecimals={false} label={{ value: 'Number of Students', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#94a3b8' } }} />
+                          <RechartsTooltip
+                            content={({ active, payload, label }) => {
+                              if (active && payload && payload.length) {
+                                return (
+                                  <div className="bg-slate-900 text-white p-3.5 rounded-2xl shadow-xl border border-slate-800 text-xs space-y-2">
+                                    <p className="font-bold text-amber-300 border-b border-slate-800 pb-1.5">{label}</p>
+                                    {payload.map((entry: any, index: number) => (
+                                      <div key={index} className="flex items-center justify-between gap-6">
+                                        <span style={{ color: entry.color }} className="font-bold">{entry.name}:</span>
+                                        <span className="font-black text-white">{entry.value} students</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                          <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
+                          <Bar dataKey="gradeA" name="Grade A (90-100%)" fill="#10b981" radius={[6, 6, 0, 0]} />
+                          <Bar dataKey="gradeB" name="Grade B (80-89%)" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                          <Bar dataKey="gradeC" name="Grade C (70-79%)" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+                          <Bar dataKey="gradeD" name="Grade D (60-69%)" fill="#f97316" radius={[6, 6, 0, 0]} />
+                          <Bar dataKey="gradeF" name="Grade F (<60%)" fill="#ef4444" radius={[6, 6, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
 
-            {/* Detailed Course Performance Breakdown Table */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Detailed Class Mastery Roster</h3>
-                  <p className="text-xs text-slate-500">Complete performance metrics and pass rates for each course.</p>
-                </div>
-                <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-extrabold">
-                  {classPerformanceStats.length} Classes Evaluated
-                </span>
-              </div>
+                  {/* Course Average vs Target Benchmark */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                    <div className="border-b border-slate-100 pb-4">
+                      <h3 className="font-bold text-slate-900 text-base">Class Average vs Target</h3>
+                      <p className="text-xs text-slate-500">Course average score compared against the 85% target benchmark.</p>
+                    </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-600">
-                  <thead className="bg-slate-50 text-slate-700 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200">
-                    <tr>
-                      <th className="p-3 rounded-l-xl">Course Title</th>
-                      <th className="p-3 text-center">Enrolled</th>
-                      <th className="p-3 text-center">Class Average</th>
-                      <th className="p-3 text-center">Pass Rate</th>
-                      <th className="p-3 text-center">Grade Breakdown (A / B / C / D / F)</th>
-                      <th className="p-3 text-right rounded-r-xl">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
-                    {classPerformanceStats.map((c) => (
-                      <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="p-3 font-bold text-slate-900">{c.title}</td>
-                        <td className="p-3 text-center font-bold text-slate-700">{c.totalStudents}</td>
-                        <td className="p-3 text-center">
-                          <span className={`px-2.5 py-1 rounded-lg font-black text-xs ${
-                            c.avgScore >= 90 ? 'bg-emerald-100 text-emerald-800' :
-                            c.avgScore >= 80 ? 'bg-indigo-100 text-indigo-800' :
-                            'bg-amber-100 text-amber-800'
-                          }`}>
-                            {c.avgScore}%
-                          </span>
-                        </td>
-                        <td className="p-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <div className="w-16 bg-slate-200 rounded-full h-2 overflow-hidden">
-                              <div 
-                                className="bg-emerald-500 h-2 rounded-full" 
-                                style={{ width: `${c.passRate}%` }}
+                    <div className="h-80 w-full pt-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={classPerformanceStats} layout="vertical" margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                          <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11, fill: '#64748b' }} />
+                          <YAxis type="category" dataKey="shortTitle" tick={{ fontSize: 10, fill: '#334155', fontWeight: 600 }} width={100} />
+                          <RechartsTooltip
+                            formatter={(value: any) => [`${value}%`, 'Class Average']}
+                            contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', color: '#fff', fontSize: '12px' }}
+                          />
+                          <Bar dataKey="avgScore" name="Class Average" radius={[0, 8, 8, 0]}>
+                            {classPerformanceStats.map((entry, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={entry.avgScore >= 88 ? '#10b981' : entry.avgScore >= 80 ? '#6366f1' : '#f59e0b'} 
                               />
-                            </div>
-                            <span className="font-bold text-slate-800">{c.passRate}%</span>
-                          </div>
-                        </td>
-                        <td className="p-3 text-center">
-                          <div className="inline-flex items-center gap-1 font-bold text-[11px]">
-                            <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-md" title="Grade A">{c.gradeA} A</span>
-                            <span className="text-slate-300">•</span>
-                            <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded-md" title="Grade B">{c.gradeB} B</span>
-                            <span className="text-slate-300">•</span>
-                            <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-md" title="Grade C">{c.gradeC} C</span>
-                            <span className="text-slate-300">•</span>
-                            <span className="px-1.5 py-0.5 bg-orange-100 text-orange-800 rounded-md" title="Grade D">{c.gradeD} D</span>
-                            <span className="text-slate-300">•</span>
-                            <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 rounded-md" title="Grade F">{c.gradeF} F</span>
-                          </div>
-                        </td>
-                        <td className="p-3 text-right">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                            <span>Optimal Mastery</span>
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detailed Course Performance Breakdown Table */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-base">Detailed Class Mastery Roster</h3>
+                      <p className="text-xs text-slate-500">Complete performance metrics and pass rates for each course.</p>
+                    </div>
+                    <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-extrabold">
+                      {classPerformanceStats.length} Classes Evaluated
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-slate-600">
+                      <thead className="bg-slate-50 text-slate-700 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                        <tr>
+                          <th className="p-3 rounded-l-xl">Course Title</th>
+                          <th className="p-3 text-center">Enrolled</th>
+                          <th className="p-3 text-center">Class Average</th>
+                          <th className="p-3 text-center">Pass Rate</th>
+                          <th className="p-3 text-center">Grade Breakdown (A / B / C / D / F)</th>
+                          <th className="p-3 text-right rounded-r-xl">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {classPerformanceStats.map((c) => (
+                          <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="p-3 font-bold text-slate-900">{c.title}</td>
+                            <td className="p-3 text-center font-bold text-slate-700">{c.totalStudents}</td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2.5 py-1 rounded-lg font-black text-xs ${
+                                c.avgScore >= 90 ? 'bg-emerald-100 text-emerald-800' :
+                                c.avgScore >= 80 ? 'bg-indigo-100 text-indigo-800' :
+                                'bg-amber-100 text-amber-800'
+                              }`}>
+                                {c.avgScore}%
+                              </span>
+                            </td>
+                            <td className="p-3 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <div className="w-16 bg-slate-200 rounded-full h-2 overflow-hidden">
+                                  <div 
+                                    className="bg-emerald-500 h-2 rounded-full" 
+                                    style={{ width: `${c.passRate}%` }}
+                                  />
+                                </div>
+                                <span className="font-bold text-slate-800">{c.passRate}%</span>
+                              </div>
+                            </td>
+                            <td className="p-3 text-center">
+                              <div className="inline-flex items-center gap-1 font-bold text-[11px]">
+                                <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-md" title="Grade A">{c.gradeA} A</span>
+                                <span className="text-slate-300">•</span>
+                                <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded-md" title="Grade B">{c.gradeB} B</span>
+                                <span className="text-slate-300">•</span>
+                                <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-md" title="Grade C">{c.gradeC} C</span>
+                                <span className="text-slate-300">•</span>
+                                <span className="px-1.5 py-0.5 bg-orange-100 text-orange-800 rounded-md" title="Grade D">{c.gradeD} D</span>
+                                <span className="text-slate-300">•</span>
+                                <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 rounded-md" title="Grade F">{c.gradeF} F</span>
+                              </div>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                <span>Optimal Mastery</span>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         );
       })()}

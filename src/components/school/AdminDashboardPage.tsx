@@ -85,7 +85,7 @@ interface AdminDashboardPageProps {
   onAddUser: (user: SchoolUser) => void;
   onUpdateUser: (user: SchoolUser) => void;
   onDeleteUser: (userId: string) => void;
-  onRoleChange: (userId: string, newRole: 'teacher' | 'admin') => void;
+  onRoleChange: (userId: string, newRole: 'teacher' | 'admin' | 'student' | 'registrar' | 'hod') => void;
   onDepartmentChange: (userId: string, newDepartmentId: string) => void;
   onAddDepartment: (dept: Department) => void;
   onUpdateDepartment: (dept: Department) => void;
@@ -1704,6 +1704,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       {activeAdminTab === 'users' && (
         <AdminUserManagement
           users={users}
+          permissions={permissions}
           departments={departments}
           classList={classList}
           sbaHubOptions={sbaHubOptions}
