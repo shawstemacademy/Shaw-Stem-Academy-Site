@@ -153,5 +153,31 @@
       },
       "required": ["eventType", "status"]
     }
+  },
+  "firestore": {
+    "/schoolUsers/{userId}": {
+      "schema": "schoolUsers",
+      "description": "Unified school user profiles"
+    },
+    "/users_student/{userId}": {
+      "schema": "schoolUsers",
+      "description": "Student profiles separated by role"
+    },
+    "/users_teacher/{userId}": {
+      "schema": "schoolUsers",
+      "description": "Teacher profiles separated by role"
+    },
+    "/users_admin/{userId}": {
+      "schema": "schoolUsers",
+      "description": "Administrator profiles separated by role"
+    },
+    "/users_registrar/{userId}": {
+      "schema": "schoolUsers",
+      "description": "Registrar profiles separated by role"
+    },
+    "/users_hod/{userId}": {
+      "schema": "schoolUsers",
+      "description": "Head of Department profiles separated by role"
+    }
   }
 }

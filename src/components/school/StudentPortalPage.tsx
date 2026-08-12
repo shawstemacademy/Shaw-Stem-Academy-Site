@@ -435,6 +435,14 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
             <span>Awaiting Acceptance</span>
           </span>
         );
+      
+      case 'denied':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold border border-rose-500/30">
+            <XCircle className="w-3.5 h-3.5 text-rose-400" />
+            <span>Application Denied</span>
+          </span>
+        );
       case 'prospective':
       default:
         return (
@@ -474,9 +482,9 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                         ? '🎉 You have been accepted to Shaw STEM Academy! Please proceed to submit your tuition fee payment to finalize your enrollment.'
                         : '🎉 You have been accepted to Shaw STEM Academy! Your courses are fully paid and you are awaiting final administrative verification.')
                     : '🎉 You have been accepted to Shaw STEM Academy! Please proceed to register for your courses as your next step to get started.')
-                : status === 'awaiting_acceptance' || status === 'unverified'
-                ? 'Your student account registration has been received and is currently being reviewed by admissions officers.'
-                : 'Browse our academic offerings and school guidelines. Complete registration to unlock course materials.'}
+                : status === 'awaiting_acceptance' || status === 'unverified' || status === 'prospective'
+                ? 'Your student account registration has been received and is currently being reviewed by admissions officers. You are waiting for acceptance. Your application has not yet been accepted.'
+                : ''}
             </p>
           </div>
           
@@ -754,6 +762,42 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
           </div>
         </div>
       )}
+
+      
+      {status === 'denied' && (
+        <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 sm:p-8 flex items-start gap-4 shadow-sm relative overflow-hidden animate-fade-in">
+          <XCircle className="w-8 h-8 text-rose-500 shrink-0 mt-0.5" />
+          <div className="space-y-3 flex-1">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 text-rose-600 text-xs font-bold uppercase tracking-wider border border-rose-500/20">
+              <XCircle className="w-3.5 h-3.5" />
+              <span>Application Denied</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-rose-900 tracking-tight">
+              Registration Application Denied
+            </h2>
+            <p className="text-xs sm:text-sm text-rose-800 leading-relaxed font-medium max-w-2xl">
+              Unfortunately, your application to Shaw STEM Academy has been denied for the following reasons. Please address these issues before re-applying.
+            </p>
+            
+            <div className="bg-white/60 p-4 rounded-xl border border-rose-200 space-y-3">
+              <div>
+                <h4 className="text-xs font-bold text-rose-900 uppercase tracking-wider mb-1.5">Invalid Fields</h4>
+                <ul className="list-disc list-inside text-sm text-rose-700 space-y-1 font-medium">
+                  {(studentUser?.deniedFields || []).map((field: string, idx: number) => (
+                    <li key={idx}>{field}</li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div>
+                <h4 className="text-xs font-bold text-rose-900 uppercase tracking-wider mb-1.5">Reason for Denial</h4>
+                <p className="text-sm text-rose-800 whitespace-pre-wrap">{studentUser?.deniedReason || 'No reason provided.'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* 2. NOTIFICATION BANNER: PENDING VERIFICATION */}
       {status === 'pending_verification' && (
@@ -2374,14 +2418,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
             </div>
 
             {filteredResources.length === 0 ? (
-              <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-2">
-                <FolderOpen className="w-8 h-8 text-slate-300 mx-auto" />
-                <p className="text-xs text-slate-600 font-semibold">
-                  No learning resources found for category "{selectedCategory}".
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  Teachers upload resources specifically for their assigned courses. Check back soon for new files.
-                </p>
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-medium">
+                No learning resources found.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2409,19 +2447,19 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
                     <button
                       onClick={() => {
-                        if (status === 'pending_verification' || status === 'unverified') {
-                          alert("Learning materials are locked until the Registrar verifies your tuition payment.");
+                        if (status !== 'enrolled_paid') {
+                          alert("Learning materials are locked until the Registrar verifies your tuition payment and you are fully enrolled.");
                         } else {
                           alert(`Downloading resource: ${res.title} (${res.fileSize})`);
                         }
                       }}
                       className={`p-2.5 rounded-xl transition-all shrink-0 ${
-                        status === 'pending_verification' || status === 'unverified'
+                        status !== 'enrolled_paid'
                           ? 'bg-slate-50 text-slate-400 cursor-not-allowed border border-slate-100'
                           : 'bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700'
                       }`}
-                      title={status === 'pending_verification' || status === 'unverified' ? 'Locked' : `Download ${res.fileSize}`}
-                      disabled={status === 'pending_verification' || status === 'unverified'}
+                      title={status !== 'enrolled_paid' ? 'Locked' : `Download ${res.fileSize}`}
+                      disabled={status !== 'enrolled_paid'}
                     >
                       <Download className="w-4 h-4" />
                     </button>

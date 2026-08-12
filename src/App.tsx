@@ -20,7 +20,7 @@ import {
   clearAndInitFirebaseData,
   deleteAllSiteData,
   testFirestoreConnection,
-  subscribeToCollection,
+  subscribeToCollection, subscribeToCollectionWhere,
   saveDocToFirestore,
   deleteDocFromFirestore,
   toggleUserDisabledInFirestore,
@@ -98,6 +98,7 @@ import { SbaHubCatalog } from './components/SbaHubCatalog';
 import { ManageListOptionsModal } from './components/ManageListOptionsModal';
 import { RunningTotalCard } from './components/RunningTotalCard';
 import { DiscountRulesModal } from './components/DiscountRulesModal';
+import { calculateAge, isValidAge } from './lib/ageValidation';
 import { RegistrationReceiptModal } from './components/RegistrationReceiptModal';
 
 export default function App() {
@@ -986,6 +987,64 @@ export default function App() {
     };
   }, []);
 
+  // Dynamic Subscription for Announcements & Resources (Requirement 9 & 10)
+  useEffect(() => {
+    if (!user && !loggedInUser) {
+      setAnnouncements([]);
+      setResources([]);
+      return;
+    }
+
+    let unsubs: (() => void)[] = [];
+
+    const handleAnnouncements = (data: ClassAnnouncement[]) => {
+      setAnnouncements(data || []);
+      if (data && data.length > 0) {
+        if (isInitialAnnouncementsRef.current) {
+          prevAnnouncementsRef.current = data;
+          isInitialAnnouncementsRef.current = false;
+        } else {
+          const newAnnouncements = data.filter(
+            (item) => !prevAnnouncementsRef.current.some((prev) => prev.id === item.id)
+          );
+          newAnnouncements.forEach((ann) => {
+            sendDesktopNotification(
+              `📣 Class Announcement: ${ann.title || 'New Post'}`,
+              `${ann.className || 'Class'}: ${ann.content || 'A new update was posted.'}`
+            );
+          });
+          prevAnnouncementsRef.current = data;
+        }
+      }
+    };
+
+    if (currentRole === 'admin' || currentRole === 'teacher' || currentRole === 'registrar' || currentRole === 'hod') {
+      unsubs.push(
+        subscribeToCollection<TeacherResource>('resources', (data) => setResources(data || [])),
+        subscribeToCollection<ClassAnnouncement>('announcements', handleAnnouncements)
+      );
+    } else {
+      const allowedClasses = ['all', ...enrolledClassIds];
+      if (allowedClasses.length > 10) {
+        allowedClasses.length = 10;
+      }
+      unsubs.push(
+        subscribeToCollectionWhere<ClassAnnouncement>('announcements', 'classId', 'in', allowedClasses, handleAnnouncements)
+      );
+      if (studentStatus === 'enrolled_paid') {
+        unsubs.push(
+          subscribeToCollectionWhere<TeacherResource>('resources', 'classId', 'in', allowedClasses, (data) => setResources(data || []))
+        );
+      } else {
+        setResources([]);
+      }
+    }
+
+    return () => {
+      unsubs.forEach(unsub => unsub());
+    };
+  }, [user, loggedInUser, currentRole, enrolledClassIds, studentStatus]);
+
   // Subscribe to additional teacher/staff Firestore collections when user is logged in
   useEffect(() => {
     if (!user) {
@@ -997,28 +1056,7 @@ export default function App() {
 
     console.log(`User logged in: ${user.email}, subscribing to authenticated collections...`);
     const authUnsubs = [
-      subscribeToCollection<TeacherResource>('resources', (data) => setResources(data || [])),
       subscribeToCollection<AttendanceRecord>('attendance', (data) => setAttendanceRecords(data || [])),
-      subscribeToCollection<ClassAnnouncement>('announcements', (data) => {
-        setAnnouncements(data || []);
-        if (data && data.length > 0) {
-          if (isInitialAnnouncementsRef.current) {
-            prevAnnouncementsRef.current = data;
-            isInitialAnnouncementsRef.current = false;
-          } else {
-            const newAnnouncements = data.filter(
-              (item) => !prevAnnouncementsRef.current.some((prev) => prev.id === item.id)
-            );
-            newAnnouncements.forEach((ann) => {
-              sendDesktopNotification(
-                `📣 Class Announcement: ${ann.title || 'New Post'}`,
-                `${ann.className || 'Class'}: ${ann.content || 'A new update was posted.'}`
-              );
-            });
-            prevAnnouncementsRef.current = data;
-          }
-        }
-      }),
       subscribeToCollection<RolePermission>('rolePermissions', (data) => {
         if (!data || data.length === 0) {
           // Initialize role matrix if it's completely empty
@@ -2972,6 +3010,7 @@ export default function App() {
                 classes={enrolledClasses}
                 resources={resources}
                 announcements={announcements}
+                categories={resourceCategories}
                 faqs={faqs}
                 onOpenRegistration={() => handleTabSelect('registration')}
                 addDropRequests={addDropRequests}
@@ -3145,6 +3184,19 @@ export default function App() {
                           }
                         }
 
+                        if (studentInfo.dateOfBirth) {
+                          const ageNum = calculateAge(studentInfo.dateOfBirth);
+                          if (!isValidAge(ageNum)) {
+                            const el = document.getElementById('student-dob');
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              el.focus?.();
+                            }
+                            alert('Student age must be between 14 and 100 years old.');
+                            return;
+                          }
+                        }
+
                         const pName = studentInfo.motherFirstName || studentInfo.fatherFirstName || studentInfo.guardianFirstName || studentInfo.parentName || '';
                         const pPhone = studentInfo.cellPhone || studentInfo.homePhone || studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone || studentInfo.parentPhone || '';
                         
@@ -3213,6 +3265,19 @@ export default function App() {
                               el.focus?.();
                             }
                             alert(`Please complete the ${item.label} field.`);
+                            return;
+                          }
+                        }
+
+                        if (studentInfo.dateOfBirth) {
+                          const ageNum = calculateAge(studentInfo.dateOfBirth);
+                          if (!isValidAge(ageNum)) {
+                            const el = document.getElementById('student-dob');
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              el.focus?.();
+                            }
+                            alert('Student age must be between 14 and 100 years old.');
                             return;
                           }
                         }
@@ -3288,11 +3353,11 @@ export default function App() {
                   }
                 />
 
-                <SbaHubCatalog
-                  sbaHubOptions={sbaHubOptions}
-                  selectedSbaHubIds={selectedSbaHubIds}
-                  enrolledSbaHubIds={enrolledSbaHubIds}
-                  onToggleSbaHubOption={handleToggleSbaHubOption}
+                <ClassSelectionCatalog
+                  classList={classList}
+                  selectedClassIds={selectedClassIds}
+                  enrolledClassIds={enrolledClassIds}
+                  onToggleClass={handleToggleClass}
                   theme={theme}
                   canEditList={
                     currentRole === 'admin' ||
@@ -3304,11 +3369,11 @@ export default function App() {
                   classTypes={classTypes}
                 />
 
-                <ClassSelectionCatalog
-                  classList={classList}
-                  selectedClassIds={selectedClassIds}
-                  enrolledClassIds={enrolledClassIds}
-                  onToggleClass={handleToggleClass}
+                <SbaHubCatalog
+                  sbaHubOptions={sbaHubOptions}
+                  selectedSbaHubIds={selectedSbaHubIds}
+                  enrolledSbaHubIds={enrolledSbaHubIds}
+                  onToggleSbaHubOption={handleToggleSbaHubOption}
                   theme={theme}
                   canEditList={
                     currentRole === 'admin' ||

@@ -267,7 +267,7 @@ export interface LandingPageSettings {
 
 // School Website & Dashboard Types
 export type UserRole = 'student' | 'teacher' | 'admin' | 'registrar' | 'hod';
-export type StudentStatus = 'prospective' | 'awaiting_acceptance' | 'accepted' | 'pending_verification' | 'enrolled_paid' | 'unverified';
+export type StudentStatus = 'prospective' | 'awaiting_acceptance' | 'accepted' | 'pending_verification' | 'enrolled_paid' | 'unverified' | 'denied';
 export type PortalTab = 'home' | 'academics' | 'admissions' | 'registration' | 'student-portal' | 'teacher-dashboard' | 'admin-dashboard' | 'login' | 'registrar-dashboard' | 'privacy';
 
 export interface ResourceCategory {
@@ -425,9 +425,11 @@ export interface SchoolUser {
   department?: string;
   departmentIds?: string[];
   departmentNames?: string[];
-  status: 'active' | 'on_leave' | 'invited' | 'disabled' | 'enrolled_paid' | 'prospective' | 'awaiting_acceptance' | 'accepted' | 'pending_verification' | 'unverified';
+  status: 'active' | 'on_leave' | 'invited' | 'disabled' | 'enrolled_paid' | 'prospective' | 'awaiting_acceptance' | 'accepted' | 'pending_verification' | 'unverified' | 'denied';
   disabledAt?: string;
   disabledReason?: string;
+  deniedReason?: string;
+  deniedFields?: string[];
   avatar?: string;
   bio?: string;
   officeHours?: string;

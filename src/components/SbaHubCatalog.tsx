@@ -45,7 +45,7 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedClassType, setSelectedClassType] = useState<string>('All');
   const [sortOrder, setSortOrder] = useState<'alpha-asc' | 'alpha-desc' | 'price-asc' | 'price-desc'>('alpha-asc');
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const safeSbaHubOptions = sbaHubOptions || [];
   const safeEnrolledSbaHubIds = enrolledSbaHubIds || [];

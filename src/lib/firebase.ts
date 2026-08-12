@@ -27,7 +27,7 @@ import {
   updateDoc,
   deleteDoc,
   setDoc,
-  writeBatch
+  writeBatch, where, WhereFilterOp
 } from 'firebase/firestore';
 import {
   DEMO_SCHOOL_USERS,
@@ -129,9 +129,91 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   window.dispatchEvent(new CustomEvent('firestore-error', { detail: errInfo }));
 }
 
+export const SYSTEM_ROLES = ['student', 'teacher', 'admin', 'registrar', 'hod'] as const;
+
+export const saveUserToRoleCollections = async (id: string, userData: any) => {
+  try {
+    const primaryRole = userData.role || 'student';
+    const allRolesSet = new Set<string>();
+    if (userData.role) allRolesSet.add(userData.role);
+    if (Array.isArray(userData.roles)) {
+      userData.roles.forEach((r: string) => {
+        if (SYSTEM_ROLES.includes(r as any)) allRolesSet.add(r);
+      });
+    }
+    const allRoles = Array.from(allRolesSet);
+
+    for (const sysRole of SYSTEM_ROLES) {
+      const targetCol = `users_${sysRole}`;
+      if (sysRole === primaryRole) {
+        // Save full user document in the primary role collection
+        const docRef = doc(db, targetCol, id);
+        await setDoc(docRef, { ...userData, updatedAt: new Date().toISOString() }, { merge: true });
+      } else if (allRoles.includes(sysRole)) {
+        // Save a reference to the primary user in the other role collections
+        const docRef = doc(db, targetCol, id);
+        const referenceData = {
+          id,
+          name: userData.name || '',
+          email: userData.email || '',
+          role: sysRole,
+          primaryRole,
+          roles: allRoles,
+          isReference: true,
+          refCollection: `users_${primaryRole}`,
+          refPath: `users_${primaryRole}/${id}`,
+          updatedAt: new Date().toISOString(),
+        };
+        await setDoc(docRef, referenceData, { merge: true });
+      } else {
+        // User does not have this role, ensure it doesn't exist in this role's collection
+        const docRef = doc(db, targetCol, id);
+        await deleteDoc(docRef).catch(() => {});
+      }
+    }
+  } catch (error) {
+    console.error(`Error saving user ${id} to role-based collections:`, error);
+  }
+};
+
+export const deleteUserFromRoleCollections = async (id: string) => {
+  try {
+    for (const sysRole of SYSTEM_ROLES) {
+      const targetCol = `users_${sysRole}`;
+      const docRef = doc(db, targetCol, id);
+      await deleteDoc(docRef).catch(() => {});
+    }
+  } catch (error) {
+    console.error(`Error deleting user ${id} from role-based collections:`, error);
+  }
+};
+
+export const migrateUsersToRoleCollections = async () => {
+  try {
+    console.log('Starting migration/sync of schoolUsers to role-based collections...');
+    const usersCol = collection(db, 'schoolUsers');
+    const snapshot = await getDocs(usersCol);
+    if (!snapshot.empty) {
+      for (const docSnap of snapshot.docs) {
+        const id = docSnap.id;
+        const data = docSnap.data();
+        await saveUserToRoleCollections(id, data);
+      }
+      console.log('Migration/sync completed successfully.');
+    } else {
+      console.log('No users found in schoolUsers for migration.');
+    }
+  } catch (error) {
+    console.error('Error during users role-based migration:', error);
+  }
+};
+
 export async function testFirestoreConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
+    migrateUsersToRoleCollections().catch((err) => {
+      console.error('Failed to trigger background user migration:', err);
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
       console.error('Please check your Firebase configuration.');
@@ -247,6 +329,11 @@ export const clearAndInitFirebaseData = async () => {
       'faqs',
       'featureCards',
       'academyInfo',
+      'users_student',
+      'users_teacher',
+      'users_admin',
+      'users_registrar',
+      'users_hod'
     ];
 
     for (const colName of collectionsToClear) {
@@ -263,7 +350,7 @@ export const clearAndInitFirebaseData = async () => {
 
     // Write primary admin users and admin department
     for (const adminUser of DEMO_SCHOOL_USERS) {
-      await setDoc(doc(db, 'schoolUsers', adminUser.id), adminUser);
+      await saveDocToFirestore('schoolUsers', adminUser.id, adminUser);
     }
     if (DEMO_DEPARTMENTS.length > 0) {
       const adminDept = DEMO_DEPARTMENTS[0];
@@ -341,6 +428,34 @@ export const subscribeToCollection = <T = any>(
   );
 };
 
+export const subscribeToCollectionWhere = <T = any>(
+  collectionName: string,
+  field: string,
+  opStr: WhereFilterOp,
+  value: any,
+  callback: (items: T[]) => void
+) => {
+  if (value === undefined || (Array.isArray(value) && value.length === 0)) {
+    callback([]);
+    return () => {};
+  }
+  const colRef = collection(db, collectionName);
+  const q = query(colRef, where(field, opStr, value));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list: T[] = [];
+      snapshot.forEach((docSnapshot) => {
+        list.push({ id: docSnapshot.id, ...docSnapshot.data() } as unknown as T);
+      });
+      callback(list);
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, collectionName);
+    }
+  );
+};
+
 // Write listeners for real-time UI notification
 type FirestoreWriteListener = (collectionName: string, id: string, data: any, success: boolean, errorMessage?: string) => void;
 const writeListeners: FirestoreWriteListener[] = [];
@@ -368,6 +483,12 @@ export const saveDocToFirestore = async (collectionName: string, id: string, dat
     const cleanData = JSON.parse(JSON.stringify(data));
     const docRef = doc(db, collectionName, id);
     await setDoc(docRef, { ...cleanData, updatedAt: new Date().toISOString() }, { merge: true });
+
+    // Intercept schoolUsers writes to also write to split role-based collections
+    if (collectionName === 'schoolUsers') {
+      await saveUserToRoleCollections(id, cleanData);
+    }
+
     notifyWriteListeners(collectionName, id, cleanData, true);
     return id;
   } catch (err: any) {
@@ -399,6 +520,9 @@ export const toggleUserDisabledInFirestore = async (user: SchoolUser, reason?: s
     const userDocRef = doc(db, 'schoolUsers', user.id);
     await setDoc(userDocRef, { ...cleanData, updatedAt: new Date().toISOString() }, { merge: true });
 
+    // Intercept schoolUsers updates in toggle to also update role collections
+    await saveUserToRoleCollections(user.id, updatedUser);
+
     if (user.role === 'teacher') {
       const teacherDocRef = doc(db, 'teachers', user.id);
       await setDoc(
@@ -424,6 +548,12 @@ export const deleteDocFromFirestore = async (collectionName: string, id: string)
   try {
     const docRef = doc(db, collectionName, id);
     await deleteDoc(docRef);
+
+    // Intercept schoolUsers deletes to also delete from split role-based collections
+    if (collectionName === 'schoolUsers') {
+      await deleteUserFromRoleCollections(id);
+    }
+
     return true;
   } catch (err) {
     handleFirestoreError(err, OperationType.DELETE, `${collectionName}/${id}`);

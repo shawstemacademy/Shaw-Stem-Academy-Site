@@ -24,6 +24,24 @@ service cloud.firestore {
       );
     }
 
+    function checkAgeValue(val) {
+      return val == null || val == '' || 
+        (val is string && val.matches('^[0-9]+$') ? int(val) >= 14 && int(val) <= 100 : true) || 
+        (val is number ? val >= 14 && val <= 100 : true);
+    }
+
+    function hasValidAges(res) {
+      return (!('age' in res) || checkAgeValue(res.age)) &&
+             (!('studentAge' in res) || checkAgeValue(res.studentAge)) &&
+             (!('motherAge' in res) || checkAgeValue(res.motherAge)) &&
+             (!('fatherAge' in res) || checkAgeValue(res.fatherAge)) &&
+             (!('guardianAge' in res) || checkAgeValue(res.guardianAge)) &&
+             (!('studentDetails' in res) || (
+                (!('age' in res.studentDetails) || checkAgeValue(res.studentDetails.age)) && 
+                (!('studentAge' in res.studentDetails) || checkAgeValue(res.studentDetails.studentAge))
+             ));
+    }
+
     // Users Collection
     match /users/{userId} {
       allow read: if isAuthenticated();
@@ -32,7 +50,33 @@ service cloud.firestore {
     }
 
     match /schoolUsers/{userId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && hasValidAges(request.resource.data);
+    }
+
+    match /users_student/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && hasValidAges(request.resource.data);
+    }
+
+    match /users_teacher/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && hasValidAges(request.resource.data);
+    }
+
+    match /users_admin/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && hasValidAges(request.resource.data);
+    }
+
+    match /users_registrar/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && hasValidAges(request.resource.data);
+    }
+
+    match /users_hod/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && hasValidAges(request.resource.data);
     }
 
     // Classes / Courses
@@ -43,19 +87,29 @@ service cloud.firestore {
 
     // Registration Logs & Applications
     match /registration_logs/{logId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read: if isAuthenticated() && (isAdmin() || request.resource == null || request.auth.uid == resource.data.userId || resource == null);
+      allow create: if isAuthenticated() && hasValidAges(request.resource.data) && (isAdmin() || (getUserData().status in ['accepted', 'enrolled_paid', 'pending_verification']));
+      allow update: if isAuthenticated() && hasValidAges(request.resource.data) && (isAdmin() || (request.auth.uid == resource.data.userId && getUserData().status in ['accepted', 'enrolled_paid', 'pending_verification']));
+      allow delete: if isAdmin();
     }
 
     // Announcements & Resources
     match /announcements/{annId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
+      allow read: if isStaff() || (isAuthenticated() && (resource.data.classId == 'all' || resource.data.classId in getUserData().assignedClassIds));
+      allow create: if isStaff() && (isAdmin() || request.resource.data.classId in getUserData().assignedClassIds);
+      allow update: if isStaff() && (isAdmin() || resource.data.classId in getUserData().assignedClassIds);
+      allow delete: if isStaff() && (isAdmin() || resource.data.classId in getUserData().assignedClassIds);
     }
 
     match /resources/{resId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isStaff() || (
+        isAuthenticated() 
+        && (resource.data.classId == 'all' || resource.data.classId in getUserData().assignedClassIds)
+        && getUserData().status == 'enrolled_paid'
+      );
+      allow create: if isStaff() && (isAdmin() || request.resource.data.classId in getUserData().assignedClassIds);
+      allow update: if isStaff() && (isAdmin() || resource.data.classId in getUserData().assignedClassIds);
+      allow delete: if isStaff() && (isAdmin() || resource.data.classId in getUserData().assignedClassIds);
     }
 
     // Departments & Role Permissions
