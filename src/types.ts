@@ -268,7 +268,7 @@ export interface LandingPageSettings {
 // School Website & Dashboard Types
 export type UserRole = 'student' | 'teacher' | 'admin' | 'registrar' | 'hod';
 export type StudentStatus = 'prospective' | 'awaiting_acceptance' | 'accepted' | 'pending_verification' | 'enrolled_paid' | 'unverified' | 'denied';
-export type PortalTab = 'home' | 'academics' | 'admissions' | 'registration' | 'student-portal' | 'teacher-dashboard' | 'admin-dashboard' | 'login' | 'registrar-dashboard' | 'privacy';
+export type PortalTab = 'home' | 'academics' | 'admissions' | 'registration' | 'student-portal' | 'teacher-dashboard' | 'admin-dashboard' | 'login' | 'registrar-dashboard' | 'privacy' | 'terms';
 
 export interface ResourceCategory {
   id: string;

@@ -192,6 +192,8 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
                 <span>• Innovate • Explore • Lead</span>
                 <span>•</span>
                 <a href="?tab=privacy" onClick={(e) => { e.preventDefault(); onSelectTab('privacy'); }} className="hover:text-blue-400 transition-colors">Privacy Policy</a>
+                <span>•</span>
+                <a href="?tab=terms" onClick={(e) => { e.preventDefault(); onSelectTab('terms'); }} className="hover:text-blue-400 transition-colors">Terms of Service</a>
               </div>
             </div>
           </div>

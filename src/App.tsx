@@ -90,6 +90,7 @@ import { TeacherDashboardPage } from './components/school/TeacherDashboardPage';
 import { AdminDashboardPage } from './components/school/AdminDashboardPage';
 import { LoginPage } from './components/school/LoginPage';
 import { PrivacyPolicyPage } from './components/school/PrivacyPolicyPage';
+import { TermsOfServicePage } from './components/school/TermsOfServicePage';
 
 import { FormHeader } from './components/FormHeader';
 import { StudentInfoForm } from './components/StudentInfoForm';
@@ -231,7 +232,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
     if (tabParam) {
-      const allowedTabs: PortalTab[] = ['home', 'privacy', 'login', 'academics', 'student-portal', 'teacher-dashboard', 'admin-dashboard', 'admissions', 'registration'];
+      const allowedTabs: PortalTab[] = ['home', 'privacy', 'terms', 'login', 'academics', 'student-portal', 'teacher-dashboard', 'admin-dashboard', 'admissions', 'registration'];
       if (allowedTabs.includes(tabParam as PortalTab)) {
         setActiveTab(tabParam as PortalTab);
       }
@@ -2955,6 +2956,10 @@ export default function App() {
             <PrivacyPolicyPage />
           )}
 
+          {activeTab === 'terms' && (
+            <TermsOfServicePage />
+          )}
+
           {activeTab === 'login' && (
             <LoginPage
               onLoginProfile={handleLoginProfile}
@@ -3471,7 +3476,11 @@ export default function App() {
             </p>
             <p className="text-[11px] text-slate-500 pt-2 flex flex-col gap-1">
               <span>© {new Date().getFullYear()} Shaw STEM Academy. All rights reserved.</span>
-              <a href="?tab=privacy" onClick={(e) => { e.preventDefault(); setActiveTab('privacy'); }} className="text-left hover:text-blue-400 transition-colors w-fit">Privacy Policy</a>
+              <div className="flex items-center gap-3 pt-1">
+                <a href="?tab=privacy" onClick={(e) => { e.preventDefault(); setActiveTab('privacy'); }} className="text-left hover:text-blue-400 transition-colors">Privacy Policy</a>
+                <span>•</span>
+                <a href="?tab=terms" onClick={(e) => { e.preventDefault(); setActiveTab('terms'); }} className="text-left hover:text-blue-400 transition-colors">Terms of Service</a>
+              </div>
             </p>
           </div>
         </div>
