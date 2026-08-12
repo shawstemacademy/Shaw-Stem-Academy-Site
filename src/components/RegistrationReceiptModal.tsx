@@ -80,7 +80,7 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
     const originalTitle = document.title;
     const cleanStudentName = studentNameVal.replace(/[^a-zA-Z0-9]/g, '_');
     const receiptCode = registration.id.slice(-8).toUpperCase();
-    document.title = `Shaw_STEM_Academy_Receipt_${receiptCode}_${cleanStudentName}`;
+    document.title = `Shaw_STEM_Academy_Invoice_${receiptCode}_${cleanStudentName}`;
     window.print();
     setTimeout(() => {
       document.title = originalTitle;
@@ -95,10 +95,10 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">SHAW STEM ACADEMY</h1>
-              <p className="text-xs text-slate-600 font-medium">Official Student Registration & Tuition Receipt</p>
+              <p className="text-xs text-slate-600 font-medium">Official Student Registration Invoice</p>
             </div>
             <div className="text-right text-xs text-slate-600">
-              <p className="font-bold text-slate-900">Receipt #{registration.id.slice(-8).toUpperCase()}</p>
+              <p className="font-bold text-slate-900">Invoice #{registration.id.slice(-8).toUpperCase()}</p>
               <p>Date: {new Date(registration.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
             </div>
           </div>
@@ -111,24 +111,24 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white print:text-white">Registration Confirmed!</h2>
+              <h2 className="text-lg font-bold text-white print:text-white">Registration Summary & Invoice</h2>
               <p className="text-xs text-purple-200 print:text-purple-100">
-                Receipt #{registration.id.slice(-8).toUpperCase()} • {new Date(registration.timestamp).toLocaleDateString()}
+                Invoice #{registration.id.slice(-8).toUpperCase()} • {new Date(registration.timestamp).toLocaleDateString()}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 print:hidden">
             <button
               onClick={handleDownloadPdf}
-              title="Download PDF version of receipt"
+              title="Download PDF version of invoice"
               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors flex items-center gap-1.5 text-xs font-bold shadow-xs cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Download Receipt</span>
+              <span className="hidden sm:inline">Download Invoice (PDF)</span>
             </button>
             <button
               onClick={handlePrint}
-              title="Print formatted receipt"
+              title="Print formatted invoice"
               className="p-2 text-purple-200 hover:text-white hover:bg-purple-800/80 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-semibold border border-purple-700/50 cursor-pointer"
             >
               <Printer className="w-4 h-4" />
@@ -226,7 +226,7 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
           <div className="hidden print:block pt-4 border-t border-slate-300 text-[10px] text-slate-500 flex justify-between items-end">
             <div>
               <p className="font-bold text-slate-700">Shaw STEM Academy Registration Office</p>
-              <p>Thank you for registering. Please retain this receipt for your records.</p>
+              <p>Thank you for registering. Please retain this invoice / receipt for your records.</p>
             </div>
             <div className="text-right font-mono">
               VERIFIED RECORD • {registration.id}
@@ -247,7 +247,7 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span>Download Receipt (PDF)</span>
+              <span>Download Invoice (PDF)</span>
             </button>
             <button
               onClick={handlePrint}

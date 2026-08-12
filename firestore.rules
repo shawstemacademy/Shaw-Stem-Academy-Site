@@ -80,6 +80,10 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    match /fcmTokens/{tokenId} {
+      allow read, write: if isAuthenticated();
+    }
+
     // System Action Logs
     match /system_logs/{logId} {
       allow read, write: if isAuthenticated();
