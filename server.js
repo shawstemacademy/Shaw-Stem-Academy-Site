@@ -75,6 +75,160 @@ app.post('/api/delete-user', async (req, res) => {
   }
 });
 
+// Server-rendered /about and /about/ page to bypass any stale verification caching
+app.get(['/about', '/about/'], (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About Us - Shaw STEM Academy Portal</title>
+  <!-- Tailwind CSS CDN for instant styling with zero JS overhead -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
+
+  <!-- Header / Navigation Bar -->
+  <header class="bg-white border-b border-gray-200 py-5 shadow-sm">
+    <div class="max-w-5xl mx-auto px-6 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-extrabold text-xl">S</div>
+        <span class="text-xl font-bold text-gray-900 tracking-tight">Shaw STEM Academy</span>
+      </div>
+      <a href="/" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition duration-150">
+        Launch Portal
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Information Container -->
+  <main class="flex-grow max-w-5xl mx-auto px-6 py-12">
+    <div class="space-y-12">
+      
+      <!-- Top Overview Hero Card -->
+      <div class="bg-gradient-to-r from-blue-700 to-indigo-800 rounded-3xl p-8 sm:p-12 text-white shadow-xl relative overflow-hidden">
+        <div class="relative z-10 space-y-4">
+          <span class="bg-blue-500 bg-opacity-30 text-blue-200 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
+            Application Profile
+          </span>
+          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">
+            Shaw STEM Academy Information Portal
+          </h1>
+          <p class="text-blue-100 text-base sm:text-lg max-w-3xl leading-relaxed">
+            Welcome to the centralized campus and academic management hub for Shaw STEM Academy. We provide modern engineering, physics, science, and coding curricula for students, parents, faculty, and administrators.
+          </p>
+        </div>
+      </div>
+
+      <!-- Purpose Section & Google OAuth Statement -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        <!-- Application Purpose -->
+        <div class="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200 shadow-sm space-y-4">
+          <h2 class="text-xl font-bold text-gray-900 flex items-center space-x-2">
+            <span class="w-2.5 h-6 bg-blue-600 rounded-full inline-block"></span>
+            <span>1. What is the purpose of this application?</span>
+          </h2>
+          <p class="text-gray-600 leading-relaxed text-sm sm:text-base">
+            The primary function of the Shaw STEM Academy Portal is to facilitate online academic scheduling, curriculum research, admissions, and term-based laboratory registrations. Our website enables:
+          </p>
+          <ul class="space-y-2.5 text-gray-600 text-sm">
+            <li class="flex items-start">
+              <span class="text-blue-600 font-bold mr-2">•</span>
+              <span><strong>Interactive Course Explorer:</strong> Browse real science, coding, and engineering course catalogs, view laboratory equipment sheets, and review term prerequisites.</span>
+            </li>
+            <li class="flex items-start">
+              <span class="text-blue-600 font-bold mr-2">•</span>
+              <span><strong>Student Learning Portal:</strong> Registered students can access assignment files, announcements, grades, and teacher office hours.</span>
+            </li>
+            <li class="flex items-start">
+              <span class="text-blue-600 font-bold mr-2">•</span>
+              <span><strong>Academic Administration:</strong> Faculty (Teachers, Department Heads) and Registrars can view classroom registration forms, publish homework instructions, coordinate laboratory hours, and handle class rosters.</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Google OAuth Authentication Disclosure -->
+        <div class="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200 shadow-sm space-y-4">
+          <h2 class="text-xl font-bold text-gray-900 flex items-center space-x-2">
+            <span class="w-2.5 h-6 bg-blue-600 rounded-full inline-block"></span>
+            <span>2. Why do we utilize Google Sign-In?</span>
+          </h2>
+          <p class="text-gray-600 leading-relaxed text-sm sm:text-base">
+            We employ Google OAuth (Google Sign-In) to verify and authenticate registered user profiles. When you log in with your Google account, we retrieve only your basic profile fields:
+          </p>
+          <ul class="space-y-2.5 text-gray-600 text-sm">
+            <li class="flex items-start">
+              <span class="text-blue-600 font-bold mr-2">•</span>
+              <span><strong>Email Address &amp; Name:</strong> Used to match your authentication session with your student, parent, teacher, or administrative personnel record.</span>
+            </li>
+            <li class="flex items-start">
+              <span class="text-blue-600 font-bold mr-2">•</span>
+              <span><strong>Profile Image Avatar:</strong> Displays your user profile photo inside the student portal dashboard or teacher suites.</span>
+            </li>
+            <li class="flex items-start">
+              <span class="text-blue-600 font-bold mr-2">•</span>
+              <span><strong>Strict Data Protection:</strong> We do NOT access your Google Calendar, Google Drive, Gmail, or any other sensitive APIs. Your basic profile data is stored securely in Firebase Firestore, remains completely confidential, and is never shared with third parties or external marketing companies.</span>
+            </li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Governance and Legal Policies -->
+      <div class="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200 shadow-sm space-y-6">
+        <h2 class="text-xl font-bold text-gray-900 flex items-center space-x-2">
+          <span class="w-2.5 h-6 bg-blue-600 rounded-full inline-block"></span>
+          <span>3. Legal Governance and Policies</span>
+        </h2>
+        <p class="text-gray-600 leading-relaxed text-sm sm:text-base">
+          Our operations, account registrations, laboratory enrollments, and academic workflows are governed strictly in compliance with our official legal frameworks:
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <a href="/?tab=privacy" class="flex items-center justify-between p-4 bg-gray-50 hover:bg-blue-50 border border-gray-200 rounded-xl transition duration-150">
+            <div>
+              <span class="font-bold text-gray-900 block text-sm">Privacy Policy</span>
+              <span class="text-xs text-gray-500">Read how we protect your personal credentials</span>
+            </div>
+            <span class="text-blue-600 text-lg font-bold">→</span>
+          </a>
+          <a href="/?tab=terms" class="flex items-center justify-between p-4 bg-gray-50 hover:bg-blue-50 border border-gray-200 rounded-xl transition duration-150">
+            <div>
+              <span class="font-bold text-gray-900 block text-sm">Terms of Service</span>
+              <span class="text-xs text-gray-500">Review terms of use, enrollment, and conduct</span>
+            </div>
+            <span class="text-blue-600 text-lg font-bold">→</span>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-gray-200 py-8">
+    <div class="max-w-5xl mx-auto px-6 text-center space-y-2">
+      <p class="text-sm text-gray-500 font-medium">
+        © ${new Date().getFullYear()} Shaw STEM Academy. All rights reserved.
+      </p>
+      <div class="flex justify-center space-x-4 text-xs font-semibold text-gray-400">
+        <a href="/?tab=privacy" class="hover:text-blue-600 transition">Privacy Policy</a>
+        <span>•</span>
+        <a href="/?tab=terms" class="hover:text-blue-600 transition">Terms of Service</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>`);
+});
+
 // Vite middleware for development or standard static serving for production
 if (process.env.NODE_ENV !== "production") {
   const { createServer: createViteServer } = await import('vite');
