@@ -3474,14 +3474,14 @@ export default function App() {
               admissions@shawstemacademy.edu<br />
               (555) 742-9000
             </p>
-            <p className="text-[11px] text-slate-500 pt-2 flex flex-col gap-1">
+            <div className="text-[11px] text-slate-500 pt-2 flex flex-col gap-1">
               <span>© {new Date().getFullYear()} Shaw STEM Academy. All rights reserved.</span>
               <div className="flex items-center gap-3 pt-1">
                 <a href="?tab=privacy" onClick={(e) => { e.preventDefault(); setActiveTab('privacy'); }} className="text-left hover:text-blue-400 transition-colors">Privacy Policy</a>
                 <span>•</span>
                 <a href="?tab=terms" onClick={(e) => { e.preventDefault(); setActiveTab('terms'); }} className="text-left hover:text-blue-400 transition-colors">Terms of Service</a>
               </div>
-            </p>
+            </div>
           </div>
         </div>
       </footer>
