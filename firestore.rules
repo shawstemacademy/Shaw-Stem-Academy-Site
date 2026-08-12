@@ -28,13 +28,17 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow update, delete: if isAuthenticated();
+    }
+
+    match /schoolUsers/{userId} {
+      allow read, write: if isAuthenticated();
     }
 
     // Classes / Courses
     match /classes/{classId} {
       allow read: if true;
-      allow write: if isAuthenticated() && (isAdmin() || isStaff());
+      allow write: if isAuthenticated();
     }
 
     // Registration Logs & Applications
@@ -46,43 +50,55 @@ service cloud.firestore {
     // Announcements & Resources
     match /announcements/{annId} {
       allow read: if true;
-      allow write: if isAuthenticated() && isStaff();
+      allow write: if isAuthenticated();
     }
 
     match /resources/{resId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && isStaff();
+      allow write: if isAuthenticated();
     }
 
     // Departments & Role Permissions
     match /departments/{deptId} {
       allow read: if true;
-      allow write: if isAuthenticated() && isAdmin();
+      allow write: if isAuthenticated();
     }
 
     match /role_permissions/{permId} {
-      allow read: if true;
-      allow write: if isAuthenticated() && isAdmin();
+      allow read, write: if isAuthenticated();
+    }
+
+    match /rolePermissions/{permId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /attendance/{attId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /fcmNotificationQueue/{notifId} {
+      allow read, write: if isAuthenticated();
     }
 
     // System Action Logs
     match /system_logs/{logId} {
-      allow read, write: if isAuthenticated() && isAdmin();
+      allow read, write: if isAuthenticated();
     }
 
     // Academy info, news, faqs, feature cards, landing page settings, class types, locations, discount rules, sba hub options
-    match /academy_info/{id} { allow read: if true; allow write: if isAuthenticated() && isAdmin(); }
-    match /schoolNews/{id} { allow read: if true; allow write: if isAuthenticated() && isStaff(); }
-    match /faqs/{id} { allow read: if true; allow write: if isAuthenticated() && isStaff(); }
-    match /featureCards/{id} { allow read: if true; allow write: if isAuthenticated() && isAdmin(); }
-    match /landingPageSettings/{id} { allow read: if true; allow write: if isAuthenticated() && isAdmin(); }
-    match /classTypes/{id} { allow read: if true; allow write: if isAuthenticated() && isStaff(); }
-    match /locations/{id} { allow read: if true; allow write: if isAuthenticated() && isStaff(); }
-    match /discountRules/{id} { allow read: if true; allow write: if isAuthenticated() && isAdmin(); }
-    match /sbaHubOptions/{id} { allow read: if true; allow write: if isAuthenticated() && isAdmin(); }
-    match /resourceCategories/{id} { allow read: if true; allow write: if isAuthenticated() && isStaff(); }
-    match /addDropRequests/{id} { allow read: if isAuthenticated(); allow write: if isAuthenticated(); }
-    match /registrations/{id} { allow read: if isAuthenticated(); allow write: if isAuthenticated(); }
-    match /teachers/{id} { allow read: if true; allow write: if isAuthenticated() && isStaff(); }
+    match /academy_info/{id} { allow read, write: if isAuthenticated(); }
+    match /academyInfo/{id} { allow read, write: if isAuthenticated(); }
+    match /schoolNews/{id} { allow read, write: if isAuthenticated(); }
+    match /faqs/{id} { allow read, write: if isAuthenticated(); }
+    match /featureCards/{id} { allow read, write: if isAuthenticated(); }
+    match /landingPageSettings/{id} { allow read, write: if isAuthenticated(); }
+    match /classTypes/{id} { allow read, write: if isAuthenticated(); }
+    match /locations/{id} { allow read, write: if isAuthenticated(); }
+    match /discountRules/{id} { allow read, write: if isAuthenticated(); }
+    match /sbaHubOptions/{id} { allow read, write: if isAuthenticated(); }
+    match /resourceCategories/{id} { allow read, write: if isAuthenticated(); }
+    match /addDropRequests/{id} { allow read, write: if isAuthenticated(); }
+    match /registrations/{id} { allow read, write: if isAuthenticated(); }
+    match /teachers/{id} { allow read, write: if isAuthenticated(); }
   }
 }
