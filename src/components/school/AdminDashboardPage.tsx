@@ -359,6 +359,72 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     };
   }, []);
 
+  // Data Integrity Check function running on Admin Dashboard load
+  const [integrityIssues, setIntegrityIssues] = useState<{ userId: string; name: string; issue: string }[]>([]);
+
+  React.useEffect(() => {
+    const validDeptIds = departments.map(d => d.id);
+    const validRoles: string[] = ['admin', 'teacher', 'registrar', 'hod', 'student', 'disabled'];
+    const issues: { userId: string; name: string; issue: string }[] = [];
+
+    (users || []).forEach(u => {
+      const userRoles = u.roles && u.roles.length > 0 ? u.roles : [u.role];
+      const hasInvalidRole = userRoles.some(r => !validRoles.includes(r));
+      const hasInvalidDept = (u.departmentId && !validDeptIds.includes(u.departmentId)) || 
+        (u.departmentIds && u.departmentIds.some(dId => !validDeptIds.includes(dId)));
+
+      if (hasInvalidRole || hasInvalidDept) {
+        let desc = [];
+        if (hasInvalidRole) desc.push(`Non-existent role(s): ${userRoles.join(', ')}`);
+        if (hasInvalidDept) desc.push(`Invalid department reference(s)`);
+        issues.push({ userId: u.id, name: u.name || u.email, issue: desc.join(' & ') });
+        console.warn(`[Data Integrity Warning] User ${u.name || u.email} (${u.id}): ${desc.join(' & ')}`);
+      }
+    });
+
+    setIntegrityIssues(issues);
+  }, [users, departments]);
+
+  const handleFixDataIntegrity = () => {
+    const validDeptIds = departments.map(d => d.id);
+    const validRoles: string[] = ['admin', 'teacher', 'registrar', 'hod', 'student', 'disabled'];
+    const fallbackDeptId = departments[0]?.id || 'dept-gen';
+
+    (users || []).forEach(u => {
+      let updated = false;
+      let newRoles = u.roles && u.roles.length > 0 ? [...u.roles] : [u.role];
+      let newDeptId = u.departmentId;
+      let newDeptIds = u.departmentIds ? [...u.departmentIds] : [u.departmentId];
+
+      newRoles = newRoles.map(r => validRoles.includes(r) ? r : 'teacher');
+      if (JSON.stringify(newRoles) !== JSON.stringify(u.roles || [u.role])) {
+        updated = true;
+      }
+
+      if (newDeptId && !validDeptIds.includes(newDeptId)) {
+        newDeptId = fallbackDeptId;
+        updated = true;
+      }
+      if (newDeptIds && newDeptIds.some(d => !validDeptIds.includes(d))) {
+        newDeptIds = newDeptIds.map(d => validDeptIds.includes(d) ? d : fallbackDeptId);
+        updated = true;
+      }
+
+      if (updated) {
+        onUpdateUser({
+          ...u,
+          role: (newRoles[0] as UserRole),
+          roles: (newRoles as UserRole[]),
+          departmentId: newDeptId,
+          departmentIds: newDeptIds,
+        });
+      }
+    });
+
+    setIntegrityIssues([]);
+    alert('Data integrity check completed: All invalid department and role references have been automatically sanitized.');
+  };
+
   // Listen to FCM Foreground Push Messages
   React.useEffect(() => {
     let unsubForeground: (() => void) | null = null;
@@ -963,6 +1029,40 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
   return (
     <div className="space-y-8 pb-16">
+      {/* Data Integrity Warning Banner */}
+      {integrityIssues.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-3xl p-6 text-amber-900 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-amber-200 text-amber-800 rounded-2xl shrink-0">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold">Data Integrity Alert: {integrityIssues.length} User Record(s) Need Sanitization</h2>
+              <p className="text-xs text-amber-800 mt-1">
+                Detected user records with invalid department references or non-existent roles. Run the one-click sanitization tool to automatically fix these records.
+              </p>
+              <div className="mt-2 text-[11px] font-semibold text-amber-900/80 flex flex-wrap gap-2">
+                {integrityIssues.slice(0, 3).map((issue, idx) => (
+                  <span key={idx} className="bg-amber-100/80 px-2 py-0.5 rounded border border-amber-200">
+                    {issue.name}: {issue.issue}
+                  </span>
+                ))}
+                {integrityIssues.length > 3 && (
+                  <span className="text-amber-700 italic">+{integrityIssues.length - 3} more...</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleFixDataIntegrity}
+            className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-md transition-all shrink-0 flex items-center gap-2 cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Fix Data (Sanitize Records)</span>
+          </button>
+        </div>
+      )}
+
       {/* Admin Dashboard Header Banner */}
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6 shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
