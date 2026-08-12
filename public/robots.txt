@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /about/
+
+Sitemap: https://www.shawstemacademy.com/sitemap.xml
