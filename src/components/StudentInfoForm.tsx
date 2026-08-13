@@ -4,6 +4,7 @@ import { User, Mail, Phone, GraduationCap, Upload, MapPin, Calendar, Heart, Shie
 import { ImageUploadInput } from './common/ImageUploadInput';
 import { FormFieldSetting, getFieldSetting } from '../lib/formFieldsConfig';
 import { getPhoneValidationError, sanitizePhoneDigits } from '../lib/phoneValidation';
+import { calculateAge } from '../lib/ageValidation';
 
 interface StudentInfoFormProps {
   studentInfo: StudentInfo;
@@ -271,9 +272,10 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
                     onChange={(e) => {
                       const dobVal = e.target.value;
                       onChange('dateOfBirth', dobVal);
-                      const calculatedAge = (dobVal);
-                      onChange('age', calculatedAge);
-                      onChange('studentAge', calculatedAge);
+                      const calculatedAgeNum = calculateAge(dobVal);
+                      const calculatedAgeStr = calculatedAgeNum !== null ? String(calculatedAgeNum) : '';
+                      onChange('age', calculatedAgeStr);
+                      onChange('studentAge', calculatedAgeStr);
                     }}
                     className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
                   />
@@ -287,8 +289,21 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
                   {getLabel('age', '7. Age')}{' '}
                   {renderAdminFieldBadge('age')}
                 </label>
-                <div className="w-full px-3 py-2 text-sm border border-gray-300 bg-gray-50 text-gray-700 rounded-lg min-h-[38px] flex items-center font-medium">
-                  {studentInfo.dateOfBirth ? `${studentInfo.age || ''} years old` : 'Enter Date of Birth'}
+                <div className={`w-full px-3 py-2 text-sm border rounded-lg min-h-[38px] flex items-center justify-between font-medium ${
+                  studentInfo.dateOfBirth && (Number(studentInfo.age) < 14 || Number(studentInfo.age) > 100)
+                    ? 'border-red-300 bg-red-50 text-red-700'
+                    : 'border-gray-300 bg-gray-50 text-gray-700'
+                }`}>
+                  <span>
+                    {studentInfo.dateOfBirth 
+                      ? `${studentInfo.age || ''} years old` 
+                      : 'Enter Date of Birth'}
+                  </span>
+                  {studentInfo.dateOfBirth && (Number(studentInfo.age) < 14 || Number(studentInfo.age) > 100) && (
+                    <span className="text-[11px] font-bold text-red-600 animate-pulse">
+                      Must be 14-100 years old
+                    </span>
+                  )}
                 </div>
               </div>
             )}

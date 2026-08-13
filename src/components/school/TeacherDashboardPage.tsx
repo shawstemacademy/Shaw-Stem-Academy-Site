@@ -1462,6 +1462,42 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                     </div>
                   </div>
 
+                  {/* Automated Lateness Notification Toggle */}
+                  <div className="bg-blue-50/50 dark:bg-slate-800/30 border border-blue-100 dark:border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
+                        <h5 className="text-xs font-extrabold uppercase tracking-widest text-blue-700 dark:text-blue-400">
+                          Automated 15-Min Lateness Alerts
+                        </h5>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
+                        When enabled, a smart alert automatically triggers 15 minutes after the scheduled class start time ({cls.startTime || 'TBA'}). This pings all enrolled students who haven't scanned in, across all of their registered devices.
+                      </p>
+                    </div>
+                    <label className="inline-flex items-center gap-2.5 cursor-pointer shrink-0 select-none">
+                      <input
+                        id={`toggle-lateness-${cls.id}`}
+                        type="checkbox"
+                        checked={!!cls.autoLatenessAlertEnabled}
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          if (onUpdateClassList) {
+                            const updatedClasses = classes.map((c) =>
+                              c.id === cls.id ? { ...c, autoLatenessAlertEnabled: isChecked } : c
+                            );
+                            onUpdateClassList(updatedClasses);
+                          }
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="relative w-11 h-6 bg-slate-200 peer-focus:outline-hidden dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {cls.autoLatenessAlertEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </label>
+                  </div>
+
                   {/* live camera scan box */}
                   {isScanningQr && (
                     <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 max-w-md mx-auto animate-fade-in relative overflow-hidden shadow-2xl">

@@ -78,6 +78,7 @@ import { StudentInfoForm } from '../StudentInfoForm';
 import { RegistrationReceiptModal } from '../RegistrationReceiptModal';
 import { isFcmSupported, requestAndSaveFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
 import { subscribeToCollection, saveDocToFirestore, deleteDocFromFirestore } from '../../lib/firebase';
+import { calculateAge, isValidAge } from '../../lib/ageValidation';
 
 interface StudentPortalPageProps {
   status: StudentStatus;
@@ -366,6 +367,13 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
   const handleSaveProfile = () => {
     if (editingStudentInfo) {
+      if (editingStudentInfo.dateOfBirth) {
+        const ageNum = calculateAge(editingStudentInfo.dateOfBirth);
+        if (!isValidAge(ageNum)) {
+          alert('Student age must be between 14 and 100 years old.');
+          return;
+        }
+      }
       if (registrationRecord && onUpdateRegistration) {
         onUpdateRegistration({
           ...registrationRecord,

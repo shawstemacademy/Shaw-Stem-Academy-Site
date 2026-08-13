@@ -22,7 +22,6 @@ export function isValidPhoneNumber(phone: string): boolean {
 export function getPhoneValidationError(phone: string, isRequired: boolean = false): string | null {
   const trimmed = (phone || '').trim();
   if (!trimmed) {
-    if (isRequired) return 'Phone number is required.';
     return null;
   }
   if (/\D/.test(trimmed)) {

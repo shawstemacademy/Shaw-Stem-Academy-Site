@@ -1236,6 +1236,101 @@ export default function App() {
     }
   }, [user, schoolUsers, schoolUsersLoaded]);
 
+  // Automated 15-Minute Lateness Alerts background worker
+  const sentLatenessAlertsRef = useRef<Record<string, string>>({}); // key: classId, value: todayStr
+
+  useEffect(() => {
+    // Run checking routine every 30 seconds
+    const interval = setInterval(async () => {
+      if (!classList || classList.length === 0) return;
+
+      const now = new Date();
+      const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const todayName = daysOfWeek[now.getDay()]; // e.g. "Thursday"
+      
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`; // e.g. "2026-08-13"
+
+      const parseTimeStrToMinutes = (timeStr?: string) => {
+        if (!timeStr) return null;
+        try {
+          const clean = timeStr.trim().toUpperCase();
+          let [timePart, modifier] = clean.split(' ');
+          let [hours, minutes] = timePart.split(':').map(Number);
+          if (isNaN(minutes)) minutes = 0;
+          if (modifier === 'PM' && hours < 12) hours += 12;
+          if (modifier === 'AM' && hours === 12) hours = 0;
+          return hours * 60 + minutes;
+        } catch {
+          return null;
+        }
+      };
+
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      for (const cls of classList) {
+        // Only process classes where auto lateness alerts are turned on
+        if (!cls.autoLatenessAlertEnabled) continue;
+
+        // Check if class runs today
+        const runsToday = cls.days?.some(d => d.toLowerCase() === todayName.toLowerCase());
+        if (!runsToday) continue;
+
+        // Check if alert was already dispatched today
+        if (sentLatenessAlertsRef.current[cls.id] === todayStr) continue;
+
+        const startMinutes = parseTimeStrToMinutes(cls.startTime);
+        if (startMinutes === null) continue;
+
+        const diffMinutes = currentMinutes - startMinutes;
+        
+        // 15 minutes after start time. Give a robust window (e.g., 15 to 120 minutes)
+        if (diffMinutes >= 15 && diffMinutes < 120) {
+          // Identify enrolled students
+          const enrolledLogs = registrationLogs.filter(log => log.verifiedClassIds?.includes(cls.id) && log.status === 'enrolled_paid');
+          if (enrolledLogs.length === 0) continue;
+
+          console.log(`Checking auto lateness alerts for class: ${cls.title}. Total enrolled students: ${enrolledLogs.length}`);
+
+          for (const log of enrolledLogs) {
+            const studentId = log.studentInfo?.id || log.studentId || log.id;
+            const attId = `att-${cls.id}-${todayStr}-${studentId}`;
+            
+            // Check if student has already scanned in
+            const isPresent = attendanceRecords.some(a => a.id === attId);
+            if (!isPresent) {
+              const studentEmail = log.studentInfo?.email || log.studentInfo?.parentEmail;
+              const studentName = log.studentInfo?.studentName || log.studentInfo?.firstName || 'Student';
+              const targetUserId = log.studentId || log.studentInfo?.userId || log.userId;
+
+              console.log(`Sending automated lateness alert to student: ${studentName} (${studentEmail || targetUserId})`);
+              
+              // Send the notification on all their devices (handles simultaneously via FCM tokens query in fcm.ts)
+              try {
+                await sendPushNotificationToUser(
+                  studentEmail,
+                  targetUserId,
+                  `⏰ Lateness Alert: ${cls.title}`,
+                  `Hi ${studentName}, you haven't checked into ${cls.title} yet (started at ${cls.startTime}). Please scan your QR code at the lab scanner.`,
+                  'class'
+                );
+              } catch (err) {
+                console.warn(`Failed to send lateness alert to ${studentName}:`, err);
+              }
+            }
+          }
+
+          // Mark as sent for today so we don't spam students
+          sentLatenessAlertsRef.current[cls.id] = todayStr;
+        }
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [classList, registrationLogs, attendanceRecords]);
+
   // Session Inactivity Timeout Logic (30 minutes)
   useEffect(() => {
     if (!loggedInUser) return;

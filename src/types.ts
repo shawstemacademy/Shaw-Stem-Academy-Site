@@ -44,6 +44,9 @@ export interface ClassItem {
   googleClassroomUrl?: string;
   googleClassroomCode?: string;
   googleMeetUrl?: string;
+
+  // Lateness Push Notification Trigger
+  autoLatenessAlertEnabled?: boolean;
 }
 
 export type DiscountType = 'percentage_multi_class' | 'amount_threshold' | 'sibling' | 'promo_code' | 'class_type_multi_class';

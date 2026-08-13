@@ -266,21 +266,25 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
 
         {/* Classes list */}
         {filteredClasses.length === 0 ? (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-12 rounded-3xl text-center space-y-3">
-            <Layers className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">No Courses Found</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              We couldn't find any courses matching your search keyword or selected filters. Try adjusting your query or resetting filters.
-            </p>
+          <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 p-12 rounded-3xl text-center space-y-4 max-w-lg mx-auto">
+            <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto">
+              <Layers className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-extrabold text-slate-800 dark:text-slate-100 text-lg">No classes found</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                We couldn't find any courses matching your search keyword or selected filters. Try browsing all our active STEM academy course offerings.
+              </p>
+            </div>
             <button
               onClick={() => {
                 setSearchQuery('');
                 setSelectedCategory('all');
                 setSelectedLevel('all');
               }}
-              className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg transition-all"
+              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600 text-xs font-bold rounded-xl transition-all shadow-xs hover:shadow-md"
             >
-              Reset Filters
+              Browse All
             </button>
           </div>
         ) : (
