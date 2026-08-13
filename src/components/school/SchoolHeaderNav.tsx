@@ -35,6 +35,7 @@ interface SchoolHeaderNavProps {
   onOpenGoogleExport: () => void;
   themeMode: 'light' | 'dark';
   onToggleThemeMode: () => void;
+  logoUrl?: string;
 }
 
 export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
@@ -54,6 +55,7 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
   onOpenGoogleExport,
   themeMode,
   onToggleThemeMode,
+  logoUrl,
 }) => {
   const [notifPerm, setNotifPerm] = React.useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
@@ -181,9 +183,14 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
           {/* School Name & Motto */}
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black shadow-xs">
-              S
-            </div>
+            <img 
+              src={logoUrl || "/logo.png"} 
+              alt="Shaw STEM Academy" 
+              className="w-8 h-8 rounded-lg object-contain bg-slate-950 p-0.5 border border-slate-800"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
             <div className="flex items-center gap-2">
               <span className="font-extrabold tracking-tight text-white text-sm">
                 Shaw STEM Academy

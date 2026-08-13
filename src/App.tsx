@@ -242,7 +242,7 @@ export default function App() {
   const [landingPageSettings, setLandingPageSettings] = useState<LandingPageSettings>({
     title: 'Shaw STEM Academy',
     subtitle: 'Innovate. Explore. Lead.',
-    logoUrl: '/favicon.png'
+    logoUrl: '/logo.png'
   });
 
   // School Demo State
@@ -2926,6 +2926,7 @@ export default function App() {
           onOpenGoogleExport={() => {}}
           themeMode={themeMode}
           onToggleThemeMode={handleToggleThemeMode}
+          logoUrl={landingPageSettings.logoUrl}
         />
 
         {/* Main Portal Content */}
