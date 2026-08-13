@@ -18,7 +18,7 @@ export const TermsOfServicePage: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl p-8 sm:p-12 shadow-sm border border-slate-200 prose prose-slate max-w-none prose-headings:text-slate-900 prose-a:text-purple-600 hover:prose-a:text-purple-500 prose-strong:text-slate-900">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 sm:p-12 shadow-sm border border-slate-200 dark:border-slate-800 prose prose-slate dark:prose-invert max-w-none prose-headings:text-slate-900 dark:prose-headings:text-slate-100 prose-a:text-purple-600 dark:prose-a:text-purple-400 hover:prose-a:text-purple-500 dark:hover:prose-a:text-purple-300 prose-strong:text-slate-900 dark:prose-strong:text-slate-100">
         <h2>1. Agreement to Terms</h2>
         <p>
           By accessing or using the Shaw STEM Academy web portal (accessible at this application URL), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our services.

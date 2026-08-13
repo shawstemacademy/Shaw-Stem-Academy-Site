@@ -338,6 +338,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   
   // Attendance QR Code Scanner States & Refs
   const [isScanningQr, setIsScanningQr] = useState<boolean>(false);
+  const [showScannerTooltip, setShowScannerTooltip] = useState<boolean>(true);
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
   const [scanFeedbackType, setScanFeedbackType] = useState<'success' | 'error' | null>(null);
   const scanVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -1508,13 +1509,38 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
                           LIVE ATTENDANCE SCANNER
                         </span>
-                        <button 
-                          onClick={() => setIsScanningQr(false)}
-                          className="text-slate-500 hover:text-slate-300 transition-colors text-xs font-bold cursor-pointer"
-                        >
-                          ✕ Close
-                        </button>
+                        <div className="flex items-center gap-4">
+                          <button 
+                            onClick={() => {
+                              setIsScanningQr(false);
+                              setTimeout(() => setIsScanningQr(true), 100);
+                            }}
+                            className="text-indigo-400 hover:text-indigo-300 transition-colors text-xs font-bold cursor-pointer bg-indigo-500/10 px-2 py-1 rounded"
+                          >
+                            ↻ Retry Scan
+                          </button>
+                          <button 
+                            onClick={() => setIsScanningQr(false)}
+                            className="text-slate-500 hover:text-slate-300 transition-colors text-xs font-bold cursor-pointer"
+                          >
+                            ✕ Close
+                          </button>
+                        </div>
                       </div>
+
+                      {showScannerTooltip && (
+                        <div className="bg-blue-900/40 border border-blue-500/30 rounded-xl p-3 relative z-10 flex flex-col gap-2">
+                          <div className="flex justify-between items-start">
+                            <h4 className="text-xs font-bold text-blue-300">Quick Start Guide</h4>
+                            <button onClick={() => setShowScannerTooltip(false)} className="text-blue-400 hover:text-white">✕</button>
+                          </div>
+                          <ul className="text-[11px] text-blue-200/80 list-disc list-inside space-y-1">
+                            <li>Ensure the student's QR code is brightly lit and flat.</li>
+                            <li>Hold the code 6-8 inches from the camera lens.</li>
+                            <li>The scanner automatically confirms and records attendance instantly.</li>
+                          </ul>
+                        </div>
+                      )}
 
                       <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-800 flex items-center justify-center">
                         <video 
@@ -1555,6 +1581,30 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                       <div className="text-[11px] text-slate-500 text-center leading-relaxed">
                         Tip: Have the student expand their QR code fullscreen on their portal for best alignment under varying classroom lighting.
                       </div>
+
+                      {(() => {
+                        const classAttendanceToday = attendanceRecords?.filter(a => a.classId === cls.id && a.date === todayStr) || [];
+                        const recentScans = [...classAttendanceToday].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
+                        
+                        if (recentScans.length === 0) return null;
+                        
+                        return (
+                          <div className="mt-4 border-t border-slate-800 pt-4 relative z-10">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Recent Scans ({recentScans.length})</h4>
+                            <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                              {recentScans.map(scan => (
+                                <div key={scan.id} className="flex justify-between items-center bg-slate-900/60 border border-slate-800 p-2.5 rounded-lg">
+                                   <span className="text-xs text-slate-300 font-semibold">{scan.studentName}</span>
+                                   <span className="text-[10px] text-emerald-400 flex items-center gap-1.5 font-bold">
+                                     <CheckCircle2 className="w-3.5 h-3.5" />
+                                     {new Date(scan.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                   </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                   {enrolledStudents.length === 0 ? (
