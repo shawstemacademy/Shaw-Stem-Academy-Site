@@ -31,8 +31,8 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification?.title || 'Shaw STEM Academy';
   const notificationOptions = {
     body: payload.notification?.body || 'New announcement posted!',
-    icon: payload.notification?.image || 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png',
-    badge: 'https://storage.googleapis.com/aistudio-v2-dev-usercontent/68a582f2-700c-4bde-bbe4-5b81aba52e10/images/p7w93d7c/shaw_stem_academy_logo.png',
+    icon: payload.notification?.image || '/logo.png',
+    badge: '/logo.png',
     tag: 'shaw-stem-notification',
     data: payload.data
   };

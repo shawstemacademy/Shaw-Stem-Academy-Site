@@ -457,7 +457,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       if (Notification.permission === 'granted') {
         new Notification(`[FCM Foreground] ${title}`, {
           body,
-          icon: '/favicon.png'
+          icon: '/logo.png'
         });
       }
     }).then((unsub) => {
@@ -515,7 +515,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
     const pushTitle = notifyTitle || 'Shaw STEM Academy Update';
     const pushBody = notifyBody || 'This is an FCM test notification.';
-    const pushImage = '/favicon.png';
+    const pushImage = '/logo.png';
 
     const dispatchSafeWebNotification = async (titleStr: string, bodyStr: string, imageStr: string) => {
       if (typeof Notification === 'undefined') return;

@@ -93,7 +93,7 @@ export async function sendDesktopNotification(title: string, body: string, iconU
 
   if (perm === 'granted') {
     try {
-      const icon = iconUrl || '/favicon.png';
+      const icon = iconUrl || '/logo.png';
       
       // If service worker is active and has showNotification, use it (recommended for full mobile and desktop support)
       if ('serviceWorker' in navigator) {

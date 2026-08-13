@@ -242,27 +242,6 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
           </div>
         </div>
 
-        {/* Application Purpose & OAuth Verification Panel */}
-        <div className="p-6 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 space-y-4">
-          <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300">
-            <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-xs uppercase tracking-wider">Application Purpose & Authentication Notice</h3>
-          </div>
-          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-            The <strong>Shaw STEM Academy</strong> online portal is a dedicated platform designed to manage STEM course catalogs, student profile registries, and term class registration for parents, students, and academic staff. Our portal provides a seamless digital experience to:
-          </p>
-          <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-4 list-disc text-xs text-slate-600 dark:text-slate-300">
-            <li><strong>Secure Student Portal:</strong> Allows enrolled and prospective students to view active course resources, class schedules, and academic announcements in real time.</li>
-            <li><strong>Class Registration & Enrollments:</strong> Enables parents to register students for multiple hands-on laboratory classes, track total tuition fees, and apply eligible bundle discounts.</li>
-            <li><strong>Faculty & Course Administration:</strong> Empower teachers to publish lectures, syllabi, class files, and manage student attendance registries.</li>
-            <li><strong>Academic Performance Tracking:</strong> Aids school administrators in processing admissions and verifying course enrollment states securely.</li>
-          </ul>
-          <div className="border-t border-blue-100/60 dark:border-blue-900/40 pt-3">
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              <strong>Google OAuth Integration:</strong> We utilize Google Sign-In exclusively for secure user authentication. When you log in with your Google Account, we access only your basic profile information (such as your name, email address, and avatar). This is used to safely map your school portal identity to your student record, authenticate access permissions for classrooms and dashboards, prevent unauthorized account registrations, and securely persist your class enrollment logs in our database. Your data is strictly used for portal access and is never shared with third parties. For more information, please read our <a href="?tab=privacy" onClick={(e) => { e.preventDefault(); onNavigate('privacy'); }} className="text-blue-600 dark:text-blue-400 font-bold hover:underline">Privacy Policy</a> and <a href="?tab=terms" onClick={(e) => { e.preventDefault(); onNavigate('terms'); }} className="text-blue-600 dark:text-blue-400 font-bold hover:underline">Terms of Service</a>.
-            </p>
-          </div>
-        </div>
 
         {/* 3 Information Pillars */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -388,7 +367,7 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
         )}
       </div>
 
-      {/* Google Verification & Application Transparency Notice (Combined, Above Footer) */}
+      {/* Google Verification & Application Transparency Notice (Above Footer) */}
       <ApplicationTransparencyNotice onNavigate={onNavigate} />
 
       {/* Edit Logo Modal */}
@@ -414,7 +393,7 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
             <div className="space-y-4">
               <div className="flex justify-center p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800">
                 <img
-                  src={tempLogoUrl || settings.logoUrl || '/favicon.png'}
+                  src={tempLogoUrl || settings.logoUrl || '/logo.png'}
                   alt="Logo Preview"
                   referrerPolicy="no-referrer"
                   className="h-32 object-contain"
