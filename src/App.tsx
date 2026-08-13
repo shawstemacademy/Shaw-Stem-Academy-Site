@@ -28,6 +28,7 @@ import {
   onFirestoreWrite,
   logSecurityEvent,
 } from './lib/firebase';
+import { captureClientMetadata, fetchClientIp } from './lib/clientMetadata';
 import { getRecaptchaToken, createRecaptchaAssessment, verifyRecaptcha } from './lib/recaptcha';
 import {
   ClassItem,
@@ -102,6 +103,8 @@ import { RunningTotalCard } from './components/RunningTotalCard';
 import { DiscountRulesModal } from './components/DiscountRulesModal';
 import { calculateAge, isValidAge } from './lib/ageValidation';
 import { RegistrationReceiptModal } from './components/RegistrationReceiptModal';
+import { FormFieldSetting, INITIAL_FORM_FIELD_SETTINGS, getFieldSetting } from './lib/formFieldsConfig';
+import { AdminFormFieldsEditor } from './components/school/AdminFormFieldsEditor';
 
 export default function App() {
   // Refs for tracking changes and triggering PWA/Desktop notifications
@@ -261,6 +264,7 @@ export default function App() {
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
   const [academyInfo, setAcademyInfo] = useState<AcademyInfo | null>(DEFAULT_ACADEMY_INFO);
   const [featureCards, setFeatureCards] = useState<FeatureCard[]>(DEFAULT_FEATURE_CARDS);
+  const [fieldSettings, setFieldSettings] = useState<FormFieldSetting[]>(INITIAL_FORM_FIELD_SETTINGS);
 
   // Teaching Claims & Payroll System State
   const [claims, setClaims] = useState<ClassClaimItem[]>([
@@ -471,18 +475,35 @@ export default function App() {
     }
   }, [firestoreToast]);
 
-  const logSystemAction = (
+  const logSystemAction = async (
     actionType: SystemActionLog['actionType'],
     description: string,
     metadata?: any
   ) => {
     let actor = 'System';
+    let actorUserId: string | undefined;
+    let actorEmail: string | undefined;
+    let actorRole: string | undefined;
+
     if (loggedInUser) {
       actor = `${loggedInUser.title || loggedInUser.role} • ${loggedInUser.name}`;
+      actorUserId = loggedInUser.id;
+      actorEmail = loggedInUser.email;
+      actorRole = loggedInUser.role;
     } else if (user) {
       actor = user.email || 'Authenticated User';
+      actorUserId = user.uid;
+      actorEmail = user.email || undefined;
+      actorRole = 'authenticated';
     } else {
       actor = 'Anonymous / Guest';
+      actorRole = 'guest';
+    }
+
+    const clientMeta = captureClientMetadata();
+    let ip = clientMeta.ipAddress;
+    if (ip === 'Detecting IP...' || !ip) {
+      ip = await fetchClientIp();
     }
 
     const newLog: SystemActionLog = {
@@ -490,11 +511,25 @@ export default function App() {
       timestamp: new Date().toISOString(),
       actionType,
       actor,
+      actorUserId,
+      actorEmail,
+      actorRole,
       description,
+      ipAddress: ip,
+      userAgent: clientMeta.userAgent,
+      browser: clientMeta.browser,
+      os: clientMeta.os,
+      deviceType: clientMeta.deviceType,
+      screenResolution: clientMeta.screenResolution,
+      viewportSize: clientMeta.viewportSize,
+      timeZone: clientMeta.timeZone,
+      language: clientMeta.language,
+      path: clientMeta.path,
       metadata
     };
 
     setSystemActionLogs(prev => [newLog, ...prev]);
+    saveDocToFirestore('systemActionLogs', newLog.id, newLog);
   };
 
   // Form Metadata
@@ -901,6 +936,20 @@ export default function App() {
         }
       }),
       subscribeToCollection<FeatureCard>('featureCards', (data) => setFeatureCards(data || [])),
+      subscribeToCollection<FormFieldSetting>('formFieldSettings', (data) => {
+        if (data && data.length > 0) {
+          setFieldSettings(data);
+        } else {
+          setFieldSettings(INITIAL_FORM_FIELD_SETTINGS);
+        }
+      }),
+      subscribeToCollection<SystemActionLog>('systemActionLogs', (data) => {
+        if (data) {
+          // Sort newest logs first
+          const sorted = [...data].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          setSystemActionLogs(sorted);
+        }
+      }),
       subscribeToCollection<SchoolUser>('schoolUsers', (data) => {
         setSchoolUsers(data || []);
         setSchoolUsersLoaded(true);
@@ -2030,6 +2079,26 @@ export default function App() {
     saveDocToFirestore('attendance', record.id, record);
   };
 
+  const handleToggleFieldSetting = async (formId: string, fieldId: string, property: 'enabled' | 'required') => {
+    const updatedSettings = fieldSettings.map((f) => {
+      if (f.formId === formId && f.fieldId === fieldId) {
+        if (f.isSystemProtected) {
+          return f;
+        }
+        return { ...f, [property]: !f[property] };
+      }
+      return f;
+    });
+
+    const targetField = updatedSettings.find(f => f.formId === formId && f.fieldId === fieldId);
+    if (targetField) {
+      setFieldSettings(updatedSettings);
+      const fieldDocId = `${formId}_${fieldId}`;
+      await saveDocToFirestore('formFieldSettings', fieldDocId, targetField);
+      await logSystemAction('other', `Toggled form field config inline: ${fieldId} in ${formId} (${property} is now ${targetField[property]})`);
+    }
+  };
+
   const handleUpdateUserProfile = (updatedUser: SchoolUser) => {
     setLoggedInUser(updatedUser);
     setSchoolUsers((prev) =>
@@ -2148,7 +2217,7 @@ export default function App() {
     setFirestoreToast({
       id: `toast-${Date.now()}`,
       title: 'Deleting User Profile...',
-      message: `Initiating secure deletion for account '${displayName}' across Firebase Auth & Firestore database. Please wait...`,
+      message: `Initiating secure deletion for account '${displayName}' across Firebase Auth, Firestore database, and related systems. Please wait...`,
       type: 'info'
     });
 
@@ -2172,37 +2241,149 @@ export default function App() {
     }
 
     if (userToDel) {
-      const studentEmail = (userToDel.email || '').toLowerCase();
-      const studentName = (userToDel.name || '').toLowerCase();
+      const targetEmail = (userToDel.email || '').toLowerCase();
+      const targetName = (userToDel.name || '').toLowerCase();
       
-      // Find all registration records in our state that match this student
+      // 1. Delete matching registration records
       const matchedRegs = registrationLogs.filter(
         (log) =>
-          (log.studentInfo?.email || '').toLowerCase() === studentEmail ||
-          (log.studentInfo?.parentEmail || '').toLowerCase() === studentEmail ||
-          (log.studentInfo?.gmailAddress || '').toLowerCase() === studentEmail ||
-          (log.studentInfo?.studentName || '').toLowerCase() === studentName
+          (log.studentInfo?.email || '').toLowerCase() === targetEmail ||
+          (log.studentInfo?.parentEmail || '').toLowerCase() === targetEmail ||
+          (log.studentInfo?.gmailAddress || '').toLowerCase() === targetEmail ||
+          (log.studentInfo?.studentName || '').toLowerCase() === targetName
       );
-      
-      // Delete matched registration records from Firestore
       matchedRegs.forEach(reg => {
         deleteDocFromFirestore('registrations', reg.id);
       });
-      
-      // Filter out deleted registration records from our state
       setRegistrationLogs(prev => prev.filter(log => !matchedRegs.some(r => r.id === log.id)));
+
+      // 2. Department Head & Staff Assignment Clean Up
+      departments.forEach(dept => {
+        let isModified = false;
+        let updatedDept = { ...dept };
+
+        if (dept.headUserId === userId || (dept.headName && dept.headName.toLowerCase() === targetName)) {
+          updatedDept.headUserId = '';
+          updatedDept.headName = 'Vacant';
+          isModified = true;
+        }
+
+        if (dept.staffUserIds && dept.staffUserIds.includes(userId)) {
+          updatedDept.staffUserIds = dept.staffUserIds.filter(id => id !== userId);
+          isModified = true;
+        }
+
+        if (dept.staffNames && dept.staffNames.some(n => n.toLowerCase() === targetName)) {
+          updatedDept.staffNames = dept.staffNames.filter(n => n.toLowerCase() !== targetName);
+          isModified = true;
+        }
+
+        if (isModified) {
+          saveDocToFirestore('departments', dept.id, updatedDept);
+        }
+      });
+      setDepartments(prev => prev.map(dept => {
+        let updated = { ...dept };
+        if (dept.headUserId === userId || (dept.headName && dept.headName.toLowerCase() === targetName)) {
+          updated.headUserId = '';
+          updated.headName = 'Vacant';
+        }
+        if (dept.staffUserIds) {
+          updated.staffUserIds = dept.staffUserIds.filter(id => id !== userId);
+        }
+        if (dept.staffNames) {
+          updated.staffNames = dept.staffNames.filter(n => n.toLowerCase() !== targetName);
+        }
+        return updated;
+      }));
+
+      // 3. Clean up Classes & SBA Hub Options where user is listed as instructor
+      classList.forEach(cls => {
+        if (cls.instructor === userToDel.name || cls.instructorId === userId || cls.teacherId === userId) {
+          const updatedCls = { ...cls, instructor: 'Vacant', instructorId: '', teacherId: '' };
+          saveDocToFirestore('classes', cls.id, updatedCls);
+        }
+      });
+      setClassList(prev => prev.map(cls => {
+        if (cls.instructor === userToDel.name || cls.instructorId === userId || cls.teacherId === userId) {
+          return { ...cls, instructor: 'Vacant', instructorId: '', teacherId: '' };
+        }
+        return cls;
+      }));
+
+      sbaHubOptions.forEach(sba => {
+        if (sba.instructor === userToDel.name || sba.instructorId === userId || sba.teacherId === userId) {
+          const updatedSba = { ...sba, instructor: 'Vacant', instructorId: '', teacherId: '' };
+          saveDocToFirestore('sbaHubOptions', sba.id, updatedSba);
+        }
+      });
+      setSbaHubOptions(prev => prev.map(sba => {
+        if (sba.instructor === userToDel.name || sba.instructorId === userId || sba.teacherId === userId) {
+          return { ...sba, instructor: 'Vacant', instructorId: '', teacherId: '' };
+        }
+        return sba;
+      }));
+
+      // 4. Delete Attendance Records
+      const matchedAttendance = attendanceRecords.filter(
+        rec => rec.studentId === userId || rec.teacherId === userId || rec.recordedBy === userId
+      );
+      matchedAttendance.forEach(rec => {
+        deleteDocFromFirestore('attendance', rec.id);
+      });
+      setAttendanceRecords(prev => prev.filter(rec => !matchedAttendance.some(a => a.id === rec.id)));
+
+      // 5. Delete Class Claims / Teaching Logs & Hourly Rates
+      const matchedClaims = claims.filter(
+        c => c.teacherId === userId || (c.teacherEmail && c.teacherEmail.toLowerCase() === targetEmail) || (c.teacherName && c.teacherName.toLowerCase() === targetName)
+      );
+      matchedClaims.forEach(c => {
+        deleteDocFromFirestore('classClaims', c.id);
+      });
+      setClaims(prev => prev.filter(c => !matchedClaims.some(mc => mc.id === c.id)));
+      setHourlyRates(prev => prev.filter(hr => hr.userId !== userId));
+
+      // 6. Delete Add / Drop Requests
+      const matchedAddDrop = addDropRequests.filter(
+        req => req.studentId === userId || (req.studentEmail && req.studentEmail.toLowerCase() === targetEmail)
+      );
+      matchedAddDrop.forEach(req => {
+        deleteDocFromFirestore('addDropRequests', req.id);
+      });
+      setAddDropRequests(prev => prev.filter(req => !matchedAddDrop.some(r => r.id === req.id)));
+
+      // 7. Delete Resources Uploaded by User
+      const matchedResources = resources.filter(
+        res => res.uploaderId === userId || res.authorId === userId
+      );
+      matchedResources.forEach(res => {
+        deleteDocFromFirestore('resources', res.id);
+      });
+      setResources(prev => prev.filter(res => !matchedResources.some(r => r.id === res.id)));
+
+      // 8. Delete Class Announcements Posted by User
+      const matchedAnnouncements = announcements.filter(
+        ann => ann.authorId === userId || (ann.authorEmail && ann.authorEmail.toLowerCase() === targetEmail)
+      );
+      matchedAnnouncements.forEach(ann => {
+        deleteDocFromFirestore('announcements', ann.id);
+      });
+      setAnnouncements(prev => prev.filter(ann => !matchedAnnouncements.some(a => a.id === ann.id)));
     }
 
+    // 9. Delete Primary User & Teacher Profile Documents
     setSchoolUsers((prev) => prev.filter((u) => u.id !== userId));
     deleteDocFromFirestore('schoolUsers', userId);
     setTeacherProfiles((prev) => prev.filter((t) => t.id !== userId));
     deleteDocFromFirestore('teachers', userId);
 
+    logSystemAction('user_deleted', `User profile '${displayName}' permanently deleted along with all associated data.`);
+
     // Trigger a success toast when the full process finishes
     setFirestoreToast({
       id: `toast-${Date.now()}`,
-      title: 'Account Permanently Deleted ⚡',
-      message: `Account '${displayName}' and all matching registrations/assigned profiles have been removed successfully.`,
+      title: 'Account & Associated Data Deleted ⚡',
+      message: `Account '${displayName}' and all related records (registrations, claims, attendance, class assignments, resources) have been permanently deleted.`,
       type: 'success'
     });
   };
@@ -3025,6 +3206,9 @@ export default function App() {
                 onOpenRegistration={() => handleTabSelect('registration')}
                 addDropRequests={addDropRequests}
                 onSubmitAddDropRequest={handleSubmitAddDropRequest}
+                fieldSettings={fieldSettings}
+                isAdminLoggedIn={currentRole === 'admin'}
+                onToggleFieldSetting={handleToggleFieldSetting}
               />
             )
           )}
@@ -3107,6 +3291,23 @@ export default function App() {
               faqs={faqs}
               schoolNews={schoolNews}
               academyInfo={academyInfo}
+              fieldSettings={fieldSettings}
+              onSaveFieldSettings={async (updated) => {
+                setFieldSettings(updated);
+                for (const field of updated) {
+                  const fieldDocId = `${field.formId}_${field.fieldId}`;
+                  await saveDocToFirestore('formFieldSettings', fieldDocId, field);
+                }
+                await logSystemAction('other', 'Updated global form field configuration settings');
+              }}
+              onResetFieldSettingsToDefaults={async () => {
+                setFieldSettings(INITIAL_FORM_FIELD_SETTINGS);
+                for (const field of INITIAL_FORM_FIELD_SETTINGS) {
+                  const fieldDocId = `${field.formId}_${field.fieldId}`;
+                  await saveDocToFirestore('formFieldSettings', fieldDocId, field);
+                }
+                await logSystemAction('other', 'Reset form field configuration settings to system defaults');
+              }}
               featureCards={featureCards}
               classTypes={classTypes}
               locations={locations}
@@ -3160,6 +3361,9 @@ export default function App() {
                   setIsSiblingSelected={setIsSiblingSelected}
                   siblingDiscountAmount={siblingAmount}
                   formGrades={academyInfo?.formGrades}
+                  fieldSettings={fieldSettings}
+                  isAdminLoggedIn={currentRole === 'admin'}
+                  onToggleFieldSetting={handleToggleFieldSetting}
                 />
                 <div className="flex justify-end pt-4">
                   {(loggedInUser || user) ? (
@@ -3706,7 +3910,7 @@ export default function App() {
       )}
 
       {/* Global Realtime Firestore Action Toast */}
-      {firestoreToast && (
+      {firestoreToast && currentRole === 'admin' && (
         <div className="fixed top-20 right-5 z-[200] max-w-md w-full animate-bounce-in">
           <div className={`p-4 rounded-2xl shadow-2xl border flex items-start justify-between gap-3 backdrop-blur-md ${
             firestoreToast.type === 'success' 

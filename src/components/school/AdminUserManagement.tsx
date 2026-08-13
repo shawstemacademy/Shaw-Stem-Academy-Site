@@ -23,7 +23,8 @@ import {
   FileText,
   Lock,
   CheckSquare,
-  Square
+  Square,
+  Trash2
 } from 'lucide-react';
 import { SchoolUser, Department, TeacherProfile, UserRole, ClassItem, SbaHubOption, LocationOption, RolePermission } from '../../types';
 import { sendUserPasswordResetEmail } from '../../lib/firebase';
@@ -70,11 +71,24 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   const [roleFilter, setRoleFilter] = useState<'all' | 'teacher' | 'admin' | 'registrar' | 'hod' | 'disabled'>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [confirmingDeleteUserId, setConfirmingDeleteUserId] = useState<string | null>(null);
 
   // Reset selection when filters change to prevent off-screen mistakes
   useEffect(() => {
     setSelectedUserIds([]);
   }, [searchQuery, roleFilter, departmentFilter]);
+
+  const handleBulkDelete = () => {
+    if (selectedUserIds.length === 0) return;
+    if (
+      confirm(
+        `Are you sure you want to PERMANENTLY DELETE ${selectedUserIds.length} selected staff member(s)?\n\nThis will remove their user profiles, assigned classes, department links, teaching claims, attendance, and uploaded resources across Firebase Auth and Firestore.`
+      )
+    ) {
+      selectedUserIds.forEach((id) => onDeleteUser(id));
+      setSelectedUserIds([]);
+    }
+  };
 
   const handleSelectUserToggle = (userId: string) => {
     setSelectedUserIds((prev) =>
@@ -688,7 +702,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
               {roleFilter === 'disabled' ? (
                 <button
                   onClick={handleBulkEnable}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <UserCheck className="w-3.5 h-3.5" />
                   <span>Bulk Enable Accounts</span>
@@ -696,12 +710,21 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
               ) : (
                 <button
                   onClick={handleBulkDisable}
-                  className="bg-rose-600 hover:bg-rose-500 text-white rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                  className="bg-rose-600 hover:bg-rose-500 text-white rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <UserX className="w-3.5 h-3.5" />
                   <span>Bulk Disable Accounts</span>
                 </button>
               )}
+
+              <button
+                onClick={handleBulkDelete}
+                className="bg-rose-800 hover:bg-rose-900 text-white rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer border border-rose-700"
+                title="Permanently Delete Selected Staff Profiles & All Related Data"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Selected ({selectedUserIds.length})</span>
+              </button>
             </div>
           </div>
         )}
@@ -955,7 +978,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                           {isDisabled ? (
                             <button
                               onClick={() => handleEnableUser(u)}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
                               title="Re-enable User Account in Firebase"
                             >
                               <RotateCcw className="w-3 h-3" />
@@ -964,11 +987,41 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                           ) : (
                             <button
                               onClick={() => handleDisableUser(u)}
-                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px] rounded-lg border border-rose-200 transition-colors flex items-center gap-1"
+                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px] rounded-lg border border-rose-200 transition-colors flex items-center gap-1 cursor-pointer"
                               title="Disable user account for admin record keeping"
                             >
                               <UserX className="w-3.5 h-3.5 text-rose-600" />
                               <span>Disable</span>
+                            </button>
+                          )}
+
+                          {confirmingDeleteUserId === u.id ? (
+                            <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-lg p-1 text-[10px] font-bold text-rose-800 transition-all shadow-sm">
+                              <span className="px-1 text-[10px] text-rose-700 font-extrabold">Delete Staff?</span>
+                              <button
+                                onClick={() => {
+                                  onDeleteUser(u.id);
+                                  setConfirmingDeleteUserId(null);
+                                }}
+                                className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded cursor-pointer text-[10px] font-black shadow-2xs"
+                                title="Permanently delete staff member and all related data"
+                              >
+                                Yes
+                              </button>
+                              <button
+                                onClick={() => setConfirmingDeleteUserId(null)}
+                                className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded hover:bg-slate-300 cursor-pointer text-[10px]"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmingDeleteUserId(u.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Staff Member & All Related Records"
+                            >
+                              <Trash2 className="w-4 h-4 text-rose-500" />
                             </button>
                           )}
                         </div>
@@ -1329,20 +1382,44 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                 )}
               </div>
 
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors"
-                >
-                  {editingUser ? 'Save Changes to Firebase' : 'Create User & Sync to Firebase'}
-                </button>
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+                {editingUser ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Are you sure you want to PERMANENTLY DELETE staff account for ${editingUser.name}? This will remove all associated profile data, claims, department links, class assignments, and attendance records.`
+                        )
+                      ) {
+                        onDeleteUser(editingUser.id);
+                        setIsModalOpen(false);
+                      }
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Delete Staff Member</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors cursor-pointer"
+                  >
+                    {editingUser ? 'Save Changes to Firebase' : 'Create User & Sync to Firebase'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

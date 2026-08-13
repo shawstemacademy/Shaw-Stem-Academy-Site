@@ -27,6 +27,10 @@ import {
   ClipboardList,
   Trash2,
   Settings,
+  QrCode,
+  Printer,
+  Maximize2,
+  Minimize2,
   Filter,
   Sliders,
   ShieldCheck,
@@ -69,6 +73,7 @@ import {
   NotificationPreferences,
   AddDropRequest
 } from '../../types';
+import { FormFieldSetting } from '../../lib/formFieldsConfig';
 import { StudentInfoForm } from '../StudentInfoForm';
 import { RegistrationReceiptModal } from '../RegistrationReceiptModal';
 import { isFcmSupported, requestAndSaveFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
@@ -93,6 +98,9 @@ interface StudentPortalPageProps {
   onUpdateUserProfile?: (updated: SchoolUser) => void;
   onOpenRegistration: () => void;
   onDeleteRegistration?: (logId: string) => void;
+  fieldSettings?: FormFieldSetting[];
+  isAdminLoggedIn?: boolean;
+  onToggleFieldSetting?: (formId: string, fieldId: string, property: 'enabled' | 'required') => void;
 }
 
 export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
@@ -114,8 +122,12 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   onUpdateUserProfile,
   onOpenRegistration,
   onDeleteRegistration,
+  fieldSettings = [],
+  isAdminLoggedIn = false,
+  onToggleFieldSetting,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [showQrFullscreen, setShowQrFullscreen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editingStudentInfo, setEditingStudentInfo] = useState<StudentInfo | null>(null);
   const [selectedReceiptRecord, setSelectedReceiptRecord] = useState<RegistrationRecord | null>(null);
@@ -844,6 +856,265 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
       {/* ENROLLED / ACCEPTED / REGISTERED STUDENT VIEW */}
       {(status === 'enrolled_paid' || status === 'pending_verification' || status === 'accepted') && (
         <div className="space-y-10 animate-fade-in">
+          {/* Digital Student ID & Attendance QR Pass */}
+          <div className="bg-slate-900 text-white rounded-3xl p-6 border border-slate-800 shadow-xl relative overflow-hidden space-y-6">
+            <div className="absolute -right-24 -top-24 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute -left-24 -bottom-24 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4 relative z-10">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-bold uppercase tracking-wider border border-indigo-500/20">
+                  <QrCode className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                  <span>Interactive Student Pass</span>
+                </div>
+                <h3 className="text-xl font-extrabold tracking-tight">Your Digital Student ID & Attendance Pass</h3>
+                <p className="text-xs text-slate-400">Present this QR Code to your instructor during class for instant, automated attendance logging.</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => {
+                    const printWindow = window.open('', '_blank');
+                    if (!printWindow) return;
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(studentUser?.id || '')}`;
+                    printWindow.document.write(`
+                      <html>
+                        <head>
+                          <title>Shaw STEM Academy - Digital Student ID Pass</title>
+                          <script src="https://cdn.tailwindcss.com"></script>
+                          <style>
+                            @media print {
+                              body { -webkit-print-color-adjust: exact; }
+                            }
+                          </style>
+                        </head>
+                        <body class="bg-slate-100 flex items-center justify-center min-h-screen p-8">
+                          <div class="w-[450px] bg-slate-900 text-white rounded-3xl p-6 border border-slate-800 shadow-2xl relative overflow-hidden flex flex-col justify-between">
+                            <div class="absolute -right-16 -top-16 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl"></div>
+                            <div class="absolute -left-16 -bottom-16 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl"></div>
+                            <div>
+                              <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+                                <div class="flex items-center gap-2">
+                                  <span class="text-blue-400 font-black tracking-widest text-sm">SHAW STEM ACADEMY</span>
+                                </div>
+                                <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase border border-emerald-500/20">STUDENT ID</span>
+                              </div>
+                              <div class="flex gap-4">
+                                <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-black shrink-0 shadow-md">
+                                  ${(studentUser?.name || 'S').charAt(0)}
+                                </div>
+                                <div class="space-y-1">
+                                  <h2 class="text-xl font-bold tracking-tight">${studentUser?.name || 'Student'}</h2>
+                                  <p class="text-xs text-slate-400 font-medium break-all">${studentUser?.email || ''}</p>
+                                  <div class="grid grid-cols-2 gap-x-4 gap-y-1 pt-2">
+                                    <div>
+                                      <span class="text-[9px] text-slate-500 block uppercase font-bold">STUDENT ID</span>
+                                      <span class="text-xs font-mono font-bold text-slate-300">${(studentUser?.id || '').substring(0, 8)}</span>
+                                    </div>
+                                    <div>
+                                      <span class="text-[9px] text-slate-500 block uppercase font-bold">GRADE LEVEL</span>
+                                      <span class="text-xs font-bold text-slate-300">${studentUser?.studentDetails?.formGrade || 'STEM Student'}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="flex items-center justify-between mt-6 border-t border-slate-800 pt-4">
+                              <div class="text-left">
+                                <span class="text-[9px] text-slate-500 block uppercase font-bold">ATTENDANCE QR PASS</span>
+                                <span class="text-[10px] text-slate-400 font-medium">Valid for 2026-2027 Academic Year</span>
+                              </div>
+                              <img class="w-16 h-16 rounded-lg bg-white p-1" src="${qrUrl}" alt="QR Pass" />
+                            </div>
+                          </div>
+                          <script>
+                            window.onload = function() {
+                              window.print();
+                            };
+                          </script>
+                        </body>
+                      </html>
+                    `);
+                    printWindow.document.close();
+                  }}
+                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Physical ID</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+              {/* Left Column: Styled Physical-look Student ID Badge */}
+              <div className="lg:col-span-7 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 rounded-2xl border border-indigo-500/20 p-5 shadow-2xl relative overflow-hidden flex flex-col justify-between aspect-video sm:aspect-auto min-h-[220px]">
+                {/* Microchip and Hologram Details */}
+                <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-b from-indigo-500/40 via-purple-500/40 to-indigo-500/40 opacity-70 border-l border-indigo-500/10"></div>
+                
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3.5 mb-3.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded bg-indigo-600 flex items-center justify-center text-white text-xs font-extrabold shadow-sm">
+                      S
+                    </div>
+                    <span className="text-xs font-extrabold tracking-widest text-slate-200">SHAW STEM ACADEMY</span>
+                  </div>
+                  <span className="text-[10px] font-black tracking-wider text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-500/20 uppercase select-none">
+                    Digital Student ID
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start text-center sm:text-left">
+                  {/* Avatar Placeholder */}
+                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-700 p-0.5 shadow-lg shrink-0">
+                    <div className="w-full h-full bg-slate-950 rounded-2xl flex flex-col items-center justify-center text-white relative overflow-hidden">
+                      {studentUser?.avatar ? (
+                        <img referrerPolicy="no-referrer" src={studentUser.avatar} alt="Student Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-3xl font-black tracking-tight">
+                          {(studentUser?.name || 'S').charAt(0)}
+                        </span>
+                      )}
+                      <div className="absolute bottom-0 inset-x-0 bg-slate-900/80 py-1 text-[8px] font-bold text-indigo-300 text-center uppercase tracking-widest">
+                        SECURE
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Student Credentials */}
+                  <div className="space-y-1 md:space-y-1.5 flex-1 min-w-0">
+                    <h4 className="text-lg md:text-xl font-bold text-white tracking-tight truncate">
+                      {studentUser?.name || 'Student Name'}
+                    </h4>
+                    <p className="text-xs text-slate-400 font-medium break-all truncate">
+                      {studentUser?.email || ''}
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800/50 mt-2">
+                      <div>
+                        <span className="text-[9px] text-slate-500 font-extrabold uppercase block tracking-wider">Student ID</span>
+                        <span className="text-xs font-mono font-bold text-slate-300 select-all truncate block">
+                          {(studentUser?.id || '').substring(0, 12)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-500 font-extrabold uppercase block tracking-wider">Grade Level</span>
+                        <span className="text-xs font-bold text-slate-300">
+                          {studentUser?.studentDetails?.formGrade || 'STEM Student'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 border-t border-slate-800/60 pt-3 flex items-center justify-between text-[10px] text-slate-500 font-semibold">
+                  <span>Holographic Secure Pass</span>
+                  <span className="font-mono text-slate-400">STATUS: {status === 'enrolled_paid' ? 'PAID & ENROLLED' : 'ACCEPTED'}</span>
+                </div>
+              </div>
+
+              {/* Right Column: High-contrast Attendance QR Code Generator */}
+              <div className="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col items-center justify-center space-y-4">
+                {/* Visual Avatar Placeholder inside QR display component */}
+                <div className="flex items-center gap-3 w-full bg-slate-900/50 p-3 rounded-xl border border-slate-800/80">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 p-0.5 shadow-md shrink-0">
+                    <div className="w-full h-full bg-slate-950 rounded-full flex items-center justify-center text-white text-xs font-black overflow-hidden">
+                      {studentUser?.avatar ? (
+                        <img referrerPolicy="no-referrer" src={studentUser.avatar} alt="Student" className="w-full h-full object-cover" />
+                      ) : (
+                        (studentUser?.name || 'S').charAt(0)
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-left min-w-0 flex-1">
+                    <span className="text-[9px] text-slate-500 font-extrabold block uppercase tracking-wider">PREVIEW PASS FOR</span>
+                    <span className="text-xs font-extrabold text-slate-200 truncate block">{studentUser?.name || 'Student'}</span>
+                  </div>
+                </div>
+
+                <div className="relative group cursor-pointer" onClick={() => setShowQrFullscreen(true)}>
+                  <div className="absolute -inset-2 bg-indigo-500/20 rounded-2xl blur-lg group-hover:bg-indigo-500/30 transition-all pointer-events-none"></div>
+                  <div className="bg-white p-3.5 rounded-2xl shadow-xl relative border border-slate-800 flex items-center justify-center">
+                    <img
+                      className="w-40 h-40 object-contain rounded-lg select-none"
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(studentUser?.id || '')}`}
+                      alt="Student Attendance QR Pass"
+                    />
+                    <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/50 flex items-center justify-center rounded-2xl transition-all opacity-0 group-hover:opacity-100">
+                      <Maximize2 className="w-8 h-8 text-white drop-shadow-md" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Scan at Entrance Instructional Label */}
+                <div className="w-full bg-indigo-950/40 border border-indigo-500/20 rounded-xl p-3 text-center space-y-1">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 text-[10px] font-black uppercase tracking-wider">
+                    👉 Scan at Entrance
+                  </span>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    Present this pass to the scanner terminal or your instructor at the entrance.
+                  </p>
+                </div>
+
+                <div className="text-center space-y-1">
+                  <p className="text-xs font-bold text-indigo-400 flex items-center justify-center gap-1.5 cursor-pointer hover:underline" onClick={() => setShowQrFullscreen(true)}>
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    <span>Tap QR to View Fullscreen</span>
+                  </p>
+                  <p className="text-[10px] text-slate-500 font-medium">Auto-generated credential for instant scanning</p>
+                </div>
+
+                <div className="w-full flex gap-2">
+                  <a
+                    href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(studentUser?.id || '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-center text-xs font-bold border border-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Save QR Image</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Fullscreen QR Code Modal Overlay */}
+          {showQrFullscreen && (
+            <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 transition-all backdrop-blur-md">
+              <div className="max-w-md w-full bg-slate-900 border border-slate-800 text-white rounded-3xl p-6 text-center space-y-6 relative shadow-2xl">
+                <button
+                  onClick={() => setShowQrFullscreen(false)}
+                  className="absolute right-4 top-4 w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center justify-center text-lg font-bold"
+                >
+                  ✕
+                </button>
+                
+                <div className="space-y-1">
+                  <h4 className="text-xl font-black text-white">{studentUser?.name || 'Student'}</h4>
+                  <p className="text-xs text-indigo-400 font-extrabold tracking-widest uppercase">SHAW STEM ACADEMY QR PASS</p>
+                </div>
+
+                {/* Main giant QR Code optimized for scanner screen reflection */}
+                <div className="bg-white p-6 rounded-3xl inline-block shadow-2xl border-4 border-indigo-500/20">
+                  <img
+                    className="w-64 h-64 mx-auto object-contain rounded-xl"
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(studentUser?.id || '')}`}
+                    alt="Giant Student QR Pass"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-1.5 text-xs text-indigo-300 font-bold bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
+                    <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
+                    <span>Ready to Scan</span>
+                  </div>
+                  <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed font-medium">
+                    Please set your screen brightness to maximum and present this code to the teacher's device to automatically mark your attendance.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Enrolled Classes Bar */}
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -2803,6 +3074,9 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 isSiblingSelected={false}
                 setIsSiblingSelected={() => {}}
                 siblingDiscountAmount={0}
+                fieldSettings={fieldSettings}
+                isAdminLoggedIn={isAdminLoggedIn}
+                onToggleFieldSetting={onToggleFieldSetting}
               />
             </div>
             

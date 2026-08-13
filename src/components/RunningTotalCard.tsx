@@ -11,6 +11,7 @@ import {
   Gift,
   PlusCircle,
 } from 'lucide-react';
+import { formatUSD } from '../lib/formatCurrency';
 
 interface RunningTotalCardProps {
   currentRole?: string | null;
@@ -84,18 +85,18 @@ export const RunningTotalCard: React.FC<RunningTotalCardProps> = ({
           <div className="flex items-baseline justify-between">
             <div>
               <span className="text-4xl font-extrabold text-white tracking-tight">
-                ${totalPrice.toFixed(2)}
+                {formatUSD(totalPrice)}
               </span>
               {totalSavings > 0 && (
                 <span className="ml-2 text-xs font-semibold text-slate-400 line-through">
-                  ${subtotal.toFixed(2)}
+                  {formatUSD(subtotal)}
                 </span>
               )}
             </div>
             {totalSavings > 0 && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold text-xs rounded-full">
                 <TrendingDown className="w-3.5 h-3.5" />
-                Saved ${totalSavings.toFixed(2)}
+                Saved {formatUSD(totalSavings)}
               </span>
             )}
           </div>
@@ -157,7 +158,7 @@ export const RunningTotalCard: React.FC<RunningTotalCardProps> = ({
                     <span className="text-slate-300 truncate max-w-[200px]" title={cls.title}>
                       {cls.title}
                     </span>
-                    <span className="font-semibold text-white">${cls.price}</span>
+                    <span className="font-semibold text-white">{formatUSD(cls.price)}</span>
                   </div>
                 ))}
               </div>
@@ -182,7 +183,7 @@ export const RunningTotalCard: React.FC<RunningTotalCardProps> = ({
                       <div className="text-[11px] text-emerald-400/80">{discount.description}</div>
                     </div>
                     <div className="font-bold text-emerald-400 text-sm whitespace-nowrap ml-2">
-                      -${discount.amountOff.toFixed(2)}
+                      -{formatUSD(discount.amountOff)}
                     </div>
                   </div>
                 ))}
@@ -216,17 +217,17 @@ export const RunningTotalCard: React.FC<RunningTotalCardProps> = ({
           <div className="pt-3 border-t border-slate-800 space-y-2 text-xs">
             <div className="flex justify-between text-slate-400">
               <span>Tuition Subtotal:</span>
-              <span className="font-medium text-slate-200">${subtotal.toFixed(2)}</span>
+              <span className="font-medium text-slate-200">{formatUSD(subtotal)}</span>
             </div>
             {totalSavings > 0 && (
               <div className="flex justify-between text-emerald-400 font-semibold">
                 <span>Discounts Applied:</span>
-                <span>-${totalSavings.toFixed(2)}</span>
+                <span>-{formatUSD(totalSavings)}</span>
               </div>
             )}
             <div className="flex justify-between text-sm font-bold text-white pt-2 border-t border-slate-800">
               <span>Running Total:</span>
-              <span className="text-white text-base">${totalPrice.toFixed(2)}</span>
+              <span className="text-white text-base">{formatUSD(totalPrice)}</span>
             </div>
             <p className="text-[10px] text-slate-400 italic pt-1">
               * Note: Discounts are categorized by Class Type (CSEC, CAPE, etc.) and exclude SBA Hub items.
@@ -269,10 +270,10 @@ export const RunningTotalCard: React.FC<RunningTotalCardProps> = ({
             Running Total ({selectedClasses.length} {selectedClasses.length === 1 ? 'class' : 'classes'})
           </div>
           <div className="text-xl font-bold text-white">
-            ${totalPrice.toFixed(2)}
+            {formatUSD(totalPrice)}
             {totalSavings > 0 && (
               <span className="ml-1.5 text-xs text-emerald-400 font-bold">
-                (Saved ${totalSavings.toFixed(2)})
+                (Saved {formatUSD(totalSavings)})
               </span>
             )}
           </div>

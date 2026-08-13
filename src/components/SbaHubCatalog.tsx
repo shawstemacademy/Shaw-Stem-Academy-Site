@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SbaHubOption, FormTheme, Department, ClassType, isDepartmentVisibleToStudents } from '../types';
+import { formatUSD } from '../lib/formatCurrency';
 import {
   BookOpen,
   CheckSquare,
@@ -400,7 +401,7 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
 
                         {/* Price Badge */}
                         <div className="text-right">
-                          <span className="text-lg font-black text-purple-900">${opt.yearlyPrice}</span>
+                          <span className="text-lg font-black text-purple-900">{formatUSD(opt.yearlyPrice)}</span>
                           <span className="text-[11px] text-gray-500 font-normal">
                             /{opt.pricePeriod || 'yr'}
                           </span>

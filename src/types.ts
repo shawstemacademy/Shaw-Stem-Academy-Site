@@ -477,9 +477,22 @@ export interface RolePermission {
 export interface SystemActionLog {
   id: string;
   timestamp: string;
-  actionType: 'registration' | 'user_created' | 'user_updated' | 'user_disabled' | 'user_enabled' | 'role_changed' | 'discount_updated' | 'login' | 'system_alert' | 'other';
+  actionType: 'registration' | 'user_created' | 'user_updated' | 'user_disabled' | 'user_enabled' | 'user_deleted' | 'role_changed' | 'discount_updated' | 'login' | 'system_alert' | 'other';
   actor: string;
+  actorUserId?: string;
+  actorEmail?: string;
+  actorRole?: string;
   description: string;
+  ipAddress?: string;
+  userAgent?: string;
+  browser?: string;
+  os?: string;
+  deviceType?: 'Desktop' | 'Mobile' | 'Tablet';
+  screenResolution?: string;
+  viewportSize?: string;
+  timeZone?: string;
+  language?: string;
+  path?: string;
   metadata?: any;
 }
 

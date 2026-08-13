@@ -1,6 +1,7 @@
 import React from 'react';
 import { RegistrationRecord, FormTheme } from '../types';
 import { X, CheckCircle2, Printer, Download, Calendar, User, Mail, Phone, Tag, ShieldCheck, Clock, MapPin } from 'lucide-react';
+import { formatUSD } from '../lib/formatCurrency';
 
 interface RegistrationReceiptModalProps {
   registration: RegistrationRecord | null;
@@ -196,7 +197,7 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
                       <span>Location: {cls?.location || 'N/A'}</span>
                     </div>
                   </div>
-                  <div className="font-bold text-purple-900 text-sm print:text-black">${(cls?.price ?? 0).toFixed(2)}</div>
+                  <div className="font-bold text-purple-900 text-sm print:text-black">{formatUSD(cls?.price ?? 0)}</div>
                 </div>
               ))}
             </div>
@@ -206,19 +207,19 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs print-exact">
             <div className="flex justify-between text-gray-600">
               <span>Subtotal:</span>
-              <span className="font-semibold">${(registration?.subtotal ?? 0).toFixed(2)}</span>
+              <span className="font-semibold">{formatUSD(registration?.subtotal ?? 0)}</span>
             </div>
 
             {appliedDiscounts.map((d, i) => (
               <div key={i} className="flex justify-between text-emerald-700 font-medium print:text-emerald-800">
                 <span>✓ {d?.name || 'Discount'} ({d?.description || ''}):</span>
-                <span className="font-bold">-${(d?.amountOff ?? 0).toFixed(2)}</span>
+                <span className="font-bold">-{formatUSD(d?.amountOff ?? 0)}</span>
               </div>
             ))}
 
             <div className="pt-2 border-t border-slate-200 flex justify-between text-base font-black text-gray-900">
               <span>Tuition Fee:</span>
-              <span className="text-purple-900 print:text-slate-900">${(registration?.totalPrice ?? 0).toFixed(2)}</span>
+              <span className="text-purple-900 print:text-slate-900">{formatUSD(registration?.totalPrice ?? 0)}</span>
             </div>
           </div>
 

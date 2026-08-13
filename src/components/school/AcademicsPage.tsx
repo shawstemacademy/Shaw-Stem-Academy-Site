@@ -106,6 +106,58 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
     });
   }, [classes, searchQuery, selectedCategory, selectedLevel]);
 
+  // Dynamically synthesize a department for any class category that is missing from the explicit departments collection
+  const effectiveDepartments = useMemo(() => {
+    const list = [...departments];
+    
+    // Find all categories from classes
+    const classCategories = new Set<string>();
+    classes.forEach(c => {
+      if (c.category) {
+        classCategories.add(c.category);
+      }
+    });
+    
+    // For each category, if no department matches (case-insensitive), synthesize a department
+    classCategories.forEach(cat => {
+      const hasDept = list.some(d => d.name.toLowerCase() === cat.toLowerCase());
+      if (!hasDept) {
+        let color = 'bg-blue-600';
+        let room = 'Lab Room 3';
+        const lowerCat = cat.toLowerCase();
+        if (lowerCat.includes('physic')) {
+          color = 'bg-sky-600';
+          room = 'Physics Lab 3';
+        } else if (lowerCat.includes('biolog')) {
+          color = 'bg-emerald-600';
+          room = 'Biology Lab 1';
+        } else if (lowerCat.includes('chem')) {
+          color = 'bg-cyan-600';
+          room = 'Chemistry Lab 2';
+        } else if (lowerCat.includes('math')) {
+          color = 'bg-indigo-600';
+          room = 'Math Seminar 105';
+        } else if (lowerCat.includes('tech') || lowerCat.includes('code') || lowerCat.includes('comput')) {
+          color = 'bg-teal-600';
+          room = 'Computing Studio B';
+        }
+        
+        list.push({
+          id: `virtual-dept-${cat.toLowerCase().replace(/\s+/g, '-')}`,
+          name: cat,
+          code: cat.toUpperCase().slice(0, 4),
+          description: `Academy laboratory and curriculum resources focusing on practical, hands-on ${cat} exploration.`,
+          headOfDepartment: 'Vacant',
+          color: color,
+          room: room,
+          showToStudents: true
+        });
+      }
+    });
+    
+    return list;
+  }, [departments, classes]);
+
   return (
     <div className="space-y-12 pb-16">
       {/* Header */}
@@ -122,50 +174,7 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
         </p>
       </div>
 
-      {/* Departments Grid */}
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Academic Departments & Labs</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {departments.filter(d => isDepartmentVisibleToStudents(d)).map((dept) => {
-            const bgClass = dept.color.replace('600', '50');
-            const borderClass = dept.color.replace('bg-', 'border-').replace('600', '200');
-            const textClass = dept.color.replace('bg-', 'text-');
-            return (
-            <div
-              key={dept.id}
-              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between space-y-4"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className={`w-12 h-12 rounded-xl ${bgClass} ${borderClass} border flex items-center justify-center dark:bg-slate-800/40 dark:border-slate-700/50`}>
-                    <BookOpen className={`w-6 h-6 ${textClass}`} />
-                  </div>
-                  <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg">
-                    {dept.room || 'General Lab'}
-                  </span>
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">{dept.name}</h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{dept.description}</p>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  {classes.filter((c) => c.category === dept.name).length} Open Classes
-                </span>
-                <button
-                  onClick={handleEnrollInDepartment}
-                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1"
-                >
-                  <span>Enroll in Department</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )})}
-        </div>
-      </div>
-
-      {/* Course Catalog Section */}
+      {/* Course Catalog Section (Explore Course Offerings) */}
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -174,13 +183,7 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
               Browse our complete curriculum of hands-on, high-impact STEM classes.
             </p>
           </div>
-          <button
-            onClick={handleProceedToRegistration}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 shrink-0 self-start sm:self-auto"
-          >
-            <span>Proceed to Registration</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          {/* Proceed to Registration button removed per user request */}
         </div>
 
         {/* Search and Filters panel */}
@@ -340,6 +343,49 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
             ))}
           </div>
         )}
+      </div>
+
+      {/* Academic Departments & Labs */}
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Academic Departments & Labs</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {effectiveDepartments.filter(d => isDepartmentVisibleToStudents(d)).map((dept) => {
+            const bgClass = dept.color ? dept.color.replace('600', '50') : 'bg-blue-50';
+            const borderClass = dept.color ? dept.color.replace('bg-', 'border-').replace('600', '200') : 'border-blue-200';
+            const textClass = dept.color ? dept.color.replace('bg-', 'text-') : 'text-blue-600';
+            return (
+            <div
+              key={dept.id}
+              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between space-y-4"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className={`w-12 h-12 rounded-xl ${bgClass} ${borderClass} border flex items-center justify-center dark:bg-slate-800/40 dark:border-slate-700/50`}>
+                    <BookOpen className={`w-6 h-6 ${textClass}`} />
+                  </div>
+                  <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg">
+                    {dept.room || 'General Lab'}
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">{dept.name}</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{dept.description}</p>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {classes.filter((c) => c.category === dept.name).length} Open Classes
+                </span>
+                <button
+                  onClick={handleEnrollInDepartment}
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1"
+                >
+                  <span>Enroll in Department</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )})}
+        </div>
       </div>
 
       {/* Faculty Directory */}

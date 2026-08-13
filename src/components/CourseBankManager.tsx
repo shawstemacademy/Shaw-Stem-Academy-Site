@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ClassItem, SbaHubOption, ClassType, Department, SchoolUser, LocationOption } from '../types';
+import { formatUSD } from '../lib/formatCurrency';
 import {
   Database,
   CheckCircle,
@@ -1062,7 +1063,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                             <h3 className="text-sm font-bold text-slate-900 mt-1.5">{cls.title}</h3>
                           </div>
                         </div>
-                        <span className="text-sm font-extrabold text-purple-700 shrink-0">${cls.price} USD/{cls.pricePeriod || 'yr'}</span>
+                        <span className="text-sm font-extrabold text-purple-700 shrink-0">{formatUSD(cls.price)}/{cls.pricePeriod || 'yr'}</span>
                       </div>
 
                     <div className="text-xs text-slate-600 space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
@@ -1212,7 +1213,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                             </p>
                           </div>
                         </div>
-                        <span className="text-sm font-extrabold text-purple-700 shrink-0">${sba.yearlyPrice} USD/{sba.pricePeriod || 'yr'}</span>
+                        <span className="text-sm font-extrabold text-purple-700 shrink-0">{formatUSD(sba.yearlyPrice)}/{sba.pricePeriod || 'yr'}</span>
                       </div>
 
                       <div className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2">

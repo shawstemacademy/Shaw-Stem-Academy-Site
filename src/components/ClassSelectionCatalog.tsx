@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ClassItem, FormTheme, ScheduleClash, Department, ClassType, isDepartmentVisibleToStudents } from '../types';
 import { checkStudentSelectedClashes } from '../lib/scheduleClashUtils';
+import { formatUSD } from '../lib/formatCurrency';
 import {
   CheckSquare,
   Square,
@@ -416,7 +417,7 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
 
                         {/* Price Badge */}
                         <div className="text-right">
-                          <span className="text-lg font-black text-purple-900">${cls.price}</span>
+                          <span className="text-lg font-black text-purple-900">{formatUSD(cls.price)}</span>
                           <span className="text-[11px] text-gray-500 font-normal">
                             {cls.pricePeriod ? ` / ${cls.pricePeriod}` : ' / semester'}
                           </span>

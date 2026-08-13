@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ConfirmationModal } from '../ConfirmationModal';
+import { AdminSystemActionLogs } from './AdminSystemActionLogs';
 import { 
   ShieldCheck, 
   Settings2, 
@@ -63,6 +64,8 @@ import { AdminAcademyInfoManagement } from './AdminAcademyInfoManagement';
 import { StudentSearchDashboard } from './StudentSearchDashboard';
 import { ClassClaimForm } from './ClassClaimForm';
 import { AdminAddDropManager } from './AdminAddDropManager';
+import { AdminFormFieldsEditor } from './AdminFormFieldsEditor';
+import { FormFieldSetting } from '../../lib/formFieldsConfig';
 import { HelpCircle, Newspaper, Send, Smartphone, Laptop, Globe, Wifi, Copy, RefreshCw, CheckCircle, AlertCircle, MessageSquare, Info, SendHorizontal, Download, Database } from 'lucide-react';
 import { isFcmSupported, requestAndSaveFcmToken, onForegroundMessage, revokeFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
 import { subscribeToCollection, db } from '../../lib/firebase';
@@ -127,6 +130,9 @@ interface AdminDashboardPageProps {
   onApproveAddDropRequest?: (req: AddDropRequest, notes?: string) => void;
   onRejectAddDropRequest?: (req: AddDropRequest, notes?: string) => void;
   onSystemDataExport?: () => void;
+  fieldSettings?: FormFieldSetting[];
+  onSaveFieldSettings?: (updated: FormFieldSetting[]) => void;
+  onResetFieldSettingsToDefaults?: () => void;
 }
 
 export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
@@ -187,8 +193,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   onApproveAddDropRequest = () => {},
   onRejectAddDropRequest = () => {},
   onSystemDataExport,
+  fieldSettings = [],
+  onSaveFieldSettings = () => {},
+  onResetFieldSettingsToDefaults = () => {},
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search'>(
+  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields'>(
     currentRole === 'hod' ? 'users' : 'overview'
   );
 
@@ -1012,6 +1021,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       id: 'landing_page' as const,
       label: 'Landing Page Settings',
       icon: <Sparkles className="w-4 h-4" />,
+    },
+    {
+      id: 'form_fields' as const,
+      label: 'Form Field Settings',
+      icon: <Sliders className="w-4 h-4 text-purple-400" />,
+      badge: `${fieldSettings.length} Fields`,
     },
     {
       id: 'activity' as const,
@@ -1998,74 +2013,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         </div>
       )}
 
+      {/* 5.5. FORM FIELD SETTINGS TAB */}
+      {activeAdminTab === 'form_fields' && (
+        <AdminFormFieldsEditor
+          fieldSettings={fieldSettings}
+          onSaveSettings={onSaveFieldSettings}
+          onResetToDefaults={onResetFieldSettingsToDefaults}
+        />
+      )}
+
       {/* 6. ACTIVITY LOG TAB */}
       {activeAdminTab === 'activity' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-extrabold text-slate-900">System Activity Log</h2>
-          </div>
-
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            {systemActionLogs.length === 0 ? (
-              <div className="p-12 text-center text-slate-500 font-medium">
-                No activity logs recorded yet.
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 max-h-[800px] overflow-y-auto">
-                {systemActionLogs.map((log) => {
-                  let Icon = Activity;
-                  let colorClass = 'text-slate-500 bg-slate-100';
-                  
-                  switch (log.actionType) {
-                    case 'registration':
-                      Icon = UserCheck;
-                      colorClass = 'text-emerald-600 bg-emerald-50';
-                      break;
-                    case 'user_created':
-                      Icon = Users;
-                      colorClass = 'text-blue-600 bg-blue-50';
-                      break;
-                    case 'user_updated':
-                      Icon = Settings2;
-                      colorClass = 'text-amber-600 bg-amber-50';
-                      break;
-                    case 'user_disabled':
-                      Icon = Ban;
-                      colorClass = 'text-rose-600 bg-rose-50';
-                      break;
-                    case 'role_changed':
-                      Icon = Key;
-                      colorClass = 'text-purple-600 bg-purple-50';
-                      break;
-                    case 'discount_updated':
-                      Icon = Tag;
-                      colorClass = 'text-indigo-600 bg-indigo-50';
-                      break;
-                  }
-
-                  return (
-                    <div key={log.id} className="p-4 sm:p-5 flex gap-4 hover:bg-slate-50 transition-colors">
-                      <div className={`p-2 rounded-xl shrink-0 h-min ${colorClass}`}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="font-bold text-slate-900 text-sm">{log.description}</span>
-                          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                            {log.actionType.replace('_', ' ')}
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-500 font-medium">
-                          Actor: {log.actor} • {new Date(log.timestamp).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
+        <AdminSystemActionLogs logs={systemActionLogs} />
       )}
 
       {/* 6. NOTIFICATION TEST CENTER TAB */}

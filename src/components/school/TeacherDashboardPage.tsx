@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import jsQR from 'jsqr';
 import { 
   Users, 
   PlusCircle, 
@@ -21,7 +22,11 @@ import {
   TrendingUp,
   Award,
   Percent,
-  Filter
+  Filter,
+  Camera,
+  VideoOff,
+  QrCode,
+  Volume2
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -331,6 +336,335 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   const [managingAcademicsClassId, setManagingAcademicsClassId] = useState<string | null>(null);
   const [academicManageTab, setAcademicManageTab] = useState<'attendance' | 'grades'>('attendance');
   
+  // Attendance QR Code Scanner States & Refs
+  const [isScanningQr, setIsScanningQr] = useState<boolean>(false);
+  const [scanFeedback, setScanFeedback] = useState<string | null>(null);
+  const [scanFeedbackType, setScanFeedbackType] = useState<'success' | 'error' | null>(null);
+  const scanVideoRef = useRef<HTMLVideoElement | null>(null);
+  const scanCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    let activeStream: MediaStream | null = null;
+    let animationFrameId: number | null = null;
+    let isLocked = false;
+
+    const startCamera = async () => {
+      try {
+        setScanFeedback("Accessing camera...");
+        setScanFeedbackType(null);
+        
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }
+        });
+        
+        activeStream = stream;
+        
+        if (scanVideoRef.current) {
+          scanVideoRef.current.srcObject = stream;
+          scanVideoRef.current.setAttribute("playsinline", "true");
+          scanVideoRef.current.play();
+        }
+        
+        animationFrameId = requestAnimationFrame(tick);
+        setScanFeedback("Camera active. Align Student QR Code inside the scan box.");
+        setScanFeedbackType('success');
+      } catch (err: any) {
+        console.error("Camera access failed", err);
+        setScanFeedback(`Camera access failed: ${err.message || 'Check browser permissions.'}`);
+        setScanFeedbackType('error');
+        setIsScanningQr(false);
+      }
+    };
+
+    const playBeep = () => {
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+      } catch (e) {
+        console.warn("Audio Context beep failed", e);
+      }
+    };
+
+    const tick = () => {
+      if (!scanVideoRef.current || !scanCanvasRef.current || isLocked) {
+        animationFrameId = requestAnimationFrame(tick);
+        return;
+      }
+
+      const video = scanVideoRef.current;
+      const canvas = scanCanvasRef.current;
+      const ctx = canvas.getContext('2d');
+
+      if (video.readyState === video.HAVE_ENOUGH_DATA && ctx) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(canvas.width * 0.15, canvas.height * 0.15, canvas.width * 0.7, canvas.height * 0.7);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert",
+        });
+
+        if (code && code.data) {
+          const scannedStudentId = code.data.trim();
+          const activeClass = classes.find(c => c.id === managingAcademicsClassId);
+          
+          if (activeClass) {
+            const classEnrolled = registrationLogs.filter(log => log.verifiedClassIds?.includes(activeClass.id) && log.status === 'enrolled_paid');
+            const studentMatch = classEnrolled.find(s => s.studentInfo?.id === scannedStudentId || s.id === scannedStudentId);
+            
+            if (studentMatch) {
+              const studentName = studentMatch.studentInfo?.studentName || studentMatch.studentInfo?.firstName || 'Student';
+              const attId = `att-${activeClass.id}-${new Date().toISOString().split('T')[0]}-${studentMatch.studentInfo?.id || studentMatch.id}`;
+              const alreadyMarked = attendanceRecords?.some(a => a.id === attId);
+              
+              if (alreadyMarked) {
+                setScanFeedback(`${studentName} is ALREADY marked present!`);
+                setScanFeedbackType('success');
+                playBeep();
+                
+                isLocked = true;
+                setTimeout(() => {
+                  isLocked = false;
+                  setScanFeedback("Camera active. Align Student QR Code inside the scan box.");
+                }, 2000);
+              } else {
+                playBeep();
+                
+                onUpdateAttendance({
+                  id: attId,
+                  classId: activeClass.id,
+                  className: activeClass.title,
+                  date: new Date().toISOString().split('T')[0],
+                  studentId: studentMatch.studentInfo?.id || studentMatch.id,
+                  studentName: studentName,
+                  status: 'present',
+                  timestamp: new Date().toISOString()
+                });
+
+                setScanFeedback(`SUCCESS! Marked ${studentName} as PRESENT!`);
+                setScanFeedbackType('success');
+
+                isLocked = true;
+                setTimeout(() => {
+                  isLocked = false;
+                  setScanFeedback("Camera active. Align Student QR Code inside the scan box.");
+                }, 2500);
+              }
+            } else {
+              setScanFeedback("Error: Student is not registered/enrolled in this specific class!");
+              setScanFeedbackType('error');
+              
+              isLocked = true;
+              setTimeout(() => {
+                isLocked = false;
+                setScanFeedback("Camera active. Align Student QR Code inside the scan box.");
+              }, 2000);
+            }
+          }
+        }
+      }
+      animationFrameId = requestAnimationFrame(tick);
+    };
+
+    if (isScanningQr && managingAcademicsClassId) {
+      startCamera();
+    }
+
+    return () => {
+      if (activeStream) {
+        activeStream.getTracks().forEach(track => track.stop());
+      }
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [isScanningQr, managingAcademicsClassId, classes, registrationLogs, attendanceRecords]);
+
+  // Dedicated Global QR Scanner States & Refs for the Modal
+  const [isGlobalScannerOpen, setIsGlobalScannerOpen] = useState<boolean>(false);
+  const [globalScanFeedback, setGlobalScanFeedback] = useState<string | null>(null);
+  const [globalScanFeedbackType, setGlobalScanFeedbackType] = useState<'success' | 'error' | null>(null);
+  const [globalScanClassId, setGlobalScanClassId] = useState<string>('');
+  const globalScanVideoRef = useRef<HTMLVideoElement | null>(null);
+  const globalScanCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Set default class ID when classes are loaded or modal is opened
+  useEffect(() => {
+    if (classes.length > 0 && !globalScanClassId) {
+      setGlobalScanClassId(classes[0].id);
+    }
+  }, [classes, globalScanClassId]);
+
+  useEffect(() => {
+    let activeStream: MediaStream | null = null;
+    let animationFrameId: number | null = null;
+    let isLocked = false;
+
+    const startCamera = async () => {
+      try {
+        setGlobalScanFeedback("Accessing camera...");
+        setGlobalScanFeedbackType(null);
+        
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }
+        });
+        
+        activeStream = stream;
+        
+        if (globalScanVideoRef.current) {
+          globalScanVideoRef.current.srcObject = stream;
+          globalScanVideoRef.current.setAttribute("playsinline", "true");
+          globalScanVideoRef.current.play();
+        }
+        
+        animationFrameId = requestAnimationFrame(tick);
+        setGlobalScanFeedback("Camera active. Align Student QR Pass inside the box.");
+        setGlobalScanFeedbackType('success');
+      } catch (err: any) {
+        console.error("Global camera access failed", err);
+        setGlobalScanFeedback(`Camera access failed: ${err.message || 'Check browser permissions.'}`);
+        setGlobalScanFeedbackType('error');
+      }
+    };
+
+    const playBeep = () => {
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+      } catch (e) {
+        console.warn("Audio Context beep failed", e);
+      }
+    };
+
+    const tick = () => {
+      if (!globalScanVideoRef.current || !globalScanCanvasRef.current || isLocked) {
+        animationFrameId = requestAnimationFrame(tick);
+        return;
+      }
+
+      const video = globalScanVideoRef.current;
+      const canvas = globalScanCanvasRef.current;
+      const ctx = canvas.getContext('2d');
+
+      if (video.readyState === video.HAVE_ENOUGH_DATA && ctx) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        ctx.strokeStyle = '#10b981'; // Emerald frame for global scanner
+        ctx.lineWidth = 4;
+        ctx.strokeRect(canvas.width * 0.15, canvas.height * 0.15, canvas.width * 0.7, canvas.height * 0.7);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert",
+        });
+
+        if (code && code.data) {
+          const scannedStudentId = code.data.trim();
+          const targetClass = classes.find(c => c.id === globalScanClassId);
+          
+          if (targetClass) {
+            const classEnrolled = registrationLogs.filter(log => log.verifiedClassIds?.includes(targetClass.id) && log.status === 'enrolled_paid');
+            const studentMatch = classEnrolled.find(s => s.studentInfo?.id === scannedStudentId || s.id === scannedStudentId);
+            
+            if (studentMatch) {
+              const studentName = studentMatch.studentInfo?.studentName || studentMatch.studentInfo?.firstName || 'Student';
+              const attId = `att-${targetClass.id}-${new Date().toISOString().split('T')[0]}-${studentMatch.studentInfo?.id || studentMatch.id}`;
+              const alreadyMarked = attendanceRecords?.some(a => a.id === attId);
+              
+              if (alreadyMarked) {
+                setGlobalScanFeedback(`${studentName} is ALREADY marked present!`);
+                setGlobalScanFeedbackType('success');
+                playBeep();
+                
+                isLocked = true;
+                setTimeout(() => {
+                  isLocked = false;
+                  setGlobalScanFeedback("Camera active. Align Student QR Pass inside the box.");
+                }, 2000);
+              } else {
+                playBeep();
+                
+                onUpdateAttendance({
+                  id: attId,
+                  classId: targetClass.id,
+                  className: targetClass.title,
+                  date: new Date().toISOString().split('T')[0],
+                  studentId: studentMatch.studentInfo?.id || studentMatch.id,
+                  studentName: studentName,
+                  status: 'present',
+                  timestamp: new Date().toISOString()
+                });
+
+                setGlobalScanFeedback(`SUCCESS! Marked ${studentName} as PRESENT in ${targetClass.title}!`);
+                setGlobalScanFeedbackType('success');
+
+                isLocked = true;
+                setTimeout(() => {
+                  isLocked = false;
+                  setGlobalScanFeedback("Camera active. Align Student QR Pass inside the box.");
+                }, 2500);
+              }
+            } else {
+              setGlobalScanFeedback("Error: Student is not registered/enrolled in this specific class!");
+              setGlobalScanFeedbackType('error');
+              
+              isLocked = true;
+              setTimeout(() => {
+                isLocked = false;
+                setGlobalScanFeedback("Camera active. Align Student QR Pass inside the box.");
+              }, 2000);
+            }
+          } else {
+            setGlobalScanFeedback("Error: Please select a valid course first!");
+            setGlobalScanFeedbackType('error');
+          }
+        }
+      }
+      animationFrameId = requestAnimationFrame(tick);
+    };
+
+    if (isGlobalScannerOpen && globalScanClassId) {
+      startCamera();
+    }
+
+    return () => {
+      if (activeStream) {
+        activeStream.getTracks().forEach(track => track.stop());
+      }
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [isGlobalScannerOpen, globalScanClassId, classes, registrationLogs, attendanceRecords]);
+  
   const [editGcUrl, setEditGcUrl] = useState<string>('');
   const [editMeetUrl, setEditMeetUrl] = useState<string>('');
 
@@ -396,13 +730,27 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                 {currentTeacher?.title} • {teacherDepartmentNames.length > 0 ? teacherDepartmentNames.join(', ') : 'General Faculty'}
               </p>
               
-              <button
-                onClick={handleOpenEditProfileModal}
-                className="mt-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Edit My Faculty Profile</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleOpenEditProfileModal}
+                  className="mt-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit My Faculty Profile</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsGlobalScannerOpen(true);
+                    setGlobalScanFeedback(null);
+                    setGlobalScanFeedbackType(null);
+                  }}
+                  className="mt-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <QrCode className="w-3.5 h-3.5 animate-pulse" />
+                  <span>Scan QR Attendance</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1059,30 +1407,120 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
 
               {academicManageTab === 'attendance' && (
                 <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <h4 className="font-bold text-slate-900">Today's Attendance ({todayStr})</h4>
-                    <button
-                      onClick={() => {
-                        const classAttendance = attendanceRecords?.filter(a => a.classId === cls.id) || [];
-                        if (classAttendance.length === 0) return alert('No attendance records found for this class.');
-                        
-                        const headers = ['Date', 'Student Name', 'Status', 'Timestamp'];
-                        const rows = classAttendance.map(a => [a.date, a.studentName, a.status, a.timestamp]);
-                        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-                        
-                        const blob = new Blob([csvContent], { type: 'text/csv' });
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `attendance-\${cls.id}-\${todayStr}.csv`;
-                        a.click();
-                        window.URL.revokeObjectURL(url);
-                      }}
-                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
-                    >
-                      Export All Attendance
-                    </button>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-lg">Today's Attendance ({todayStr})</h4>
+                      <p className="text-xs text-slate-500">Log attendance manually or use the QR scanner.</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setIsScanningQr(!isScanningQr);
+                          setScanFeedback(null);
+                          setScanFeedbackType(null);
+                        }}
+                        className={`px-3.5 py-1.5 text-xs font-bold rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer ${
+                          isScanningQr 
+                            ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse' 
+                            : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                        }`}
+                      >
+                        {isScanningQr ? (
+                          <>
+                            <VideoOff className="w-3.5 h-3.5" />
+                            <span>Stop QR Scanner</span>
+                          </>
+                        ) : (
+                          <>
+                            <Camera className="w-3.5 h-3.5 animate-bounce" />
+                            <span>Mark via QR Scan</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          const classAttendance = attendanceRecords?.filter(a => a.classId === cls.id) || [];
+                          if (classAttendance.length === 0) return alert('No attendance records found for this class.');
+                          
+                          const headers = ['Date', 'Student Name', 'Status', 'Timestamp'];
+                          const rows = classAttendance.map(a => [a.date, a.studentName, a.status, a.timestamp]);
+                          const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+                          
+                          const blob = new Blob([csvContent], { type: 'text/csv' });
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `attendance-${cls.id}-${todayStr}.csv`;
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                        }}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
+                      >
+                        Export All Attendance
+                      </button>
+                    </div>
                   </div>
+
+                  {/* live camera scan box */}
+                  {isScanningQr && (
+                    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 max-w-md mx-auto animate-fade-in relative overflow-hidden shadow-2xl">
+                      <div className="absolute inset-0 bg-[radial-gradient(#312e81_1px,transparent_1px)] [background-size:16px_16px] opacity-20 pointer-events-none"></div>
+                      
+                      <div className="flex items-center justify-between relative z-10">
+                        <span className="flex items-center gap-1.5 text-xs text-indigo-400 font-extrabold uppercase tracking-widest">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                          LIVE ATTENDANCE SCANNER
+                        </span>
+                        <button 
+                          onClick={() => setIsScanningQr(false)}
+                          className="text-slate-500 hover:text-slate-300 transition-colors text-xs font-bold cursor-pointer"
+                        >
+                          ✕ Close
+                        </button>
+                      </div>
+
+                      <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-800 flex items-center justify-center">
+                        <video 
+                          ref={scanVideoRef} 
+                          className="absolute inset-0 w-full h-full object-cover"
+                          muted 
+                          playsInline
+                        />
+                        <canvas ref={scanCanvasRef} className="hidden" />
+
+                        {/* Scanner Laser and corner brackets overlay */}
+                        <div className="absolute inset-x-8 inset-y-6 border-2 border-indigo-500/30 rounded-lg pointer-events-none flex flex-col justify-between">
+                          <div className="flex justify-between">
+                            <div className="w-4 h-4 border-t-4 border-l-4 border-indigo-400 -mt-1 -ml-1"></div>
+                            <div className="w-4 h-4 border-t-4 border-r-4 border-indigo-400 -mt-1 -mr-1"></div>
+                          </div>
+                          <div className="w-full h-0.5 bg-indigo-500 shadow-[0_0_12px_#6366f1] animate-[pulse_1s_infinite]"></div>
+                          <div className="flex justify-between">
+                            <div className="w-4 h-4 border-b-4 border-l-4 border-indigo-400 -mb-1 -ml-1"></div>
+                            <div className="w-4 h-4 border-b-4 border-r-4 border-indigo-400 -mb-1 -mr-1"></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {scanFeedback && (
+                        <div className={`p-3 rounded-xl border text-xs font-bold transition-all relative z-10 flex items-center gap-2 ${
+                          scanFeedbackType === 'success'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            : scanFeedbackType === 'error'
+                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                            : 'bg-slate-900 text-slate-300 border-slate-800'
+                        }`}>
+                          <Volume2 className={`w-4 h-4 shrink-0 ${scanFeedbackType === 'success' ? 'animate-bounce' : ''}`} />
+                          <span className="flex-1 leading-relaxed">{scanFeedback}</span>
+                        </div>
+                      )}
+
+                      <div className="text-[11px] text-slate-500 text-center leading-relaxed">
+                        Tip: Have the student expand their QR code fullscreen on their portal for best alignment under varying classroom lighting.
+                      </div>
+                    </div>
+                  )}
                   {enrolledStudents.length === 0 ? (
                     <p className="text-xs text-slate-500 italic">No students enrolled yet.</p>
                   ) : (
@@ -1673,6 +2111,122 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DEDICATED GLOBAL QR ATTENDANCE SCANNER MODAL */}
+      {isGlobalScannerOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 relative shadow-2xl text-white my-8">
+            <button
+              onClick={() => setIsGlobalScannerOpen(false)}
+              className="absolute right-4 top-4 w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center justify-center text-lg font-bold cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                  <QrCode className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black tracking-tight">Dedicated ID Scanner</h3>
+                  <p className="text-xs text-slate-400">Scan student QR codes for instant, automated attendance logging.</p>
+                </div>
+              </div>
+
+              {/* Class Selector Dropdown */}
+              <div className="bg-slate-950/50 p-4 border border-slate-800 rounded-2xl space-y-2">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+                  Step 1: Select Active Course / Lecture:
+                </label>
+                <select
+                  value={globalScanClassId}
+                  onChange={(e) => {
+                    setGlobalScanClassId(e.target.value);
+                    setGlobalScanFeedback("Switched course. Align student QR code in the scanner box.");
+                    setGlobalScanFeedbackType('success');
+                  }}
+                  className="w-full bg-slate-900 text-slate-100 border border-slate-800 text-xs font-bold px-3 py-2.5 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                >
+                  {classes.length === 0 ? (
+                    <option value="">No courses assigned</option>
+                  ) : (
+                    classes.map((cls) => (
+                      <option key={cls.id} value={cls.id}>
+                        {cls.title} ({cls.schedule})
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              {/* Live Video Frame Container */}
+              <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner">
+                <video
+                  ref={globalScanVideoRef}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  muted
+                  playsInline
+                />
+                <canvas ref={globalScanCanvasRef} className="hidden" />
+
+                {/* Aesthetic green targeting reticle for entrance/security scans */}
+                <div className="absolute inset-x-12 inset-y-8 border-2 border-emerald-500/30 rounded-2xl pointer-events-none flex flex-col justify-between">
+                  <div className="flex justify-between">
+                    <div className="w-5 h-5 border-t-4 border-l-4 border-emerald-400 -mt-1 -ml-1"></div>
+                    <div className="w-5 h-5 border-t-4 border-r-4 border-emerald-400 -mt-1 -mr-1"></div>
+                  </div>
+                  <div className="w-full h-0.5 bg-emerald-500 shadow-[0_0_12px_#10b981] animate-[pulse_1s_infinite]"></div>
+                  <div className="flex justify-between">
+                    <div className="w-5 h-5 border-b-4 border-l-4 border-emerald-400 -mb-1 -ml-1"></div>
+                    <div className="w-5 h-5 border-b-4 border-r-4 border-emerald-400 -mb-1 -mr-1"></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status & Scan Feedback readouts */}
+              {globalScanFeedback && (
+                <div className={`p-4 rounded-xl border text-xs font-bold transition-all flex items-start gap-2.5 ${
+                  globalScanFeedbackType === 'success'
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.05)]'
+                    : globalScanFeedbackType === 'error'
+                    ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.05)]'
+                    : 'bg-slate-950 text-slate-300 border-slate-800'
+                }`}>
+                  <span className="text-base shrink-0">
+                    {globalScanFeedbackType === 'success' ? '✓' : globalScanFeedbackType === 'error' ? '⚠' : 'ℹ'}
+                  </span>
+                  <div className="space-y-0.5">
+                    <p className="font-extrabold uppercase tracking-wider text-[10px] text-slate-400">Scanner Diagnostics</p>
+                    <p className="leading-relaxed">{globalScanFeedback}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* General Operating instructions */}
+              <div className="bg-slate-950/40 p-4 border border-slate-800/60 rounded-2xl space-y-2">
+                <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-widest block">
+                  How to Log Student Entrance
+                </span>
+                <ol className="text-xs text-slate-400 list-decimal list-inside space-y-1 font-medium">
+                  <li>Ask the student to open their portal and tap their pass to view fullscreen.</li>
+                  <li>Position their QR Code 4-8 inches away from the active camera lens.</li>
+                  <li>On successful recognition, a confirmation sound will play and log attendance instantly.</li>
+                </ol>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  onClick={() => setIsGlobalScannerOpen(false)}
+                  className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all cursor-pointer w-full text-center"
+                >
+                  Close Scanner Terminal
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
