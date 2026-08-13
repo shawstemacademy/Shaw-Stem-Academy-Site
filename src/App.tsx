@@ -1445,6 +1445,16 @@ export default function App() {
   };
 
   const handleGoogleAuthRegistration = async () => {
+    const enteredEmail = (studentInfo.email || '').trim().toLowerCase();
+    const existingUser = schoolUsers.find(
+      (u) => (u?.email || '').toLowerCase() === enteredEmail
+    );
+    if (existingUser) {
+      alert(`An account with the email address "${studentInfo.email}" already exists. Please log in using that existing email address.`);
+      setActiveTab('login');
+      return;
+    }
+
     setAuthLoading(true);
     setAuthError('');
     try {
@@ -1512,6 +1522,16 @@ export default function App() {
   };
 
   const handleDirectGoogleEmailSignIn = async () => {
+    const enteredEmail = (studentInfo.email || '').trim().toLowerCase();
+    const existingUser = schoolUsers.find(
+      (u) => (u?.email || '').toLowerCase() === enteredEmail
+    );
+    if (existingUser) {
+      alert(`An account with the email address "${studentInfo.email}" already exists. Please log in using that existing email address.`);
+      setActiveTab('login');
+      return;
+    }
+
     setAuthLoading(true);
     setAuthError('');
     try {
@@ -1572,6 +1592,17 @@ export default function App() {
   };
 
   const handlePasswordAuthRegistration = async () => {
+    const enteredEmail = (studentInfo.email || '').trim().toLowerCase();
+    const existingUser = schoolUsers.find(
+      (u) => (u?.email || '').toLowerCase() === enteredEmail
+    );
+    if (existingUser) {
+      alert(`An account with the email address "${studentInfo.email}" already exists. Please log in using that existing email address.`);
+      setIsAuthModalOpen(false);
+      setActiveTab('login');
+      return;
+    }
+
     if (regPassword.length < 6) {
       setAuthError('Password must be at least 6 characters.');
       return;
@@ -3603,6 +3634,16 @@ export default function App() {
                           }
                         }
                         
+                        const enteredEmail = (studentInfo.email || '').trim().toLowerCase();
+                        const existingUser = schoolUsers.find(
+                          (u) => (u?.email || '').toLowerCase() === enteredEmail
+                        );
+                        if (existingUser) {
+                          alert(`An account with the email address "${studentInfo.email}" already exists. Please log in using that existing email address.`);
+                          setActiveTab('login');
+                          return;
+                        }
+
                         const isGoogle = (studentInfo.email || '').toLowerCase().endsWith('@gmail.com');
                         if (isGoogle) {
                           handleGoogleAuthRegistration();
