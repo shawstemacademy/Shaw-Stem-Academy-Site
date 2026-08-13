@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { SEOOptimizer } from './components/common/SEOOptimizer';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { Lock, Loader2 } from 'lucide-react';
 import { requestNotificationPermission, sendDesktopNotification, playNotificationSound } from './lib/notifications';
@@ -2908,6 +2909,9 @@ export default function App() {
             </div>
           </div>
         )}
+        {/* Dynamic SEO Meta Tag Optimizer */}
+        <SEOOptimizer activeTab={activeTab} />
+
         {/* Top School Navbar with Role & Status Switcher */}
         <SchoolHeaderNav
           activeTab={activeTab}
@@ -3424,9 +3428,15 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8 text-xs">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-blue-600 text-white flex items-center justify-center font-black">
-                S
-              </div>
+              <img 
+                src={landingPageSettings.logoUrl && !landingPageSettings.logoUrl.includes('favicon') ? landingPageSettings.logoUrl : "/logo.png"} 
+                alt="Shaw STEM Academy Logo" 
+                className="w-7 h-7 rounded-lg object-contain bg-slate-950 p-0.5 border border-slate-800"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "/logo.png";
+                }}
+              />
               <span className="font-extrabold text-white text-sm">Shaw STEM Academy</span>
             </div>
             <p className="leading-relaxed text-slate-400">

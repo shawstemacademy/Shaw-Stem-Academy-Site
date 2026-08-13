@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ApplicationTransparencyNotice } from './ApplicationTransparencyNotice';
 import { 
   Award, 
   Cpu, 
@@ -107,82 +108,13 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
     }
   };
 
+  const logoSource = (settings.logoUrl && !settings.logoUrl.includes('favicon')) ? settings.logoUrl : '/logo.png';
+
   return (
     <div className="space-y-12 pb-16">
-      {/* Google Verification & Prominent Application Purpose Banner */}
-      <div className="bg-slate-50 dark:bg-slate-900 border-2 border-blue-500 rounded-3xl p-6 sm:p-8 shadow-md space-y-6">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <div className="space-y-4">
-            <div>
-              <span className="text-blue-600 dark:text-blue-400 text-xs font-extrabold uppercase tracking-widest block mb-1">
-                Google API Verification & Application Transparency Notice
-              </span>
-              <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100">
-                Official Application Purpose &amp; Google Sign-In Disclosure
-              </h2>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              <div className="space-y-2">
-                <p className="font-semibold text-slate-900 dark:text-slate-100">
-                  1. What is the purpose of this application?
-                </p>
-                <p>
-                  The <strong>Shaw STEM Academy Portal</strong> is a comprehensive academic information system and student registration hub. Its primary purpose is to empower prospective students, parents, active faculty, and administrators to view state-of-the-art science and engineering course catalogs, submit applications, manage classroom assignments, view lab schedules, and securely register for hands-on STEM laboratory term classes.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <p className="font-semibold text-slate-900 dark:text-slate-100">
-                  2. Why do we require Google Authentication?
-                </p>
-                <p>
-                  We utilize Google OAuth (Sign-In) strictly to verify user identities and establish a secure session. When you authenticate with your Google Account, we securely retrieve your basic profile information (such as your name, email, and avatar) to:
-                </p>
-                <ul className="list-disc pl-5 space-y-1 mt-1 text-xs">
-                  <li>Safely map your logged-in Google Identity to your designated school role (Student, Faculty, or Administrator).</li>
-                  <li>Authorize unique access privileges for personal learning portals and administrative suites.</li>
-                  <li>Prevent unauthorized registrations and secure academic class rosters inside our database.</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Your data is never shared with third parties. For more information, read our legal governance pages:
-              </p>
-              <div className="flex items-center gap-4 text-xs font-bold">
-                <a 
-                  href="?tab=privacy" 
-                  onClick={(e) => { e.preventDefault(); onNavigate('privacy'); }} 
-                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  <span>Privacy Policy</span>
-                </a>
-                <span className="text-slate-300 dark:text-slate-700">•</span>
-                <a 
-                  href="?tab=terms" 
-                  onClick={(e) => { e.preventDefault(); onNavigate('terms'); }} 
-                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Terms of Service</span>
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Hero Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-slate-900 text-white shadow-2xl border border-slate-800">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/40 via-slate-900 to-slate-950 -z-10" />
-        
-
 
         <div className="p-8 sm:p-12 md:p-16 flex flex-col md:flex-row items-center gap-12">
           <div className="flex-1 max-w-2xl space-y-6">
@@ -234,10 +166,14 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
             <div className="relative group flex flex-col items-center">
               <div className="relative w-56 h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 flex items-center justify-center rounded-full bg-slate-800/10 p-4 border border-slate-800/50 shadow-2xl backdrop-blur-xs overflow-hidden">
                 <img
-                  src={settings.logoUrl || '/favicon.png'}
+                  src={logoSource}
                   alt="Shaw STEM Academy Logo"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-contain transition-all duration-300 group-hover:scale-105"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/logo.png';
+                  }}
                 />
                 
                 {isAdmin && (
@@ -451,6 +387,9 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
           </div>
         )}
       </div>
+
+      {/* Google Verification & Application Transparency Notice (Combined, Above Footer) */}
+      <ApplicationTransparencyNotice onNavigate={onNavigate} />
 
       {/* Edit Logo Modal */}
       {isEditingLogo && (
