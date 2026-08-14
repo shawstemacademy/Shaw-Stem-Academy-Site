@@ -1,7 +1,197 @@
 import React from 'react';
-import { Shield } from 'lucide-react';
+import { Shield, Lock, Eye, Database, Smartphone, UserX, Globe, HelpCircle, Mail, CheckCircle2, Clock, FileCheck } from 'lucide-react';
 
 export const PrivacyPolicyPage: React.FC = () => {
+  const sections = [
+    {
+      id: 'overview',
+      title: '1. Overview & Scope',
+      icon: <Shield className="w-5 h-5 text-blue-500" />,
+      content: (
+        <div className="space-y-3 text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
+          <p>
+            This Privacy Policy describes Our policies and procedures on the collection, use, and disclosure of Your information when You use the Shaw STEM Academy Service and informs You about Your privacy rights and legal protections.
+          </p>
+          <p>
+            We use Your Personal Data to provide and improve the Service. We collect, use, and disclose Your information as described in this Privacy Policy and, where required by applicable law, only where We have a valid legal basis to do so, including Your consent.
+          </p>
+          <div className="p-3.5 bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-xl text-blue-900 dark:text-blue-300 text-xs">
+            <strong>Website:</strong> Shaw STEM Academy, accessible from{' '}
+            <a
+              href="https://shaw-stem-academy-website.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-bold hover:text-blue-600"
+            >
+              https://shaw-stem-academy-website.vercel.app
+            </a>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'definitions',
+      title: '2. Interpretation & Key Definitions',
+      icon: <FileCheck className="w-5 h-5 text-indigo-500" />,
+      content: (
+        <div className="space-y-3 text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
+          <p>For the purposes of this Privacy Policy:</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+              <span className="font-bold text-xs text-indigo-600 dark:text-indigo-400 block">Account</span>
+              <p className="text-xs text-slate-600 dark:text-slate-300">A unique portal account created for You to access academic features.</p>
+            </div>
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+              <span className="font-bold text-xs text-indigo-600 dark:text-indigo-400 block">Company ("We", "Us")</span>
+              <p className="text-xs text-slate-600 dark:text-slate-300">Refers to Shaw STEM Academy (Jamaica).</p>
+            </div>
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+              <span className="font-bold text-xs text-indigo-600 dark:text-indigo-400 block">Personal Data</span>
+              <p className="text-xs text-slate-600 dark:text-slate-300">Any information that relates to an identified or identifiable individual.</p>
+            </div>
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+              <span className="font-bold text-xs text-indigo-600 dark:text-indigo-400 block">Usage Data</span>
+              <p className="text-xs text-slate-600 dark:text-slate-300">Data collected automatically from portal interaction (e.g. session times, device type).</p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'data-collection',
+      title: '3. Data We Collect & How We Use It',
+      icon: <Database className="w-5 h-5 text-emerald-500" />,
+      content: (
+        <div className="space-y-4 text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
+          <p>
+            While using our platform (such as during registration or student profile onboarding), we collect the following categories of information:
+          </p>
+          <div className="space-y-2">
+            <div className="p-3.5 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100 dark:border-emerald-900/30 space-y-1.5">
+              <span className="font-bold text-xs text-emerald-800 dark:text-emerald-300">Student & Parent Information:</span>
+              <ul className="list-disc list-inside text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                <li>Student first and last name, date of birth, grade level, and school background</li>
+                <li>Parent/guardian contact information (name, relationship, email, phone numbers, home address)</li>
+                <li>Emergency contact details and medical/dietary safety notices</li>
+              </ul>
+            </div>
+            <div className="p-3.5 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100 dark:border-emerald-900/30 space-y-1.5">
+              <span className="font-bold text-xs text-emerald-800 dark:text-emerald-300">Primary Uses:</span>
+              <ul className="list-disc list-inside text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                <li>Processing academic admissions and course enrollments</li>
+                <li>Maintaining class rosters, grading records, and laboratory safety compliance</li>
+                <li>Delivering announcements, class updates, and emergency notifications</li>
+                <li>Issuing digital attendance QR passes and logging campus attendance</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'cookies',
+      title: '4. Cookies & Tracking Technologies',
+      icon: <Eye className="w-5 h-5 text-amber-500" />,
+      content: (
+        <div className="space-y-3 text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
+          <p>
+            We use essential session tokens and local storage to secure user logins, remember authentication states, and maintain user preferences (such as dark/light mode).
+          </p>
+          <ul className="space-y-2 text-xs">
+            <li className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+              <strong className="text-slate-900 dark:text-slate-100 block">Essential Security & Auth Cookies:</strong>
+              Required for signing in, maintaining active student sessions, and preventing unauthorized account access.
+            </li>
+            <li className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+              <strong className="text-slate-900 dark:text-slate-100 block">Functional Preference Storage:</strong>
+              Stores UI preferences (e.g. theme preference, dismissed notices) to improve your experience.
+            </li>
+          </ul>
+        </div>
+      )
+    },
+    {
+      id: 'sms',
+      title: '5. Text Messages (SMS) & Push Notifications Notice',
+      icon: <Smartphone className="w-5 h-5 text-purple-500" />,
+      content: (
+        <div className="space-y-3 text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
+          <p>
+            You have the option to receive SMS alerts or push notifications regarding enrollment status, classroom alerts, and urgent notices.
+          </p>
+          <div className="p-4 bg-purple-50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 rounded-2xl space-y-2">
+            <p className="font-bold text-xs text-purple-900 dark:text-purple-200">Our SMS & Mobile Commitment:</p>
+            <ul className="list-disc list-inside text-xs text-purple-800/90 dark:text-purple-300 space-y-1">
+              <li><strong>No Third-Party Sharing:</strong> Mobile phone numbers and consent records are NEVER sold, rented, or shared with third parties or affiliates for marketing purposes.</li>
+              <li><strong>Message Frequency:</strong> Messages are sent only for relevant academic reminders, emergency alerts, or account updates.</li>
+              <li><strong>Opt-Out:</strong> Reply STOP to opt-out of SMS at any time, or disable browser push notifications in your portal settings.</li>
+            </ul>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'retention',
+      title: '6. Data Retention & Deletion',
+      icon: <Clock className="w-5 h-5 text-teal-500" />,
+      content: (
+        <div className="space-y-3 text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
+          <p>
+            We retain personal data only for as long as necessary to fulfill educational, legal, and operational requirements:
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+              <span className="font-bold text-slate-900 dark:text-slate-100 block mb-1">Student Academic Records</span>
+              <p className="text-slate-600 dark:text-slate-300">Retained for the duration of the student's enrollment plus statutory academic record retention periods.</p>
+            </div>
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+              <span className="font-bold text-slate-900 dark:text-slate-100 block mb-1">Right to Deletion</span>
+              <p className="text-slate-600 dark:text-slate-300">You may request the full deletion of your account and personal profile at any time by contacting administration.</p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'children',
+      title: '7. Children\'s and Minors\' Privacy',
+      icon: <UserX className="w-5 h-5 text-rose-500" />,
+      content: (
+        <div className="space-y-3 text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
+          <p>
+            Shaw STEM Academy serves minor students in STEM education. Registration and personal data submission for students under age 18 must be authorized by a parent or legal guardian.
+          </p>
+          <div className="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 rounded-xl text-rose-900 dark:text-rose-300 text-xs">
+            Parents or guardians can review, update, or request removal of their child's information by emailing our registrar office.
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'contact',
+      title: '8. Contact Information',
+      icon: <Mail className="w-5 h-5 text-blue-500" />,
+      content: (
+        <div className="space-y-3 text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
+          <p>If you have any questions or data requests concerning this Privacy Policy, please reach out to us:</p>
+          <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <p className="font-bold text-slate-900 dark:text-slate-100">Shaw STEM Academy Privacy Officer</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Data Protection & Inquiries</p>
+            </div>
+            <a
+              href="mailto:shawstemacademy@gmail.com"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition-colors shadow-xs"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              <span>shawstemacademy@gmail.com</span>
+            </a>
+          </div>
+        </div>
+      )
+    }
+  ];
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-16 animate-fade-in">
       {/* Header Banner */}
@@ -13,204 +203,47 @@ export const PrivacyPolicyPage: React.FC = () => {
           </div>
           <div className="text-center sm:text-left space-y-2">
             <h1 className="text-3xl font-extrabold tracking-tight">Privacy Policy</h1>
-            <p className="text-blue-200/80 font-medium text-sm">Last updated: August 05, 2026</p>
+            <p className="text-blue-200/80 font-medium text-sm">Last updated: August 13, 2026</p>
+            <p className="text-xs text-slate-400 max-w-xl">
+              Learn how Shaw STEM Academy collects, protects, and handles your educational and personal data.
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 sm:p-12 shadow-sm border border-slate-200 dark:border-slate-800 prose prose-slate dark:prose-invert max-w-none prose-headings:text-slate-900 dark:prose-headings:text-slate-100 prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:text-blue-500 dark:hover:prose-a:text-blue-300 prose-strong:text-slate-900 dark:prose-strong:text-slate-100">
-        <p>This Privacy Policy describes Our policies and procedures on the collection, use and disclosure of Your information when You use the Service and tells You about Your privacy rights and how the law protects You.</p>
-        <p>We use Your Personal Data to provide and improve the Service. We collect, use, and disclose Your information as described in this Privacy Policy and, where required by applicable law, only where We have a valid legal basis to do so, including Your consent (where consent is required). This Privacy Policy has been created with the help of the <a href="https://www.termsfeed.com/live/ccbc5a18-c95b-47b8-9f38-e8b9d1797ee2" target="_blank" rel="noopener noreferrer">Privacy Policy Generator</a>.</p>
+      {/* Quick Navigation Anchor Bar */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap gap-2 items-center">
+        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2">Jump to:</span>
+        {sections.map((sec) => (
+          <a
+            key={sec.id}
+            href={`#${sec.id}`}
+            className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
+          >
+            {sec.title.split('. ')[1] || sec.title}
+          </a>
+        ))}
+      </div>
 
-        <h2>Interpretation and Definitions</h2>
-        <h3>Interpretation</h3>
-        <p>The words whose initial letters are capitalized have meanings defined under the following conditions. The following definitions shall have the same meaning regardless of whether they appear in singular or in plural.</p>
-        
-        <h3>Definitions</h3>
-        <p>For the purposes of this Privacy Policy:</p>
-        <ul>
-          <li><strong>Account</strong> means a unique account created for You to access Our Service or parts of Our Service.</li>
-          <li><strong>Affiliate</strong> means an entity that controls, is controlled by, or is under common control with a party, where &quot;control&quot; means ownership of 50% or more of the shares, equity interest or other securities entitled to vote for election of directors or other managing authority.</li>
-          <li><strong>Company</strong> (referred to as either &quot;the Company&quot;, &quot;We&quot;, &quot;Us&quot; or &quot;Our&quot; in this Privacy Policy) refers to Shaw STEM Academy.</li>
-          <li><strong>Cookies</strong> are small files that are placed on Your computer, mobile device or any other device by a website, containing the details of Your browsing history on that website, among its many uses.</li>
-          <li><strong>Country/State</strong> refers to: Jamaica.</li>
-          <li><strong>Device</strong> means any device that can access the Service, such as a computer, a cell phone or a digital tablet.</li>
-          <li><strong>Personal Data</strong> (or &quot;Personal Information&quot;) is any information that relates to an identified or identifiable individual.
-            <br />We use &quot;Personal Data&quot; and &quot;Personal Information&quot; interchangeably unless a law uses a specific term.
-          </li>
-          <li><strong>Service</strong> refers to the Website.</li>
-          <li><strong>Service Provider</strong> means any natural or legal person who processes the data on behalf of the Company. It refers to third-party companies or individuals employed by the Company to facilitate the Service, to provide the Service on behalf of the Company, to perform services related to the Service or to assist the Company in analyzing how the Service is used.</li>
-          <li><strong>Usage Data</strong> refers to data collected automatically, either generated by the use of the Service or from the Service infrastructure itself (for example, the duration of a page visit).</li>
-          <li><strong>User</strong> means any individual who accesses or uses the Service.</li>
-          <li><strong>Website</strong> refers to Shaw STEM Academy, accessible from <a href="https://shaw-stem-academy-website.vercel.app" rel="external nofollow noopener" target="_blank">https://shaw-stem-academy-website.vercel.app</a>.</li>
-          <li><strong>You</strong> means the individual accessing or using the Service, or the company, or other legal entity on behalf of which such individual is accessing or using the Service, as applicable.</li>
-        </ul>
-
-        <h2>Collecting and Using Your Personal Information</h2>
-        <h3>Types of Data Collected</h3>
-        
-        <h4>Personal Data</h4>
-        <p>While using Our Service, We may ask You to provide Us with certain personally identifiable information that can be used to contact or identify You. Personally identifiable information may include, but is not limited to:</p>
-        <ul>
-          <li>Email address</li>
-          <li>First name and last name</li>
-          <li>Phone number</li>
-          <li>Address, State, Province, ZIP/Postal code, City</li>
-        </ul>
-
-        <h4>Usage Data</h4>
-        <p>Usage Data is collected automatically when using the Service.</p>
-        <p>Usage Data may include information such as Your Device's Internet Protocol address (e.g. IP address), browser type, browser version, the pages of Our Service that You visit, the time and date of Your visit, the time spent on those pages, unique device identifiers and other diagnostic data.</p>
-        <p>When You access the Service by or through a mobile device, We may collect certain information automatically, including, but not limited to, the type of mobile device You use, Your mobile device's unique ID, the IP address of Your mobile device, Your mobile operating system, the type of mobile Internet browser You use, unique device identifiers and other diagnostic data.</p>
-        <p>We may also collect information that Your browser sends whenever You visit Our Service or when You access the Service by or through a mobile device.</p>
-
-        <h4>Tracking Technologies and Cookies</h4>
-        <p>We use tracking technologies (such as cookies) to track the activity and to improve Our Service. The technologies We use may include:</p>
-        <ul>
-          <li><strong>Cookies or Browser Cookies.</strong> A cookie is a small file placed on Your Device. You can instruct Your browser to refuse all Cookies or to indicate when a Cookie is being sent. However, if You do not accept Cookies, You may not be able to use some parts of Our Service.</li>
-          <li><strong>Web Beacons.</strong> Certain sections of Our Service may contain small electronic files known as web beacons (also referred to as clear gifs, pixel tags, and single-pixel gifs) that permit the Company, for example, to count users who have visited those pages and for other related website statistics (for example, recording the popularity of a certain section and verifying system and server integrity).</li>
-        </ul>
-        <p>Cookies can be &quot;Persistent&quot; or &quot;Session&quot; Cookies. Persistent Cookies remain on Your personal computer or mobile device when You go offline, while Session Cookies are deleted as soon as You close Your web browser.</p>
-        <p>Where required by law, We use non-essential cookies (that is, Cookies other than the Necessary / Essential Cookies described below) only with Your consent. You can withdraw or change Your consent at any time using Our cookie preferences tool (if available) or through Your browser/device settings. Withdrawing consent does not affect the lawfulness of processing based on consent before its withdrawal.</p>
-        <p>We use both Session and Persistent Cookies for the purposes set out below:</p>
-        <ul>
-          <li>
-            <strong>Necessary / Essential Cookies</strong>
-            <p>Type: Session Cookies<br/>Administered by: Us<br/>Purpose: These Cookies are essential to provide You with services available through the Website and to enable You to use some of its features. They help to authenticate users and prevent fraudulent use of user accounts. Without these Cookies, the services that You have asked for cannot be provided, and We only use these Cookies to provide You with those services.</p>
-          </li>
-          <li>
-            <strong>Cookies Policy / Notice Acceptance Cookies</strong>
-            <p>Type: Persistent Cookies<br/>Administered by: Us<br/>Purpose: These Cookies identify whether users have accepted the use of cookies on the Website and record the consent choices You have made, so that We can honor those choices on future visits.</p>
-          </li>
-          <li>
-            <strong>Functionality Cookies</strong>
-            <p>Type: Persistent Cookies<br/>Administered by: Us<br/>Purpose: These Cookies allow Us to remember choices You make when You use the Website, such as remembering Your Account login details or language preference. The purpose of these Cookies is to provide You with a more personal experience and to avoid You having to re-enter Your preferences every time You use the Website.</p>
-          </li>
-        </ul>
-
-        <h3>Use of Your Personal Data</h3>
-        <p>The Company may use Personal Data for the following purposes:</p>
-        <ul>
-          <li><strong>To provide and maintain Our Service</strong>, including to monitor the usage of Our Service.</li>
-          <li><strong>To manage Your Account:</strong> to manage Your registration as a user of the Service. The Personal Data You provide can give You access to different functionalities of the Service that are available to You as a registered user.</li>
-          <li><strong>For the performance of a contract:</strong> the development, compliance and undertaking of the purchase contract for the products, items or services You have purchased or of any other contract with Us through the Service.</li>
-          <li><strong>To contact You:</strong> To contact You by email, telephone calls, SMS, or other equivalent forms of electronic communication, such as a mobile application's push notifications regarding updates or informative communications related to the functionalities, products or contracted services, including the security updates, when necessary or reasonable for their implementation.</li>
-          <li><strong>To provide You</strong> with news, special offers, and general information about other goods, services and events which We offer that are similar to those that You have already purchased or inquired about. We send such marketing communications only where permitted by applicable law: where prior consent is required (for example, under the laws applicable in the EEA and the UK), We will send them only with Your consent; otherwise, We may send them until You opt out. You may opt out or withdraw Your consent at any time by using the unsubscribe link in any marketing email We send or by contacting Us.</li>
-          <li><strong>To manage Your requests:</strong> To attend and manage Your requests to Us.</li>
-          <li><strong>For business transfers:</strong> We may use Your Personal Data to evaluate or conduct a merger, divestiture, restructuring, reorganization, dissolution, or other sale or transfer of some or all of Our assets, whether as a going concern or as part of bankruptcy, liquidation, or similar proceeding, in which Personal Data held by Us about Our Service users is among the assets transferred.</li>
-          <li><strong>For other purposes</strong>: We may use Your information for other purposes, such as data analysis, identifying usage trends, determining the effectiveness of Our promotional campaigns, and evaluating and improving Our Service, products, services, marketing and Your experience.</li>
-        </ul>
-        <p>We may share Your Personal Data in the following situations:</p>
-        <ul>
-          <li><strong>With Service Providers:</strong> We may share Your Personal Data with Service Providers to monitor and analyze the use of Our Service, and to contact You.</li>
-          <li><strong>For business transfers:</strong> We may share or transfer Your Personal Data in connection with, or during negotiations of, any merger, sale of Company assets, financing, or acquisition of all or a portion of Our business to another company.</li>
-          <li><strong>With Affiliates:</strong> We may share Your Personal Data with Our affiliates, in which case We will require those affiliates to honor this Privacy Policy. Affiliates include Our parent company and any other subsidiaries, joint venture partners or other companies that We control or that are under common control with Us.</li>
-          <li><strong>With other users:</strong> If Our Service offers public areas, when You share Personal Data or otherwise interact in the public areas with other users, such information may be viewed by all users and may be publicly distributed outside the Service.</li>
-          <li><strong>With Your consent</strong>: We may disclose Your Personal Data for any other purpose with Your consent.</li>
-        </ul>
-
-        <h4>Text Messages Privacy Notice</h4>
-        <p>You have the option to receive text (SMS) messages from Us. If You opt in to text messages, We will send You updates, notifications, and other communications as described below. When You opt in, We will collect and store the information You provide in connection with text messaging, such as Your phone number, the date and method of Your consent, and message delivery and read information.</p>
-        <p>No mobile information will be shared with or sold to third parties or affiliates for marketing or promotional purposes. The phone numbers and consent records We collect for texting are never shared with anyone for any purpose, except the Service Providers that technically have to handle them to deliver the texts.</p>
-        <p>Consent to receive text messages is not a condition of any purchase or use of Our Service. If You consent to receive SMS from Us, You agree to receive text messages from Us related to:</p>
-        <ul>
-          <li>Customer care and support</li>
-          <li>Account notifications, such as activity, status, or renewal reminders</li>
-          <li>Delivery notifications and updates on the status of a delivery</li>
-          <li>Authentication messages, such as one-time passwords (OTP) and passcodes</li>
-          <li>Security alerts, such as suspicious login attempts or unusual account activity</li>
-          <li>Marketing and promotional offers, discounts, and other promotional content</li>
-        </ul>
-        <p>Reply STOP to opt-out. Reply HELP for support. Message &amp; data rates may apply. Messaging frequency may vary. Carriers are not liable for delayed or undelivered messages.</p>
-
-        <h3>Retention of Your Personal Data</h3>
-        <p>The Company will retain Your Personal Data only for as long as is necessary for the purposes set out in this Privacy Policy. We will retain and use Your Personal Data to the extent necessary to comply with Our legal obligations (for example, if We are required to retain Your data to comply with applicable laws), resolve disputes, and enforce Our legal agreements and policies.</p>
-        <p>Where possible, We apply shorter retention periods and/or reduce identifiability by deleting, aggregating, or anonymizing data. Unless otherwise stated, the retention periods below are maximum periods (&quot;up to&quot;) and We may delete or anonymize data sooner when it is no longer needed for the relevant purpose. We apply different retention periods to different categories of Personal Data based on the purpose of processing and legal obligations:</p>
-        <ul>
-          <li>
-            Account Information
-            <ul>
-              <li>User Accounts: retained for the duration of Your Account relationship plus up to 24 months after account closure to handle any post-termination issues or resolve disputes.</li>
-            </ul>
-          </li>
-          <li>
-            Customer Support Data
-            <ul>
-              <li>Support tickets and correspondence: up to 24 months from the date of ticket closure to resolve follow-up inquiries, track service quality, and defend against potential legal claims.</li>
-              <li>Chat transcripts: up to 24 months for quality assurance and staff training purposes.</li>
-            </ul>
-          </li>
-          <li>
-            Usage Data
-            <ul>
-              <li>Website analytics data (cookies, IP addresses, device identifiers): up to 24 months from the date of collection, which allows us to analyze trends while respecting privacy principles.</li>
-              <li>Server logs (IP addresses, access times): up to 24 months for security monitoring and troubleshooting purposes.</li>
-            </ul>
-          </li>
-        </ul>
-        <p>Usage Data is retained in accordance with the retention periods described above, and may be retained longer only where necessary for security, fraud prevention, or legal compliance.</p>
-        <p>We may retain Personal Data beyond the periods stated above for different reasons:</p>
-        <ul>
-          <li>Legal obligation: We are required by law to retain specific data (e.g., financial records for tax authorities).</li>
-          <li>Legal claims: Data is necessary to establish, exercise, or defend legal claims.</li>
-          <li>Your explicit request: You ask Us to retain specific information.</li>
-          <li>Technical limitations: Data exists in backup systems that are scheduled for routine deletion.</li>
-        </ul>
-        <p>You may request information about how long We will retain Your Personal Data by contacting Us.</p>
-        <p>When retention periods expire, We securely delete or anonymize Personal Data according to the following procedures:</p>
-        <ul>
-          <li>Deletion: Personal Data is removed from Our systems and no longer actively processed.</li>
-          <li>Backup retention: Residual copies may remain in encrypted backups for a limited period consistent with Our backup retention schedule and are not restored except where necessary for security, disaster recovery, or legal compliance.</li>
-          <li>Anonymization: In some cases, We convert Personal Data into anonymous statistical data that cannot be linked back to You. This anonymized data may be retained indefinitely for research and analytics.</li>
-        </ul>
-
-        <h3>Transfer of Your Personal Data</h3>
-        <p>Your information, including Personal Data, is processed at the Company's operating offices and in any other places where the parties involved in the processing are located. This means that this information may be transferred to — and maintained on — computers located outside of Your state, province, country or other governmental jurisdiction where the data protection laws may differ from those of Your jurisdiction.</p>
-        <p>Where required by applicable law, We will ensure that international transfers of Your Personal Data are subject to appropriate safeguards and, where relevant, supplementary measures. The Company will take all steps reasonably necessary to ensure that Your data is treated securely and in accordance with this Privacy Policy and no transfer of Your Personal Data will take place to an organization or a country unless there are adequate controls in place, including the security of Your data and other personal information.</p>
-
-        <h3>Delete Your Personal Data</h3>
-        <p>You have the right to delete or request that We assist in deleting the Personal Data that We have collected about You.</p>
-        <p>Our Service may give You the ability to delete certain information about You from within the Service.</p>
-        <p>You may update, amend, or delete Your information at any time by signing in to Your Account, if You have one, and visiting the account settings section that allows You to manage Your personal information. You may also contact Us to request access to, correct, or delete any Personal Data that You have provided to Us.</p>
-        <p>Please note, however, that We may need to retain certain information when We have a legal obligation or lawful basis to do so.</p>
-
-        <h3>Disclosure of Your Personal Data</h3>
-        <h4>Business Transactions</h4>
-        <p>If the Company is involved in a merger, acquisition or asset sale, Your Personal Data may be transferred. We will provide notice before Your Personal Data is transferred and becomes subject to a different Privacy Policy.</p>
-        <h4>Law Enforcement</h4>
-        <p>Under certain circumstances, the Company may disclose Your Personal Data if required to do so by law or in response to valid requests by public authorities (e.g. a court or a government agency).</p>
-        <h4>Other Legal Requirements</h4>
-        <p>The Company may disclose Your Personal Data in the good-faith belief that such action is necessary to:</p>
-        <ul>
-          <li>Comply with a legal obligation</li>
-          <li>Protect and defend the rights or property of the Company</li>
-          <li>Prevent or investigate possible wrongdoing in connection with the Service</li>
-          <li>Protect the personal safety of Users of the Service or the public</li>
-          <li>Protect against legal liability</li>
-        </ul>
-
-        <h3>Security of Your Personal Data</h3>
-        <p>The security of Your Personal Data is important to Us, but remember that no method of transmission over the Internet, or method of electronic storage, is 100% secure. While We strive to use commercially reasonable means to protect Your Personal Data, We cannot guarantee its absolute security.</p>
-
-        <h2>Children's and Minors' Privacy</h2>
-        <p>The Service is not directed to, and We do not knowingly collect Personal Information from, anyone under the age of 16.</p>
-        <p>If You are a parent or guardian and You believe Your child has provided Us with Personal Information, please contact Us. If We become aware that We have collected Personal Information from anyone under the age of 16, We will take steps to remove that information from Our servers as soon as reasonably possible.</p>
-        <p>Some countries and states set a higher age at which an individual can consent to the processing of their own Personal Information. Where We rely on consent as a legal basis and the law applicable to a User sets an age higher than 16, We may require the consent of that User's parent or guardian before We collect and use their Personal Information.</p>
-
-        <h2>Links to Other Websites</h2>
-        <p>Our Service may contain links to other websites that are not operated by Us. If You click on a third-party link, You will be directed to that third party's site. We strongly advise You to review the Privacy Policy of every site You visit.</p>
-        <p>We have no control over and assume no responsibility for the content, privacy policies or practices of any third-party sites or services.</p>
-
-        <h2>Changes to this Privacy Policy</h2>
-        <p>We may update Our Privacy Policy from time to time. We will notify You of any changes by posting the new Privacy Policy on this page.</p>
-        <p>We will let You know via email and/or a prominent notice on Our Service, prior to the change becoming effective and update the &quot;Last updated&quot; date at the top of this Privacy Policy.</p>
-        <p>You are advised to review this Privacy Policy periodically for any changes. Changes to this Privacy Policy are effective when they are posted on this page.</p>
-
-        <h2>Contact Us</h2>
-        <p>If You have any questions about this Privacy Policy, You can contact Us:</p>
-        <ul>
-          <li>By email: shawstemacademy@gmail.com</li>
-        </ul>
+      {/* Structured Policy Sections */}
+      <div className="space-y-6">
+        {sections.map((section) => (
+          <div
+            key={section.id}
+            id={section.id}
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-200 dark:border-slate-800 space-y-4 scroll-mt-24 transition-all hover:border-blue-200 dark:hover:border-blue-900/50"
+          >
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 shrink-0">
+                {section.icon}
+              </div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                {section.title}
+              </h2>
+            </div>
+            {section.content}
+          </div>
+        ))}
       </div>
     </div>
   );

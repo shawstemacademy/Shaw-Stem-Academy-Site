@@ -129,91 +129,106 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   window.dispatchEvent(new CustomEvent('firestore-error', { detail: errInfo }));
 }
 
-export const SYSTEM_ROLES = ['student', 'teacher', 'admin', 'registrar', 'hod'] as const;
+export const USER_COLLECTIONS = {
+  ADMIN: 'users_admin',
+  STUDENT: 'users_student',
+  TEACHER: 'users_teacher',
+} as const;
 
-export const saveUserToRoleCollections = async (id: string, userData: any) => {
+export const ALL_USER_COLLECTIONS = ['users_admin', 'users_student', 'users_teacher'] as const;
+
+export function getUserCollectionName(role?: string): string {
+  if (!role) return 'users_student';
+  const r = role.toLowerCase();
+  if (r === 'admin' || r === 'registrar') return 'users_admin';
+  if (r === 'teacher' || r === 'hod') return 'users_teacher';
+  return 'users_student';
+}
+
+export const saveUserToFirestore = async (userData: SchoolUser | any) => {
   try {
-    const primaryRole = userData.role || 'student';
-    const allRolesSet = new Set<string>();
-    if (userData.role) allRolesSet.add(userData.role);
-    if (Array.isArray(userData.roles)) {
-      userData.roles.forEach((r: string) => {
-        if (SYSTEM_ROLES.includes(r as any)) allRolesSet.add(r);
-      });
+    if (!userData || !userData.id) {
+      console.warn('saveUserToFirestore called without valid userData or id:', userData);
+      return null;
     }
-    const allRoles = Array.from(allRolesSet);
+    const cleanData = JSON.parse(JSON.stringify(userData));
+    const targetCollection = getUserCollectionName(cleanData.role);
+    const docRef = doc(db, targetCollection, cleanData.id);
+    
+    await setDoc(docRef, { ...cleanData, updatedAt: new Date().toISOString() }, { merge: true });
 
-    for (const sysRole of SYSTEM_ROLES) {
-      const targetCol = `users_${sysRole}`;
-      if (sysRole === primaryRole) {
-        // Save full user document in the primary role collection
-        const docRef = doc(db, targetCol, id);
-        await setDoc(docRef, { ...userData, updatedAt: new Date().toISOString() }, { merge: true });
-      } else if (allRoles.includes(sysRole)) {
-        // Save a reference to the primary user in the other role collections
-        const docRef = doc(db, targetCol, id);
-        const referenceData = {
-          id,
-          name: userData.name || '',
-          email: userData.email || '',
-          role: sysRole,
-          primaryRole,
-          roles: allRoles,
-          isReference: true,
-          refCollection: `users_${primaryRole}`,
-          refPath: `users_${primaryRole}/${id}`,
-          updatedAt: new Date().toISOString(),
-        };
-        await setDoc(docRef, referenceData, { merge: true });
-      } else {
-        // User does not have this role, ensure it doesn't exist in this role's collection
-        const docRef = doc(db, targetCol, id);
-        await deleteDoc(docRef).catch(() => {});
+    // Clean up from other role collections if role was changed
+    for (const otherCol of ALL_USER_COLLECTIONS) {
+      if (otherCol !== targetCollection) {
+        const otherRef = doc(db, otherCol, cleanData.id);
+        await deleteDoc(otherRef).catch(() => {});
       }
     }
-  } catch (error) {
-    console.error(`Error saving user ${id} to role-based collections:`, error);
+
+    notifyWriteListeners(targetCollection, cleanData.id, cleanData, true);
+    return cleanData.id;
+  } catch (err: any) {
+    const errMsg = err?.message || String(err);
+    const targetCollection = getUserCollectionName(userData?.role);
+    handleFirestoreError(err, OperationType.WRITE, `${targetCollection}/${userData?.id}`);
+    notifyWriteListeners(targetCollection, userData?.id || 'unknown', userData, false, errMsg);
+    return null;
   }
 };
 
-export const deleteUserFromRoleCollections = async (id: string) => {
+export const deleteUserFromFirestore = async (userId: string) => {
   try {
-    for (const sysRole of SYSTEM_ROLES) {
-      const targetCol = `users_${sysRole}`;
-      const docRef = doc(db, targetCol, id);
+    for (const colName of ALL_USER_COLLECTIONS) {
+      const docRef = doc(db, colName, userId);
       await deleteDoc(docRef).catch(() => {});
     }
-  } catch (error) {
-    console.error(`Error deleting user ${id} from role-based collections:`, error);
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `users/${userId}`);
+    return false;
   }
 };
 
-export const migrateUsersToRoleCollections = async () => {
-  try {
-    console.log('Starting migration/sync of schoolUsers to role-based collections...');
-    const usersCol = collection(db, 'schoolUsers');
-    const snapshot = await getDocs(usersCol);
-    if (!snapshot.empty) {
-      for (const docSnap of snapshot.docs) {
-        const id = docSnap.id;
-        const data = docSnap.data();
-        await saveUserToRoleCollections(id, data);
+export const subscribeToAllSchoolUsers = (callback: (users: SchoolUser[]) => void) => {
+  const usersMap = new Map<string, SchoolUser>();
+
+  const emitCombined = () => {
+    callback(Array.from(usersMap.values()));
+  };
+
+  const unsubs = ALL_USER_COLLECTIONS.map((colName) => {
+    const colRef = collection(db, colName);
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        // Clear previous records for this collection
+        for (const [id, user] of usersMap.entries()) {
+          const userCol = getUserCollectionName(user.role);
+          if (userCol === colName) {
+            usersMap.delete(id);
+          }
+        }
+        // Insert active records
+        snapshot.forEach((docSnapshot) => {
+          const data = docSnapshot.data() as SchoolUser;
+          usersMap.set(docSnapshot.id, { id: docSnapshot.id, ...data });
+        });
+        emitCombined();
+      },
+      (err) => {
+        handleFirestoreError(err, OperationType.LIST, colName);
       }
-      console.log('Migration/sync completed successfully.');
-    } else {
-      console.log('No users found in schoolUsers for migration.');
-    }
-  } catch (error) {
-    console.error('Error during users role-based migration:', error);
-  }
+    );
+  });
+
+  return () => {
+    unsubs.forEach((unsub) => unsub());
+  };
 };
 
 export async function testFirestoreConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
-    migrateUsersToRoleCollections().catch((err) => {
-      console.error('Failed to trigger background user migration:', err);
-    });
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
       console.error('Please check your Firebase configuration.');
@@ -325,15 +340,12 @@ export const clearAndInitFirebaseData = async () => {
       'schoolNews',
       'registrations',
       'departments',
-      'schoolUsers',
       'faqs',
       'featureCards',
       'academyInfo',
       'users_student',
       'users_teacher',
-      'users_admin',
-      'users_registrar',
-      'users_hod'
+      'users_admin'
     ];
 
     for (const colName of collectionsToClear) {
@@ -348,9 +360,9 @@ export const clearAndInitFirebaseData = async () => {
       }
     }
 
-    // Write primary admin users and admin department
+    // Write primary admin users to users_admin
     for (const adminUser of DEMO_SCHOOL_USERS) {
-      await saveDocToFirestore('schoolUsers', adminUser.id, adminUser);
+      await saveUserToFirestore(adminUser);
     }
     if (DEMO_DEPARTMENTS.length > 0) {
       const adminDept = DEMO_DEPARTMENTS[0];
@@ -481,13 +493,14 @@ function notifyWriteListeners(collectionName: string, id: string, data: any, suc
 export const saveDocToFirestore = async (collectionName: string, id: string, data: any) => {
   try {
     const cleanData = JSON.parse(JSON.stringify(data));
+    
+    // If saving a user, redirect directly to role-based user storage
+    if (collectionName === 'schoolUsers' || collectionName === 'users_student' || collectionName === 'users_teacher' || collectionName === 'users_admin') {
+      return await saveUserToFirestore({ id, ...cleanData });
+    }
+
     const docRef = doc(db, collectionName, id);
     await setDoc(docRef, { ...cleanData, updatedAt: new Date().toISOString() }, { merge: true });
-
-    // Intercept schoolUsers writes to also write to split role-based collections
-    if (collectionName === 'schoolUsers') {
-      await saveUserToRoleCollections(id, cleanData);
-    }
 
     notifyWriteListeners(collectionName, id, cleanData, true);
     return id;
@@ -516,12 +529,8 @@ export const toggleUserDisabledInFirestore = async (user: SchoolUser, reason?: s
       delete updatedUser.disabledReason;
     }
 
-    const cleanData = JSON.parse(JSON.stringify(updatedUser));
-    const userDocRef = doc(db, 'schoolUsers', user.id);
-    await setDoc(userDocRef, { ...cleanData, updatedAt: new Date().toISOString() }, { merge: true });
-
-    // Intercept schoolUsers updates in toggle to also update role collections
-    await saveUserToRoleCollections(user.id, updatedUser);
+    // Save directly to role collection
+    await saveUserToFirestore(updatedUser);
 
     if (user.role === 'teacher') {
       const teacherDocRef = doc(db, 'teachers', user.id);
@@ -539,20 +548,19 @@ export const toggleUserDisabledInFirestore = async (user: SchoolUser, reason?: s
     }
     return updatedUser;
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `schoolUsers/${user.id}`);
+    handleFirestoreError(err, OperationType.WRITE, `users/${user.id}`);
     return null;
   }
 };
 
 export const deleteDocFromFirestore = async (collectionName: string, id: string) => {
   try {
+    if (collectionName === 'schoolUsers' || collectionName === 'users_student' || collectionName === 'users_teacher' || collectionName === 'users_admin') {
+      return await deleteUserFromFirestore(id);
+    }
+
     const docRef = doc(db, collectionName, id);
     await deleteDoc(docRef);
-
-    // Intercept schoolUsers deletes to also delete from split role-based collections
-    if (collectionName === 'schoolUsers') {
-      await deleteUserFromRoleCollections(id);
-    }
 
     return true;
   } catch (err) {

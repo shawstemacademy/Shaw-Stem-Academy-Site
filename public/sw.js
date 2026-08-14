@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shaw-stem-academy-v1';
+const CACHE_NAME = 'shaw-stem-academy-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -53,38 +53,57 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'Shaw STEM Academy Update', body: 'There is a new update!' };
+  let title = 'Shaw STEM Academy';
+  let body = 'You have a new update from Shaw STEM Academy.';
+  let icon = '/logo.png';
+  let badge = '/logo.png';
+  let data = { url: '/' };
+
   if (event.data) {
     try {
-      data = event.data.json();
+      const parsed = event.data.json();
+      if (parsed.notification) {
+        title = parsed.notification.title || title;
+        body = parsed.notification.body || body;
+        icon = parsed.notification.image || parsed.notification.icon || icon;
+      } else if (parsed.title || parsed.body) {
+        title = parsed.title || title;
+        body = parsed.body || body;
+      }
+      data = parsed.data || parsed;
     } catch (e) {
-      data = { title: 'Shaw STEM Academy Update', body: event.data.text() };
+      const text = event.data.text();
+      if (text) body = text;
     }
   }
 
   const options = {
-    body: data.body,
-    icon: '/logo.png',
-    badge: '/logo.png',
-    vibrate: [100, 50, 100],
-    data: {
-      url: data.url || '/'
-    }
+    body,
+    icon,
+    badge,
+    vibrate: [200, 100, 200],
+    tag: `shaw-push-${Date.now()}`,
+    renotify: true,
+    requireInteraction: true,
+    data
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(title, options)
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const urlToOpen = event.notification.data?.url || '/';
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      const urlToOpen = event.notification.data?.url || '/';
       for (const client of clientList) {
-        if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
+        if ('focus' in client) {
+          if (client.url.includes(urlToOpen)) {
+            return client.focus();
+          }
         }
       }
       if (clients.openWindow) {

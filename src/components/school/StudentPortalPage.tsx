@@ -77,7 +77,7 @@ import { FormFieldSetting } from '../../lib/formFieldsConfig';
 import { StudentInfoForm } from '../StudentInfoForm';
 import { RegistrationReceiptModal } from '../RegistrationReceiptModal';
 import { isFcmSupported, requestAndSaveFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
-import { subscribeToCollection, saveDocToFirestore, deleteDocFromFirestore } from '../../lib/firebase';
+import { subscribeToCollection, saveDocToFirestore, deleteDocFromFirestore, saveUserToFirestore } from '../../lib/firebase';
 import { calculateAge, isValidAge } from '../../lib/ageValidation';
 
 interface StudentPortalPageProps {
@@ -230,7 +230,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
       if (onUpdateUserProfile) {
         onUpdateUserProfile(updatedUser);
       } else {
-        saveDocToFirestore('schoolUsers', studentUser.id, updatedUser);
+        saveUserToFirestore(updatedUser);
       }
       setPrefSaveSuccess(true);
       setTimeout(() => setPrefSaveSuccess(false), 3000);

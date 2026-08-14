@@ -32,7 +32,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { SchoolUser, RegistrationRecord, ClassItem, AppliedDiscount, AddDropRequest } from '../../types';
-import { saveDocToFirestore } from '../../lib/firebase';
+import { saveDocToFirestore, saveUserToFirestore } from '../../lib/firebase';
 import { sendPushNotificationToUser } from '../../lib/fcm';
 import { sendDesktopNotification } from '../../lib/notifications';
 
@@ -265,7 +265,7 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
     };
 
     if (allPaid && selectedStudent) {
-      saveDocToFirestore('schoolUsers', selectedStudent.id, {
+      saveUserToFirestore({
         ...selectedStudent,
         status: 'enrolled_paid'
       });
@@ -832,114 +832,184 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   {/* Student Details */}
                   {(() => {
                     const sInfo = currentRegistration?.studentInfo || selectedStudent?.studentDetails || {};
+                    const displayStudentName = sInfo.studentName || selectedStudent?.name || `${sInfo.firstName || ''} ${sInfo.lastName || ''}`.trim() || 'Not Provided';
                     const displayFormGrade = sInfo.formGrade || sInfo.gradeLevel || 'Not Provided';
                     const displayPrimarySchool = sInfo.currentSchool || 'Not Provided';
                     const displayDOB = sInfo.dateOfBirth || sInfo.dob || 'Not Provided';
-                    const displayContactNumber = sInfo.cellPhone || sInfo.homePhone || sInfo.phone || 'Not Provided';
-
-                    const motherName = `${sInfo.motherFirstName || ''} ${sInfo.motherLastName || ''}`.trim();
-                    const fatherName = `${sInfo.fatherFirstName || ''} ${sInfo.fatherLastName || ''}`.trim();
-                    const guardianName = `${sInfo.guardianFirstName || ''} ${sInfo.guardianLastName || ''}`.trim();
-
-                    let displayParentName = '';
-                    if (sInfo.parentName && sInfo.parentName !== 'Parent/Guardian' && sInfo.parentName !== 'Parent' && sInfo.parentName !== 'A. Morgan') {
-                      displayParentName = sInfo.parentName;
-                    } else if (motherName) {
-                      displayParentName = `${motherName} (Mother)`;
-                    } else if (fatherName) {
-                      displayParentName = `${fatherName} (Father)`;
-                    } else if (guardianName) {
-                      displayParentName = `${guardianName} (Guardian)`;
-                    } else {
-                      displayParentName = 'Not Provided';
-                    }
-
-                    const studentEmail = sInfo.email || '';
-                    const studentPhone = sInfo.cellPhone || '';
-
-                    const rawPEmail = sInfo.parentEmail || sInfo.motherEmail || sInfo.fatherEmail || sInfo.guardianEmail || '';
-                    const isParentEmailStudentEmail = rawPEmail && studentEmail && rawPEmail.toLowerCase().trim() === studentEmail.toLowerCase().trim();
-                    const displayParentEmail = (!isParentEmailStudentEmail && rawPEmail && rawPEmail !== 'morgan.parent@gmail.com')
-                      ? rawPEmail
-                      : 'Not Provided';
-
-                    const rawPPhone = sInfo.parentPhone || sInfo.motherCellPhone || sInfo.fatherCellPhone || sInfo.guardianCellPhone || '';
-                    const isParentPhoneStudentPhone = rawPPhone && studentPhone && rawPPhone.trim() === studentPhone.trim();
-                    const displayParentPhone = (!isParentPhoneStudentPhone && rawPPhone && rawPPhone !== '876-555-4422')
-                      ? rawPPhone
-                      : 'Not Provided';
-
-                    const displayHomeAddress = (sInfo.address && sInfo.address !== '10 Hope Road, Kingston')
-                      ? sInfo.address
-                      : (sInfo.motherAddress || sInfo.fatherAddress || sInfo.guardianAddress || 'Not Provided');
-
+                    const displayStudentAge = sInfo.age || sInfo.studentAge || 'Not Provided';
+                    const displayContactNumber = sInfo.cellPhone || 'Not Provided';
+                    const displayHomePhone = sInfo.homePhone || 'Not Provided';
+                    const displayStudentAddress = sInfo.address || 'Not Provided';
                     const displayLivesWith = sInfo.livesWith || 'Not Provided';
+
+                    // Mother Info
+                    const motherFullName = `${sInfo.motherFirstName || ''} ${sInfo.motherLastName || ''}`.trim() || (sInfo.motherFirstName || 'Not Provided');
+                    const motherEmail = sInfo.motherEmail || 'Not Provided';
+                    const motherCell = sInfo.motherCellPhone || 'Not Provided';
+                    const motherHome = sInfo.motherHomePhone || 'Not Provided';
+                    const motherAddress = sInfo.motherAddress || 'Not Provided';
+
+                    // Father Info
+                    const fatherFullName = `${sInfo.fatherFirstName || ''} ${sInfo.fatherLastName || ''}`.trim() || (sInfo.fatherFirstName || 'Not Provided');
+                    const fatherEmail = sInfo.fatherEmail || 'Not Provided';
+                    const fatherCell = sInfo.fatherCellPhone || 'Not Provided';
+                    const fatherHome = sInfo.fatherHomePhone || 'Not Provided';
+                    const fatherAddress = sInfo.fatherAddress || 'Not Provided';
+
+                    // Guardian Info (Always listed, even if not provided)
+                    const guardianFullName = `${sInfo.guardianFirstName || ''} ${sInfo.guardianLastName || ''}`.trim() || (sInfo.guardianFirstName || 'Not Provided');
+                    const guardianRelation = sInfo.guardianRelation || 'Not Provided';
+                    const guardianEmail = sInfo.guardianEmail || 'Not Provided';
+                    const guardianCell = sInfo.guardianCellPhone || 'Not Provided';
+                    const guardianHome = sInfo.guardianHomePhone || 'Not Provided';
+                    const guardianAddress = sInfo.guardianAddress || 'Not Provided';
 
                     return (
                       <>
-                        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
-                          <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
-                            <User className="w-4 h-4 text-slate-500" />
+                        {/* 1. Student Details Card */}
+                        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xs">
+                          <div className="flex items-center gap-2 pb-2.5 border-b border-slate-200">
+                            <User className="w-4 h-4 text-blue-600" />
                             <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Student Details</h3>
                           </div>
 
-                          <div className="space-y-2.5 text-xs">
+                          <div className="space-y-2 text-xs">
                             <div className="flex justify-between py-1 border-b border-slate-100">
-                              <span className="text-slate-500">Full Name</span>
-                              <span className="font-bold text-slate-800">{sInfo.studentName || selectedStudent.name}</span>
+                              <span className="text-slate-500 font-medium">Full Name</span>
+                              <span className="font-bold text-slate-900">{displayStudentName}</span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
-                              <span className="text-slate-500">Form Grade</span>
-                              <span className="font-bold text-slate-800">{displayFormGrade}</span>
+                              <span className="text-slate-500 font-medium">Form Grade</span>
+                              <span className="font-bold text-slate-900">{displayFormGrade}</span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
-                              <span className="text-slate-500">Primary School</span>
-                              <span className="font-bold text-slate-800 truncate max-w-[180px]">{displayPrimarySchool}</span>
+                              <span className="text-slate-500 font-medium">Primary / Current School</span>
+                              <span className="font-bold text-slate-900 truncate max-w-[200px]" title={displayPrimarySchool}>{displayPrimarySchool}</span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
-                              <span className="text-slate-500">Date of Birth</span>
-                              <span className="font-bold text-slate-800">{displayDOB}</span>
+                              <span className="text-slate-500 font-medium">Date of Birth</span>
+                              <span className="font-bold text-slate-900">{displayDOB}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Age</span>
+                              <span className="font-bold text-slate-900">{displayStudentAge}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Contact Number (Cell)</span>
+                              <span className="font-bold text-slate-900">{displayContactNumber}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Home Phone</span>
+                              <span className="font-bold text-slate-900">{displayHomePhone}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Residential Address</span>
+                              <span className="font-bold text-slate-900 truncate max-w-[200px]" title={displayStudentAddress}>{displayStudentAddress}</span>
                             </div>
                             <div className="flex justify-between py-1">
-                              <span className="text-slate-500">Contact Number</span>
-                              <span className="font-bold text-slate-800">{displayContactNumber}</span>
+                              <span className="text-slate-500 font-medium">Lives With</span>
+                              <span className="font-bold text-slate-900">{displayLivesWith}</span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Parent / Guardian Information */}
-                        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
-                          <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
-                            <Users className="w-4 h-4 text-slate-500" />
-                            <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Parent & Guardian Contacts</h3>
+                        {/* 2. Mother's Information Card */}
+                        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xs">
+                          <div className="flex items-center gap-2 pb-2.5 border-b border-slate-200">
+                            <Users className="w-4 h-4 text-purple-600" />
+                            <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Mother's Information</h3>
                           </div>
 
-                          <div className="space-y-2.5 text-xs">
+                          <div className="space-y-2 text-xs">
                             <div className="flex justify-between py-1 border-b border-slate-100">
-                              <span className="text-slate-500">Parent Name</span>
-                              <span className="font-bold text-slate-800">
-                                {displayParentName}
-                              </span>
+                              <span className="text-slate-500 font-medium">Full Name</span>
+                              <span className="font-bold text-slate-900">{motherFullName}</span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
-                              <span className="text-slate-500">Parent Email</span>
-                              <span className="font-bold text-slate-800 truncate max-w-[180px]">{displayParentEmail}</span>
+                              <span className="text-slate-500 font-medium">Email</span>
+                              <span className="font-bold text-slate-900 truncate max-w-[200px]" title={motherEmail}>{motherEmail}</span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
-                              <span className="text-slate-500">Parent Phone</span>
-                              <span className="font-bold text-slate-800">{displayParentPhone}</span>
+                              <span className="text-slate-500 font-medium">Cell Phone</span>
+                              <span className="font-bold text-slate-900">{motherCell}</span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
-                              <span className="text-slate-500">Home Address</span>
-                              <span className="font-bold text-slate-800 truncate max-w-[160px]">{displayHomeAddress}</span>
+                              <span className="text-slate-500 font-medium">Home Phone</span>
+                              <span className="font-bold text-slate-900">{motherHome}</span>
                             </div>
                             <div className="flex justify-between py-1">
-                              <span className="text-slate-500">Lives With</span>
-                              <span className="font-bold text-slate-800">{displayLivesWith}</span>
+                              <span className="text-slate-500 font-medium">Address</span>
+                              <span className="font-bold text-slate-900 truncate max-w-[200px]" title={motherAddress}>{motherAddress}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 3. Father's Information Card */}
+                        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xs">
+                          <div className="flex items-center gap-2 pb-2.5 border-b border-slate-200">
+                            <Users className="w-4 h-4 text-indigo-600" />
+                            <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Father's Information</h3>
+                          </div>
+
+                          <div className="space-y-2 text-xs">
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Full Name</span>
+                              <span className="font-bold text-slate-900">{fatherFullName}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Email</span>
+                              <span className="font-bold text-slate-900 truncate max-w-[200px]" title={fatherEmail}>{fatherEmail}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Cell Phone</span>
+                              <span className="font-bold text-slate-900">{fatherCell}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Home Phone</span>
+                              <span className="font-bold text-slate-900">{fatherHome}</span>
+                            </div>
+                            <div className="flex justify-between py-1">
+                              <span className="text-slate-500 font-medium">Address</span>
+                              <span className="font-bold text-slate-900 truncate max-w-[200px]" title={fatherAddress}>{fatherAddress}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 4. Guardian's Information Card */}
+                        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xs">
+                          <div className="flex items-center gap-2 pb-2.5 border-b border-slate-200">
+                            <Users className="w-4 h-4 text-teal-600" />
+                            <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Guardian's Information</h3>
+                          </div>
+
+                          <div className="space-y-2 text-xs">
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Full Name</span>
+                              <span className="font-bold text-slate-900">{guardianFullName}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Relationship</span>
+                              <span className="font-bold text-slate-900">{guardianRelation}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Email</span>
+                              <span className="font-bold text-slate-900 truncate max-w-[200px]" title={guardianEmail}>{guardianEmail}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Cell Phone</span>
+                              <span className="font-bold text-slate-900">{guardianCell}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Home Phone</span>
+                              <span className="font-bold text-slate-900">{guardianHome}</span>
+                            </div>
+                            <div className="flex justify-between py-1">
+                              <span className="text-slate-500 font-medium">Address</span>
+                              <span className="font-bold text-slate-900 truncate max-w-[200px]" title={guardianAddress}>{guardianAddress}</span>
                             </div>
                           </div>
                         </div>
@@ -965,7 +1035,7 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                             ...selectedStudent,
                             status: 'accepted' as const
                           };
-                          saveDocToFirestore('schoolUsers', selectedStudent.id, updatedUser);
+                          saveUserToFirestore(updatedUser);
                           if (onUpdateUser) {
                             onUpdateUser(updatedUser);
                           }
@@ -1006,7 +1076,7 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                             ...selectedStudent,
                             status: 'awaiting_acceptance' as const
                           };
-                          saveDocToFirestore('schoolUsers', selectedStudent.id, updatedUser);
+                          saveUserToFirestore(updatedUser);
                           if (onUpdateUser) {
                             onUpdateUser(updatedUser);
                           }
@@ -1848,7 +1918,7 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                       deniedFields: denyModal.fields,
                       deniedReason: denyModal.reason
                     };
-                    saveDocToFirestore('schoolUsers', student.id, updatedUser);
+                    saveUserToFirestore(updatedUser);
                     setDenyModal({ isOpen: false, studentId: '', studentName: '', fields: [], reason: '' });
                     alert('Student application has been denied.');
                   }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StudentInfo, FormTheme } from '../types';
-import { User, Mail, Phone, GraduationCap, Upload, MapPin, Calendar, Heart, Shield, HelpCircle, Users, Eye, EyeOff, CheckCircle2, Sliders } from 'lucide-react';
+import { User, Mail, Phone, GraduationCap, Upload, MapPin, Calendar, Heart, Shield, HelpCircle, Users, Eye, EyeOff, CheckCircle2, Sliders, Copy } from 'lucide-react';
 import { ImageUploadInput } from './common/ImageUploadInput';
 import { FormFieldSetting, getFieldSetting } from '../lib/formFieldsConfig';
 import { getPhoneValidationError, sanitizePhoneDigits } from '../lib/phoneValidation';
@@ -609,11 +609,29 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
                 )}
                 {isEnabled('motherAddress') && (
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      {getLabel('motherAddress', "Mother's Address")}{' '}
-                      {isRequired('motherAddress') && <span className="text-red-500">*</span>}
-                      {renderAdminFieldBadge('motherAddress')}
-                    </label>
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
+                      <label className="block text-xs font-semibold text-gray-700">
+                        {getLabel('motherAddress', "Mother's Address")}{' '}
+                        {isRequired('motherAddress') && <span className="text-red-500">*</span>}
+                        {renderAdminFieldBadge('motherAddress')}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const addr = studentInfo.address || (studentInfo as any).studentAddress || '';
+                          if (!addr) {
+                            alert("Please enter the student's address in Section 1 (Student Information) first.");
+                            return;
+                          }
+                          onChange('motherAddress', addr);
+                        }}
+                        className="px-2.5 py-1 bg-purple-100 dark:bg-purple-950/50 hover:bg-purple-200 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold rounded-lg border border-purple-200 dark:border-purple-800/80 text-xs inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                        title="Copy student residential address to mother's address"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>Same as child address</span>
+                      </button>
+                    </div>
                     <input
                       type="text"
                       required={isRequired('motherAddress')}
@@ -733,11 +751,42 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
                 )}
                 {isEnabled('fatherAddress') && (
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      {getLabel('fatherAddress', "Father's Address")}{' '}
-                      {isRequired('fatherAddress') && <span className="text-red-500">*</span>}
-                      {renderAdminFieldBadge('fatherAddress')}
-                    </label>
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
+                      <label className="block text-xs font-semibold text-gray-700">
+                        {getLabel('fatherAddress', "Father's Address")}{' '}
+                        {isRequired('fatherAddress') && <span className="text-red-500">*</span>}
+                        {renderAdminFieldBadge('fatherAddress')}
+                      </label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const addr = studentInfo.address || (studentInfo as any).studentAddress || '';
+                            if (!addr) {
+                              alert("Please enter the student's address in Section 1 (Student Information) first.");
+                              return;
+                            }
+                            onChange('fatherAddress', addr);
+                          }}
+                          className="px-2.5 py-1 bg-purple-100 dark:bg-purple-950/50 hover:bg-purple-200 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold rounded-lg border border-purple-200 dark:border-purple-800/80 text-xs inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                          title="Copy student residential address to father's address"
+                        >
+                          <Copy className="w-3 h-3" />
+                          <span>Same as child address</span>
+                        </button>
+                        {studentInfo.motherAddress && (
+                          <button
+                            type="button"
+                            onClick={() => onChange('fatherAddress', studentInfo.motherAddress || '')}
+                            className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-lg border border-slate-200 dark:border-slate-700 text-xs inline-flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+                            title="Copy mother's address"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span>Same as Mother's</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                     <input
                       type="text"
                       required={isRequired('fatherAddress')}
@@ -866,11 +915,29 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
               )}
               {isEnabled('guardianAddress') && (
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    {getLabel('guardianAddress', "Guardian's Address")}{' '}
-                    {isRequired('guardianAddress') && <span className="text-red-500">*</span>}
-                    {renderAdminFieldBadge('guardianAddress')}
-                  </label>
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
+                    <label className="block text-xs font-semibold text-gray-700">
+                      {getLabel('guardianAddress', "Guardian's Address")}{' '}
+                      {isRequired('guardianAddress') && <span className="text-red-500">*</span>}
+                      {renderAdminFieldBadge('guardianAddress')}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const addr = studentInfo.address || (studentInfo as any).studentAddress || '';
+                        if (!addr) {
+                          alert("Please enter the student's address in Section 1 (Student Information) first.");
+                          return;
+                        }
+                        onChange('guardianAddress', addr);
+                      }}
+                      className="px-2.5 py-1 bg-purple-100 dark:bg-purple-950/50 hover:bg-purple-200 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold rounded-lg border border-purple-200 dark:border-purple-800/80 text-xs inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                      title="Copy student residential address to guardian's address"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Same as child address</span>
+                    </button>
+                  </div>
                   <input
                     type="text"
                     required={isRequired('guardianAddress')}

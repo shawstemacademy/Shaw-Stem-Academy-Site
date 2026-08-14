@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SEOOptimizer } from './components/common/SEOOptimizer';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { Lock, Loader2 } from 'lucide-react';
+import { Lock, Loader2, Bell, CheckCircle2 } from 'lucide-react';
 import { requestNotificationPermission, sendDesktopNotification, playNotificationSound } from './lib/notifications';
 import { requestAndSaveFcmToken, DEFAULT_VAPID_KEY, sendPushNotificationToUser, sendPushNotificationToClass, sendPushNotificationToAll } from './lib/fcm';
 import {
@@ -24,6 +24,9 @@ import {
   subscribeToCollection, subscribeToCollectionWhere,
   saveDocToFirestore,
   deleteDocFromFirestore,
+  saveUserToFirestore,
+  deleteUserFromFirestore,
+  subscribeToAllSchoolUsers,
   toggleUserDisabledInFirestore,
   onFirestoreWrite,
   logSecurityEvent,
@@ -127,6 +130,8 @@ export default function App() {
   const [studentStatus, setStudentStatus] = useState<StudentStatus>('prospective');
   const [loggedInUser, setLoggedInUser] = useState<SchoolUser | null>(null);
   const [currentFcmToken, setCurrentFcmToken] = useState<string | null>(null);
+  const [newAccountSuccess, setNewAccountSuccess] = useState<{ name: string; email: string } | null>(null);
+  const isCreatingUserRef = useRef(false);
   const [resourceCategories, setResourceCategories] = useState<ResourceCategory[]>([]);
   const [dbError, setDbError] = useState<string | null>(null);
 
@@ -145,6 +150,31 @@ export default function App() {
       setStudentStatus(loggedInUser.status);
     }
   }, [loggedInUser]);
+
+  // Auto-refresh notification registration for last logged-in account on cold PWA launch
+  useEffect(() => {
+    if (!loggedInUser && !user && typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('shaw_stem_last_account');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.email || parsed?.id) {
+            requestAndSaveFcmToken(DEFAULT_VAPID_KEY, {
+              email: parsed.email,
+              id: parsed.id,
+              name: parsed.name
+            }).then((res) => {
+              if (res?.token) {
+                setCurrentFcmToken(res.token);
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Error syncing last logged-in device account:', e);
+      }
+    }
+  }, []);
 
   // Auto request notification permission and save FCM token on login
   useEffect(() => {
@@ -579,7 +609,7 @@ export default function App() {
         ...loggedInUser,
         themeMode: nextTheme,
       };
-      await saveDocToFirestore('schoolUsers', loggedInUser.id, updatedUser);
+      await saveUserToFirestore(updatedUser);
     }
   };
 
@@ -693,7 +723,7 @@ export default function App() {
             department: primaryDeptName // for backwards compatibility
           };
           
-          saveDocToFirestore('schoolUsers', u.id, updatedUser);
+          saveUserToFirestore(updatedUser);
 
           // Sync with teacherProfile if exists
           const teacherProfile = teacherProfiles.find(t => t.id === u.id);
@@ -950,7 +980,7 @@ export default function App() {
           setSystemActionLogs(sorted);
         }
       }),
-      subscribeToCollection<SchoolUser>('schoolUsers', (data) => {
+      subscribeToAllSchoolUsers((data) => {
         setSchoolUsers(data || []);
         setSchoolUsersLoaded(true);
         if (data && data.length > 0) {
@@ -1184,7 +1214,7 @@ export default function App() {
             avatar: user.photoURL || undefined,
             department: 'Administration & Registrar',
           };
-          saveDocToFirestore('schoolUsers', newGUser.id, newGUser);
+          saveUserToFirestore(newGUser);
           setLoggedInUser(newGUser);
           setCurrentRole(newGUser.role);
         } else {
@@ -1378,70 +1408,79 @@ export default function App() {
   };
 
   async function handleNewUserCreation(gUser: User) {
-    const savedInfo = localStorage.getItem('pending_registration_info');
-    if (savedInfo) {
-      // Safety check: verify if a user with this email is already registered in schoolUsers to prevent accidental profile overwrites (like the admin/staff account)
-      const existingUser = schoolUsers.find(
-        (u) => (u?.email || '').toLowerCase() === gUser.email!.toLowerCase()
-      );
-      if (existingUser) {
-        setLoggedInUser(existingUser);
-        setCurrentRole(existingUser.role);
-        if (existingUser.role === 'student') {
-          setStudentStatus(existingUser.status || 'unverified');
-          setActiveTab('student-portal');
-        } else if (existingUser.role === 'teacher' || existingUser.role === 'hod') {
-          setActiveTab('teacher-dashboard');
-        } else if (existingUser.role === 'admin' || existingUser.role === 'registrar') {
-          setActiveTab('admin-dashboard');
+    if (isCreatingUserRef.current) return false;
+    isCreatingUserRef.current = true;
+
+    try {
+      const savedInfo = localStorage.getItem('pending_registration_info');
+      localStorage.removeItem('pending_registration_info');
+
+      if (savedInfo) {
+        // Safety check: verify if a user with this email is already registered in schoolUsers to prevent accidental profile overwrites (like the admin/staff account)
+        const existingUser = schoolUsers.find(
+          (u) => (u?.email || '').toLowerCase() === gUser.email!.toLowerCase()
+        );
+        if (existingUser) {
+          setLoggedInUser(existingUser);
+          setCurrentRole(existingUser.role);
+          if (existingUser.role === 'student') {
+            setStudentStatus(existingUser.status || 'unverified');
+            setActiveTab('student-portal');
+          } else if (existingUser.role === 'teacher' || existingUser.role === 'hod') {
+            setActiveTab('teacher-dashboard');
+          } else if (existingUser.role === 'admin' || existingUser.role === 'registrar') {
+            setActiveTab('admin-dashboard');
+          }
+          alert(`This Google account (${gUser.email}) is already registered as a ${existingUser.role}. You have been signed in to your existing profile instead.`);
+          return true;
         }
-        localStorage.removeItem('pending_registration_info');
-        alert(`This Google account (${gUser.email}) is already registered as a ${existingUser.role}. You have been signed in to your existing profile instead.`);
+
+        const info = JSON.parse(savedInfo);
+        const sName = info.studentName || `${info.firstName || ''} ${info.lastName || ''}`.trim() || gUser.displayName || 'Student';
+        const pName = info.motherFirstName || info.fatherFirstName || info.guardianFirstName || info.parentName || '';
+        const pPhone = info.parentPhone || info.motherCellPhone || info.fatherCellPhone || info.guardianCellPhone || '';
+        
+        const completeStudentInfo: StudentInfo = {
+          ...info,
+          studentName: sName,
+          parentEmail: info.parentEmail || info.motherEmail || info.fatherEmail || info.guardianEmail || '',
+          parentName: pName,
+          parentPhone: pPhone,
+          emergencyContact: info.emergencyContact || pPhone || ''
+        };
+        
+        const newUser: SchoolUser = {
+          id: gUser.uid,
+          name: sName,
+          email: gUser.email!,
+          role: 'student',
+          status: 'prospective',
+          avatar: gUser.photoURL || undefined,
+          department: 'Student Body',
+          studentDetails: completeStudentInfo,
+        };
+        
+        await saveUserToFirestore(newUser);
+        
+        // Store that we just registered this email in this session to bypass automatic signOut race conditions
+        sessionStorage.setItem('just_registered_email', gUser.email!.toLowerCase());
+        
+        setStudentInfo(completeStudentInfo);
+        setSchoolUsers(prev => [...prev.filter(u => u.id !== newUser.id), newUser]);
+        setLoggedInUser(newUser);
+        setCurrentRole('student');
+        setStudentStatus('prospective');
+        setActiveTab('student-portal');
+        
+        setNewAccountSuccess({ name: newUser.name, email: newUser.email });
         return true;
       }
-
-      const info = JSON.parse(savedInfo);
-      const sName = info.studentName || `${info.firstName || ''} ${info.lastName || ''}`.trim() || gUser.displayName || 'Student';
-      const pName = info.motherFirstName || info.fatherFirstName || info.guardianFirstName || info.parentName || '';
-      const pPhone = info.parentPhone || info.motherCellPhone || info.fatherCellPhone || info.guardianCellPhone || '';
-      
-      const completeStudentInfo: StudentInfo = {
-        ...info,
-        studentName: sName,
-        parentEmail: info.parentEmail || info.motherEmail || info.fatherEmail || info.guardianEmail || '',
-        parentName: pName,
-        parentPhone: pPhone,
-        emergencyContact: info.emergencyContact || pPhone || ''
-      };
-      
-      const newUser: SchoolUser = {
-        id: gUser.uid,
-        name: sName,
-        email: gUser.email!,
-        role: 'student',
-        status: 'prospective',
-        avatar: gUser.photoURL || undefined,
-        department: 'Student Body',
-        studentDetails: completeStudentInfo,
-      };
-      
-      await saveDocToFirestore('schoolUsers', newUser.id, newUser);
-      
-      // Store that we just registered this email in this session to bypass automatic signOut race conditions
-      sessionStorage.setItem('just_registered_email', gUser.email!.toLowerCase());
-      
-      setStudentInfo(completeStudentInfo);
-      setSchoolUsers(prev => [...prev.filter(u => u.id !== newUser.id), newUser]);
-      setLoggedInUser(newUser);
-      setCurrentRole('student');
-      setStudentStatus('prospective');
-      setActiveTab('student-portal');
-      localStorage.removeItem('pending_registration_info');
-      
-      alert(`Account created successfully for ${gUser.email}! Welcome to Shaw STEM Academy. Your admissions application is being processed; you will receive a notification and be able to enroll in classes once your admission is accepted by the school.`);
-      return true;
+      return false;
+    } finally {
+      setTimeout(() => {
+        isCreatingUserRef.current = false;
+      }, 2000);
     }
-    return false;
   };
 
   const handleGoogleAuthRegistration = async () => {
@@ -1562,7 +1601,7 @@ export default function App() {
         studentDetails: completeInfo,
       };
 
-      await saveDocToFirestore('schoolUsers', newUser.id, newUser);
+      await saveUserToFirestore(newUser);
       await logSecurityEvent({
         eventType: 'google_auth_registration',
         status: 'success',
@@ -1572,12 +1611,13 @@ export default function App() {
       });
 
       setSchoolUsers((prev) => [...prev.filter((u) => u.id !== newUser.id), newUser]);
+      sessionStorage.setItem('just_registered_email', newUser.email.toLowerCase());
       setIsAuthModalOpen(false);
       setLoggedInUser(newUser);
       setCurrentRole('student');
       setStudentStatus('prospective');
       setActiveTab('student-portal');
-      alert(`School Account Created Successfully!\nWelcome to Shaw STEM Academy, ${newUser.name} (${newUser.email}). Your admissions application is being processed; you will receive a notification and be able to enroll in classes once your admission is accepted by the school.`);
+      setNewAccountSuccess({ name: newUser.name, email: newUser.email });
     } catch (err: any) {
       setAuthError(err?.message || 'Failed to complete direct email sign-in.');
       await logSecurityEvent({
@@ -1654,7 +1694,7 @@ export default function App() {
         studentDetails: completeInfo,
       };
       
-      await saveDocToFirestore('schoolUsers', newUser.id, newUser);
+      await saveUserToFirestore(newUser);
       await logSecurityEvent({
         eventType: 'password_auth_registration',
         status: 'success',
@@ -1664,12 +1704,13 @@ export default function App() {
       });
 
       setSchoolUsers((prev) => [...prev.filter((u) => u.id !== newUser.id), newUser]);
+      sessionStorage.setItem('just_registered_email', newUser.email.toLowerCase());
       setIsAuthModalOpen(false);
       setLoggedInUser(newUser);
       setCurrentRole('student');
       setStudentStatus('prospective');
       setActiveTab('student-portal');
-      alert(`School Account Created Successfully!\nWelcome to Shaw STEM Academy, ${newUser.name} (${newUser.email}). Your admissions application is being processed; you will receive a notification and be able to enroll in classes once your admission is accepted by the school.`);
+      setNewAccountSuccess({ name: newUser.name, email: newUser.email });
     } catch (err: any) {
       console.error('Password registration error:', err);
       const errMsg = err?.message || 'Failed to create password account.';
@@ -1682,6 +1723,32 @@ export default function App() {
       });
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const handleEnableNotificationsFromPrompt = async () => {
+    try {
+      const perm = await requestNotificationPermission();
+      if (perm === 'granted') {
+        const tokenRes = await requestAndSaveFcmToken(DEFAULT_VAPID_KEY, {
+          email: loggedInUser?.email || user?.email || undefined,
+          id: loggedInUser?.id || user?.uid || undefined,
+          name: loggedInUser?.name || user?.displayName || undefined
+        });
+        if (tokenRes?.token) {
+          setCurrentFcmToken(tokenRes.token);
+        }
+        playNotificationSound('success');
+        await sendDesktopNotification(
+          "🔔 Notifications Enabled",
+          `Welcome to Shaw STEM Academy, ${newAccountSuccess?.name || 'Student'}! You will receive live alerts when your admission is accepted and for classroom announcements.`
+        );
+        localStorage.setItem('notifications_welcome_shown', 'true');
+      }
+    } catch (e) {
+      console.warn('Error enabling notifications from prompt:', e);
+    } finally {
+      setNewAccountSuccess(null);
     }
   };
 
@@ -1897,13 +1964,13 @@ export default function App() {
     }
 
     const nameParts = currentName.split(' ');
-    const firstName = studentInfo.firstName || nameParts[0] || 'Student';
+    const firstName = studentInfo.firstName || nameParts[0] || '';
     const lastName = studentInfo.lastName || nameParts.slice(1).join(' ') || '';
     const isUserLoggedIn = Boolean(loggedInUser || user);
 
-    const motherFirstName = studentInfo.motherFirstName || (isUserLoggedIn ? (studentInfo.parentName || 'Parent') : '');
-    const guardianFirstName = studentInfo.guardianFirstName || (isUserLoggedIn ? 'Guardian' : '');
-    const parentName = studentInfo.parentName || (isUserLoggedIn ? 'Parent/Guardian' : '');
+    const motherFirstName = studentInfo.motherFirstName || '';
+    const guardianFirstName = studentInfo.guardianFirstName || '';
+    const parentName = studentInfo.parentName || '';
 
     if (!isUserLoggedIn) {
       if (studentInfo.livesWith === 'Parent' && !motherFirstName && !studentInfo.fatherFirstName && !parentName) {
@@ -1922,10 +1989,6 @@ export default function App() {
     const details = loggedInUser?.studentDetails || {};
     const ageVal = studentInfo.studentAge || studentInfo.age || details.studentAge || details.age || '';
     const gradeVal = studentInfo.gradeLevel || studentInfo.formGrade || details.gradeLevel || details.formGrade || '';
-    const phoneVal = studentInfo.parentPhone || studentInfo.cellPhone || studentInfo.homePhone ||
-      studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone ||
-      details.parentPhone || details.cellPhone || details.homePhone || details.motherCellPhone ||
-      details.fatherCellPhone || details.guardianCellPhone || details.emergencyContact || '';
 
     const motherFullName = `${studentInfo.motherFirstName || details.motherFirstName || ''} ${studentInfo.motherLastName || details.motherLastName || ''}`.trim();
     const fatherFullName = `${studentInfo.fatherFirstName || details.fatherFirstName || ''} ${studentInfo.fatherLastName || details.fatherLastName || ''}`.trim();
@@ -1941,17 +2004,17 @@ export default function App() {
       ...studentInfo,
       email: currentEmail,
       studentName: currentName,
-      firstName,
-      lastName,
-      parentEmail: studentInfo.parentEmail || details.parentEmail || '',
+      firstName: firstName || details.firstName || '',
+      lastName: lastName || details.lastName || '',
+      parentEmail: studentInfo.parentEmail || details.parentEmail || studentInfo.motherEmail || details.motherEmail || studentInfo.fatherEmail || details.fatherEmail || studentInfo.guardianEmail || details.guardianEmail || '',
       age: ageVal,
       studentAge: ageVal,
       formGrade: gradeVal,
       gradeLevel: gradeVal,
-      cellPhone: phoneVal,
-      parentPhone: phoneVal,
-      motherFirstName: studentInfo.motherFirstName || details.motherFirstName || motherFirstName,
-      guardianFirstName: studentInfo.guardianFirstName || details.guardianFirstName || guardianFirstName,
+      cellPhone: studentInfo.cellPhone || details.cellPhone || '',
+      parentPhone: studentInfo.parentPhone || details.parentPhone || studentInfo.motherCellPhone || details.motherCellPhone || studentInfo.fatherCellPhone || details.fatherCellPhone || studentInfo.guardianCellPhone || details.guardianCellPhone || '',
+      motherFirstName: studentInfo.motherFirstName || details.motherFirstName || '',
+      guardianFirstName: studentInfo.guardianFirstName || details.guardianFirstName || '',
       parentName: parentNameVal,
       selectedSbaHubIds,
       selectedClassIds
@@ -2034,7 +2097,7 @@ export default function App() {
         studentDetails: effectiveStudentInfo
       };
       setLoggedInUser(updatedUser);
-      saveDocToFirestore('schoolUsers', loggedInUser.id, updatedUser);
+      saveUserToFirestore(updatedUser);
     }
     setCompletedRegistration(record);
     setActiveTab('student-portal');
@@ -2123,7 +2186,7 @@ export default function App() {
           );
           if (matchingUser && isPaid) {
             const updatedUser: SchoolUser = { ...matchingUser, status: 'enrolled_paid' };
-            saveDocToFirestore('schoolUsers', matchingUser.id, updatedUser);
+            saveUserToFirestore(updatedUser);
             
             sendPushNotificationToUser(
               matchingUser.email,
@@ -2135,7 +2198,7 @@ export default function App() {
             // Only revert to 'accepted' if they were already accepted or enrolled_paid
             if (matchingUser.status === 'enrolled_paid' || matchingUser.status === 'accepted') {
               const updatedUser: SchoolUser = { ...matchingUser, status: 'accepted' };
-              saveDocToFirestore('schoolUsers', matchingUser.id, updatedUser);
+              saveUserToFirestore(updatedUser);
             }
           }
           
@@ -2230,7 +2293,7 @@ export default function App() {
     setSchoolUsers((prev) =>
       prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
     );
-    saveDocToFirestore('schoolUsers', updatedUser.id, updatedUser);
+    saveUserToFirestore(updatedUser);
     logSystemAction('user_updated', `User profile for ${updatedUser.name} updated`);
   };
 
@@ -2255,7 +2318,7 @@ export default function App() {
   // --- USER, ROLE, AND DEPARTMENT MANAGEMENT HANDLERS ---
   const handleAddUser = (newUser: SchoolUser) => {
     setSchoolUsers((prev) => [newUser, ...prev]);
-    saveDocToFirestore('schoolUsers', newUser.id, newUser);
+    saveUserToFirestore(newUser);
     if (newUser.role === 'teacher') {
       const newProfile: TeacherProfile = {
         id: newUser.id,
@@ -2283,7 +2346,7 @@ export default function App() {
 
   const handleUpdateUser = (updatedUser: SchoolUser) => {
     setSchoolUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
-    saveDocToFirestore('schoolUsers', updatedUser.id, updatedUser);
+    saveUserToFirestore(updatedUser);
 
     if (updatedUser.role === 'teacher' || updatedUser.role === 'hod') {
       setTeacherProfiles((prev) => {
@@ -2499,7 +2562,7 @@ export default function App() {
 
     // 9. Delete Primary User & Teacher Profile Documents
     setSchoolUsers((prev) => prev.filter((u) => u.id !== userId));
-    deleteDocFromFirestore('schoolUsers', userId);
+    deleteUserFromFirestore(userId);
     setTeacherProfiles((prev) => prev.filter((t) => t.id !== userId));
     deleteDocFromFirestore('teachers', userId);
 
@@ -2653,7 +2716,7 @@ export default function App() {
             updated.status = 'enrolled_paid'; // Staff are active by default
         }
 
-        saveDocToFirestore('schoolUsers', userId, updated);
+        saveUserToFirestore(updated);
         
         // Ensure teacherProfiles is also synced
         if (newRole === 'teacher' || newRole === 'hod') {
@@ -2720,7 +2783,7 @@ export default function App() {
             departmentIds: nextIds,
             departmentNames: deptNames 
           };
-          saveDocToFirestore('schoolUsers', userId, updated);
+          saveUserToFirestore(updated);
           return updated;
         }
         return u;
@@ -2806,7 +2869,7 @@ export default function App() {
             departmentNames: deptNames,
             department: primaryDeptName, // backwards compatibility
           };
-          saveDocToFirestore('schoolUsers', u.id, updated);
+          saveUserToFirestore(updated);
           return updated;
         }
         return u;
@@ -2867,7 +2930,7 @@ export default function App() {
             departmentIds: nextIds,
             departmentNames: deptNames 
           };
-          saveDocToFirestore('schoolUsers', userId, updated);
+          saveUserToFirestore(updated);
           return updated;
         }
         return u;
@@ -2919,7 +2982,7 @@ export default function App() {
             departmentIds: nextIds,
             departmentNames: deptNames 
           };
-          saveDocToFirestore('schoolUsers', userId, updated);
+          saveUserToFirestore(updated);
           return updated;
         }
         return u;
@@ -3537,15 +3600,19 @@ export default function App() {
                           }
                         }
 
-                        const pName = studentInfo.motherFirstName || studentInfo.fatherFirstName || studentInfo.guardianFirstName || studentInfo.parentName || '';
-                        const pPhone = studentInfo.cellPhone || studentInfo.homePhone || studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone || studentInfo.parentPhone || '';
+                        const motherFullName = `${studentInfo.motherFirstName || ''} ${studentInfo.motherLastName || ''}`.trim();
+                        const fatherFullName = `${studentInfo.fatherFirstName || ''} ${studentInfo.fatherLastName || ''}`.trim();
+                        const guardianFullName = `${studentInfo.guardianFirstName || ''} ${studentInfo.guardianLastName || ''}`.trim();
+                        const pName = motherFullName || fatherFullName || guardianFullName || studentInfo.parentName || '';
+                        const pPhone = studentInfo.parentPhone || studentInfo.motherCellPhone || studentInfo.fatherCellPhone || studentInfo.guardianCellPhone || '';
+                        const pEmail = studentInfo.parentEmail || studentInfo.motherEmail || studentInfo.fatherEmail || studentInfo.guardianEmail || '';
                         
                         setStudentInfo(prev => ({
                           ...prev,
                           studentName: sName,
-                          parentEmail: prev.email || '',
-                          parentName: pName,
-                          parentPhone: pPhone,
+                          parentEmail: pEmail || prev.parentEmail || '',
+                          parentName: pName || prev.parentName || '',
+                          parentPhone: pPhone || prev.parentPhone || '',
                           emergencyContact: prev.emergencyContact || pPhone || ''
                         }));
 
@@ -3561,7 +3628,7 @@ export default function App() {
                             department: loggedInUser?.department || 'Student Body',
                             studentDetails: studentInfo,
                           };
-                          await saveDocToFirestore('schoolUsers', currentUserId, updatedUser);
+                          await saveUserToFirestore(updatedUser);
                           setLoggedInUser(updatedUser);
                         }
                         
@@ -4020,6 +4087,56 @@ export default function App() {
         </div>
       )}
       
+      {/* Account Created & Enable Notifications Modal */}
+      {newAccountSuccess && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-[270] animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-6 text-center relative">
+            <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950/50 rounded-2xl flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400 shadow-xs">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                Account Created Successfully!
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                Welcome to Shaw STEM Academy, <strong className="text-slate-900 dark:text-slate-100">{newAccountSuccess.name}</strong> ({newAccountSuccess.email}). Your admissions application has been submitted and is currently being processed.
+              </p>
+            </div>
+
+            {/* Notification Opt-In Card */}
+            <div className="p-4 bg-purple-50 dark:bg-purple-950/30 rounded-2xl border border-purple-100 dark:border-purple-900/40 text-left space-y-2">
+              <div className="flex items-center gap-2 text-purple-900 dark:text-purple-300 font-bold text-xs">
+                <Bell className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <span>Turn on Push Notifications</span>
+              </div>
+              <p className="text-xs text-purple-800/80 dark:text-purple-300/80 leading-relaxed">
+                Get notified immediately once your admission is accepted so you can enroll in classes without delay.
+              </p>
+            </div>
+
+            <div className="space-y-2.5 pt-1">
+              <button
+                type="button"
+                onClick={handleEnableNotificationsFromPrompt}
+                className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white font-bold rounded-xl text-sm transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Bell className="w-4 h-4" />
+                <span>Turn On Notifications</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setNewAccountSuccess(null)}
+                className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs transition-all cursor-pointer"
+              >
+                Maybe Later (Continue to Portal)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Session Timeout Alert Modal */}
       {showTimeoutAlert && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">

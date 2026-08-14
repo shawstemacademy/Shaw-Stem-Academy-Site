@@ -144,27 +144,48 @@ export async function requestAndSaveFcmToken(
       const isMobile = /Mobi|Android|iPhone/i.test(userAgent);
       const isMac = /Macintosh/i.test(userAgent);
       const isWindows = /Windows/i.test(userAgent);
+      const isSamsung = /Samsung|SM-S928|SM-S92|Galaxy/i.test(userAgent);
       
       let platform = 'Web Browser';
-      if (isMobile) platform = 'Mobile Browser';
+      if (isSamsung) platform = 'Samsung Galaxy Device';
+      else if (isMobile) platform = 'Mobile Device';
       else if (isMac) platform = 'macOS Desktop';
       else if (isWindows) platform = 'Windows Desktop';
 
-      const userEmail = userInfo?.email || user?.email || 'anonymous@shawstemacademy.edu';
+      const userEmail = (userInfo?.email || user?.email || 'anonymous@shawstemacademy.edu').toLowerCase().trim();
       const userId = userInfo?.id || user?.uid || 'anonymous';
       const userName = userInfo?.name || user?.displayName || 'Academy Student';
+
+      // Persist in localStorage so background/offline PWA retains last logged-in account identity
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          localStorage.setItem('shaw_stem_last_account', JSON.stringify({
+            email: userEmail,
+            id: userId,
+            name: userName,
+            token,
+            updatedAt: new Date().toISOString()
+          }));
+          localStorage.setItem('shaw_stem_fcm_token', token);
+        } catch (storageErr) {
+          console.warn('Could not cache last account in localStorage:', storageErr);
+        }
+      }
 
       await setDoc(tokenDocRef, {
         token,
         userId,
-        userEmail: userEmail.toLowerCase().trim(),
+        userEmail,
         userName,
         platform,
         userAgent,
-        updatedAt: new Date().toISOString()
+        isPersistent: true,
+        deviceModel: isSamsung ? 'Samsung Galaxy S24 Ultra / Android' : platform,
+        updatedAt: new Date().toISOString(),
+        lastActiveAt: new Date().toISOString()
       }, { merge: true });
 
-      console.log(`FCM registration token retrieved and stored for ${userEmail} (${userId}):`, token);
+      console.log(`FCM registration token retrieved and persistently stored for ${userEmail} (${userId}):`, token);
       return { token, error: null };
     } else {
       return { token: null, error: 'No FCM registration token available. Request permission or generate VAPID keys.' };
@@ -192,15 +213,20 @@ export async function sendPushNotificationToUser(
 
   // 1. Honor user notification preferences if configured
   try {
-    const usersRef = collection(db, 'schoolUsers');
     let userDocData: any = null;
-    if (userId) {
-      const uSnap = await getDocs(query(usersRef, where('id', '==', userId)));
-      uSnap.forEach(d => { userDocData = d.data(); });
-    }
-    if (!userDocData && normalizedEmail) {
-      const eSnap = await getDocs(query(usersRef, where('email', '==', normalizedEmail)));
-      eSnap.forEach(d => { userDocData = d.data(); });
+    const userCols = ['users_student', 'users_teacher', 'users_admin'];
+    
+    for (const colName of userCols) {
+      if (userDocData) break;
+      const usersRef = collection(db, colName);
+      if (userId) {
+        const uSnap = await getDocs(query(usersRef, where('id', '==', userId)));
+        uSnap.forEach(d => { userDocData = d.data(); });
+      }
+      if (!userDocData && normalizedEmail) {
+        const eSnap = await getDocs(query(usersRef, where('email', '==', normalizedEmail)));
+        eSnap.forEach(d => { userDocData = d.data(); });
+      }
     }
 
     if (userDocData && userDocData.notificationPreferences) {
@@ -266,19 +292,21 @@ export async function sendPushNotificationToClass(
     const targetEmails = new Set<string>();
     const userIds = new Set<string>();
 
-    // 1. Get from schoolUsers collection
+    // 1. Get from users_student & users_teacher collections
     try {
-      const usersRef = collection(db, 'schoolUsers');
-      const q = query(usersRef, where('registeredClassIds', 'array-contains', classId));
-      const userSnaps = await getDocs(q);
-      userSnaps.forEach(doc => {
-        userIds.add(doc.id);
-        const data = doc.data();
-        if (data.id) userIds.add(data.id);
-        if (data.email) targetEmails.add(data.email.toLowerCase().trim());
-      });
+      for (const colName of ['users_student', 'users_teacher']) {
+        const usersRef = collection(db, colName);
+        const q = query(usersRef, where('registeredClassIds', 'array-contains', classId));
+        const userSnaps = await getDocs(q);
+        userSnaps.forEach(doc => {
+          userIds.add(doc.id);
+          const data = doc.data();
+          if (data.id) userIds.add(data.id);
+          if (data.email) targetEmails.add(data.email.toLowerCase().trim());
+        });
+      }
     } catch (err) {
-      console.warn('Error querying schoolUsers for class:', err);
+      console.warn('Error querying role collections for class:', err);
     }
 
     // 2. Get from registrations collection (verifiedClassIds contains classId)
@@ -323,15 +351,17 @@ export async function sendPushNotificationToClass(
     // 4. Resolve userIds for targetEmails so we can fetch their FCM tokens
     if (targetEmails.size > 0) {
       try {
-        const usersRef = collection(db, 'schoolUsers');
-        const usersSnap = await getDocs(usersRef);
-        usersSnap.forEach(doc => {
-          const data = doc.data();
-          if (data.email && targetEmails.has(data.email.toLowerCase().trim())) {
-            userIds.add(doc.id);
-            if (data.id) userIds.add(data.id);
-          }
-        });
+        for (const colName of ['users_student', 'users_teacher', 'users_admin']) {
+          const usersRef = collection(db, colName);
+          const usersSnap = await getDocs(usersRef);
+          usersSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.email && targetEmails.has(data.email.toLowerCase().trim())) {
+              userIds.add(doc.id);
+              if (data.id) userIds.add(data.id);
+            }
+          });
+        }
       } catch (err) {
         console.warn('Error resolving userIds by emails:', err);
       }

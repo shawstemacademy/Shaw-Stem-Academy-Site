@@ -26,7 +26,11 @@ import {
   Camera,
   VideoOff,
   QrCode,
-  Volume2
+  Volume2,
+  RotateCw,
+  HelpCircle,
+  ListChecks,
+  Sparkles
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -502,8 +506,17 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   const [globalScanFeedback, setGlobalScanFeedback] = useState<string | null>(null);
   const [globalScanFeedbackType, setGlobalScanFeedbackType] = useState<'success' | 'error' | null>(null);
   const [globalScanClassId, setGlobalScanClassId] = useState<string>('');
+  const [recentScans, setRecentScans] = useState<Array<{ id: string; studentName: string; className: string; timestamp: string }>>([]);
+  const [showQuickStart, setShowQuickStart] = useState<boolean>(false);
+  const [scannerRestartKey, setScannerRestartKey] = useState<number>(0);
   const globalScanVideoRef = useRef<HTMLVideoElement | null>(null);
   const globalScanCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const handleRetryScan = () => {
+    setGlobalScanFeedback("Retrying scan... Align student QR code in the frame.");
+    setGlobalScanFeedbackType(null);
+    setScannerRestartKey((prev) => prev + 1);
+  };
 
   // Set default class ID when classes are loaded or modal is opened
   useEffect(() => {
@@ -624,6 +637,17 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                   timestamp: new Date().toISOString()
                 });
 
+                // Track in Recent Scans session list
+                setRecentScans(prev => [
+                  {
+                    id: attId,
+                    studentName,
+                    className: targetClass.title,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                  },
+                  ...prev.filter(s => s.id !== attId)
+                ].slice(0, 5));
+
                 setGlobalScanFeedback(`SUCCESS! Marked ${studentName} as PRESENT in ${targetClass.title}!`);
                 setGlobalScanFeedbackType('success');
 
@@ -664,7 +688,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isGlobalScannerOpen, globalScanClassId, classes, registrationLogs, attendanceRecords]);
+  }, [isGlobalScannerOpen, globalScanClassId, classes, registrationLogs, attendanceRecords, scannerRestartKey]);
   
   const [editGcUrl, setEditGcUrl] = useState<string>('');
   const [editMeetUrl, setEditMeetUrl] = useState<string>('');
@@ -750,6 +774,15 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                 >
                   <QrCode className="w-3.5 h-3.5 animate-pulse" />
                   <span>Scan QR Attendance</span>
+                </button>
+
+                <button
+                  onClick={() => setShowQuickStart(true)}
+                  className="mt-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs rounded-xl border border-slate-700 transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                  title="View scanner quick start instructions"
+                >
+                  <HelpCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Quick Start Guide</span>
                 </button>
               </div>
             </div>
@@ -2213,14 +2246,25 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
             </button>
 
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
-                  <QrCode className="w-6 h-6 animate-pulse" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                    <QrCode className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black tracking-tight">Dedicated ID Scanner</h3>
+                    <p className="text-xs text-slate-400">Scan student QR codes for instant, automated attendance logging.</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-black tracking-tight">Dedicated ID Scanner</h3>
-                  <p className="text-xs text-slate-400">Scan student QR codes for instant, automated attendance logging.</p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowQuickStart(true)}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg border border-slate-700 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Scanner Help & Quick Start"
+                >
+                  <HelpCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline">Quick Start</span>
+                </button>
               </div>
 
               {/* Class Selector Dropdown */}
@@ -2250,7 +2294,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
               </div>
 
               {/* Live Video Frame Container */}
-              <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner">
+              <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner group">
                 <video
                   ref={globalScanVideoRef}
                   className="absolute inset-0 w-full h-full object-cover"
@@ -2271,26 +2315,89 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                     <div className="w-5 h-5 border-b-4 border-r-4 border-emerald-400 -mb-1 -mr-1"></div>
                   </div>
                 </div>
+
+                {/* Live Retry Scan Button Overlay on Camera */}
+                <button
+                  type="button"
+                  onClick={handleRetryScan}
+                  className="absolute bottom-3 right-3 px-3 py-1.5 bg-slate-900/85 hover:bg-slate-900 text-emerald-400 hover:text-emerald-300 font-bold text-xs rounded-xl border border-emerald-500/30 backdrop-blur-xs flex items-center gap-1.5 shadow-lg transition-all cursor-pointer z-10"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                  <span>Retry Scan</span>
+                </button>
               </div>
 
               {/* Status & Scan Feedback readouts */}
               {globalScanFeedback && (
-                <div className={`p-4 rounded-xl border text-xs font-bold transition-all flex items-start gap-2.5 ${
+                <div className={`p-4 rounded-xl border text-xs font-bold transition-all flex items-start justify-between gap-2.5 ${
                   globalScanFeedbackType === 'success'
                     ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.05)]'
                     : globalScanFeedbackType === 'error'
                     ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.05)]'
                     : 'bg-slate-950 text-slate-300 border-slate-800'
                 }`}>
-                  <span className="text-base shrink-0">
-                    {globalScanFeedbackType === 'success' ? '✓' : globalScanFeedbackType === 'error' ? '⚠' : 'ℹ'}
-                  </span>
-                  <div className="space-y-0.5">
-                    <p className="font-extrabold uppercase tracking-wider text-[10px] text-slate-400">Scanner Diagnostics</p>
-                    <p className="leading-relaxed">{globalScanFeedback}</p>
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-base shrink-0">
+                      {globalScanFeedbackType === 'success' ? '✓' : globalScanFeedbackType === 'error' ? '⚠' : 'ℹ'}
+                    </span>
+                    <div className="space-y-0.5">
+                      <p className="font-extrabold uppercase tracking-wider text-[10px] text-slate-400">Scanner Diagnostics</p>
+                      <p className="leading-relaxed">{globalScanFeedback}</p>
+                    </div>
                   </div>
+                  {globalScanFeedbackType === 'error' && (
+                    <button
+                      type="button"
+                      onClick={handleRetryScan}
+                      className="shrink-0 px-2.5 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded-lg text-xs font-bold border border-rose-500/30 flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <RotateCw className="w-3 h-3" />
+                      <span>Retry</span>
+                    </button>
+                  )}
                 </div>
               )}
+
+              {/* Recent Scans List (Last 5 successful scans this session) */}
+              <div className="bg-slate-950/60 p-4 border border-slate-800 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                    <ListChecks className="w-4 h-4 text-emerald-400" />
+                    <span>Recent Scans (Current Session)</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-800 px-2 py-0.5 rounded-full">
+                    {recentScans.length} / 5 Logged
+                  </span>
+                </div>
+
+                {recentScans.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic py-2 text-center bg-slate-900/50 rounded-xl border border-dashed border-slate-800">
+                    No students scanned yet this session. Align a QR code above to check in.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {recentScans.map((scan, idx) => (
+                      <div
+                        key={scan.id + idx}
+                        className="flex items-center justify-between bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80 text-xs animate-fade-in"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px] flex items-center justify-center">
+                            ✓
+                          </span>
+                          <div>
+                            <p className="font-bold text-slate-100">{scan.studentName}</p>
+                            <p className="text-[10px] text-slate-400">{scan.className}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-mono text-emerald-400/90 font-medium bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-800/30">
+                          {scan.timestamp}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* General Operating instructions */}
               <div className="bg-slate-950/40 p-4 border border-slate-800/60 rounded-2xl space-y-2">
@@ -2300,19 +2407,96 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                 <ol className="text-xs text-slate-400 list-decimal list-inside space-y-1 font-medium">
                   <li>Ask the student to open their portal and tap their pass to view fullscreen.</li>
                   <li>Position their QR Code 4-8 inches away from the active camera lens.</li>
-                  <li>On successful recognition, a confirmation sound will play and log attendance instantly.</li>
+                  <li>On recognition, a chime plays, attendance is recorded, and the student appears in Recent Scans.</li>
                 </ol>
               </div>
 
-              <div className="pt-2 flex justify-end">
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRetryScan}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                  <span>Retry Camera</span>
+                </button>
                 <button
                   onClick={() => setIsGlobalScannerOpen(false)}
-                  className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all cursor-pointer w-full text-center"
+                  className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all cursor-pointer flex-1 text-center"
                 >
                   Close Scanner Terminal
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK START GUIDE MODAL */}
+      {showQuickStart && (
+        <div className="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 sm:p-8 relative shadow-2xl text-white space-y-6">
+            <button
+              onClick={() => setShowQuickStart(false)}
+              className="absolute right-4 top-4 w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center font-bold cursor-pointer transition-colors"
+            >
+              ✕
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-emerald-500/20 rounded-2xl text-emerald-400">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-extrabold tracking-tight">QR Scanner Quick Start</h3>
+                <p className="text-xs text-slate-400">Best practices for fast classroom attendance</p>
+              </div>
+            </div>
+
+            <div className="space-y-3.5 text-xs text-slate-300">
+              <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-bold text-xs flex items-center justify-center shrink-0">1</span>
+                <div>
+                  <strong className="text-slate-100 block mb-0.5">Select Your Course</strong>
+                  <p className="text-slate-400">Choose the active lecture or lab period from the dropdown list before scanning.</p>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-bold text-xs flex items-center justify-center shrink-0">2</span>
+                <div>
+                  <strong className="text-slate-100 block mb-0.5">Fullscreen Student Pass</strong>
+                  <p className="text-slate-400">Instruct students to tap the QR pass on their phone screen to enlarge it fullscreen with maximum brightness.</p>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-bold text-xs flex items-center justify-center shrink-0">3</span>
+                <div>
+                  <strong className="text-slate-100 block mb-0.5">Distance & Angle</strong>
+                  <p className="text-slate-400">Hold the QR code 4 to 8 inches from your camera. Avoid severe screen glare or reflections.</p>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-bold text-xs flex items-center justify-center shrink-0">4</span>
+                <div>
+                  <strong className="text-slate-100 block mb-0.5">Instant Verification</strong>
+                  <p className="text-slate-400">You will hear an audio confirmation chime, and the check-in will immediately display under Recent Scans.</p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowQuickStart(false);
+                setIsGlobalScannerOpen(true);
+              }}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer text-center"
+            >
+              Open QR Scanner Now
+            </button>
           </div>
         </div>
       )}
