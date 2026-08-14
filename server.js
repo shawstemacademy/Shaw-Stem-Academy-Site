@@ -180,7 +180,7 @@ app.get(['/about', '/about/'], (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shaw STEM Academy - Premium Science, Technology & Engineering Portal</title>
+  <title>Shaw STEM Academy - Premium Online CSEC & CAPE classes</title>
   <meta name="description" content="Welcome to Shaw STEM Academy. Discover advanced engineering, physics, science, and coding curricula for students, parents, faculty, and administrators.">
   <meta name="keywords" content="Shaw STEM Academy, STEM school portal, science course registration, engineering laboratory classes, coding school, academics, admissions portal">
   <meta name="robots" content="index, follow">
@@ -189,7 +189,7 @@ app.get(['/about', '/about/'], (req, res) => {
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.shawstemacademy.com/about/">
-  <meta property="og:title" content="Shaw STEM Academy - Premium Science & Engineering Portal">
+  <meta property="og:title" content="Shaw STEM Academy - Premium Online CSEC & CAPE classes">
   <meta property="og:description" content="Discover advanced learning, curriculum schedules, and interactive portals at Shaw STEM Academy.">
 
   <!-- Tailwind CSS CDN for instant styling with zero JS overhead -->

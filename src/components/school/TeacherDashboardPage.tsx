@@ -194,6 +194,11 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
     return section ? section.enabled !== false : true;
   };
 
+  const getSectionTitle = (sectionId: string, defaultTitle: string): string => {
+    const section = teacherDashboardSections.find((s) => s.id === sectionId);
+    return section?.title || defaultTitle;
+  };
+
   // For teacher role, strictly enforce showing ONLY their own dashboard and information
   const currentTeacherRaw = (currentRole === 'teacher' && loggedInUser)
     ? (teachers.find((t) => t.id === loggedInUser.id || (t?.email || '').toLowerCase() === (loggedInUser?.email || '').toLowerCase()) || matchedTeacher)
@@ -1277,7 +1282,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">My Assigned Courses & Google Classroom Links</h2>
+            <h2 className="text-xl font-bold text-slate-900">{getSectionTitle('classes', 'My Assigned Courses & Google Classroom Links')}</h2>
             <p className="text-xs text-slate-500">
               Classes are <strong>Invite-Only</strong> on Google Classroom to prevent unauthorized access. Manage direct class links for enrolled students below.
             </p>
@@ -2000,7 +2005,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
       {/* Published Announcements List for this Teacher */}
       {(activeSection === 'published_announcements' || activeSection === 'resources') && (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-slate-900">My Published Announcements</h2>
+        <h2 className="text-xl font-bold text-slate-900">{getSectionTitle('published_announcements', 'My Published Announcements')}</h2>
         {teacherAnnouncements.length === 0 ? (
           <p className="text-xs text-slate-500 italic">No announcements published yet for your classes.</p>
         ) : (
@@ -2041,7 +2046,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
       {/* Published Resources List for this Teacher */}
       {(activeSection === 'published_resources' || activeSection === 'resources') && (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-slate-900">My Published Course Resources</h2>
+        <h2 className="text-xl font-bold text-slate-900">{getSectionTitle('published_resources', 'My Published Course Resources')}</h2>
         {teacherResources.length === 0 ? (
           <p className="text-xs text-slate-500 italic">No resources published yet for your classes.</p>
         ) : (

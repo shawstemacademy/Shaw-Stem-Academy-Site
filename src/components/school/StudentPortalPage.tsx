@@ -489,6 +489,11 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
     return section ? section.enabled !== false : true;
   };
 
+  const getSectionTitle = (sectionId: string, defaultTitle: string): string => {
+    const section = studentPortalSections.find(s => s.id === sectionId);
+    return section?.title || defaultTitle;
+  };
+
   return (
     <div className="space-y-8 pb-16">
       {/* Student Portal Header */}
@@ -867,7 +872,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                   <QrCode className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
                   <span>Interactive Student Pass</span>
                 </div>
-                <h3 className="text-xl font-extrabold tracking-tight">Your Digital Student ID & Attendance Pass</h3>
+                <h3 className="text-xl font-extrabold tracking-tight">{getSectionTitle('student_id', 'Digital Student ID & Attendance Pass')}</h3>
                 <p className="text-xs text-slate-400">Present this QR Code to your instructor during class for instant, automated attendance logging.</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -1122,7 +1127,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
           <div style={{ order: getSectionOrder('registered_classes') }} className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">My Registered Classes</h2>
+                <h2 className="text-2xl font-bold text-slate-900">{getSectionTitle('registered_classes', 'My Registered Classes')}</h2>
                 <p className="text-sm text-slate-500">
                   Showing {classes.length} Registered Course{classes.length === 1 ? '' : 's'}
                 </p>
@@ -1307,7 +1312,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
                   <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <BookOpen className="w-5 h-5 text-blue-600" />
-                    Student Academics
+                    {getSectionTitle('academics', 'Student Academics Hub')}
                   </h3>
                   <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                     <button
@@ -2394,7 +2399,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
             <div style={{ order: getSectionOrder('tuition_payment') }} className="space-y-4">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Quick Pay Dashboard</h2>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{getSectionTitle('tuition_payment', 'Quick Pay & Tuition Payment')}</h2>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -2589,7 +2594,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
           <div style={{ order: getSectionOrder('registration_history') }} className="space-y-4">
             <div className="flex items-center gap-2">
               <FolderOpen className="w-5 h-5 text-purple-600" />
-              <h2 className="text-2xl font-bold text-slate-900">Enrollment & Payment History</h2>
+              <h2 className="text-2xl font-bold text-slate-900">{getSectionTitle('registration_history', 'Enrollment & Payment Receipts')}</h2>
             </div>
 
             {(!allRegistrations || allRegistrations.length === 0) ? (
@@ -2692,7 +2697,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
           <div style={{ order: getSectionOrder('announcements') }} className="space-y-4">
             <div className="flex items-center gap-2">
               <Bell className="w-5 h-5 text-purple-600" />
-              <h2 className="text-2xl font-bold text-slate-900">Class Announcements</h2>
+              <h2 className="text-2xl font-bold text-slate-900">{getSectionTitle('announcements', 'Class Announcements Feed')}</h2>
             </div>
 
             {announcements.length === 0 ? (
@@ -2732,7 +2737,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
           <div style={{ order: getSectionOrder('resources') }} className="space-y-4">
             <div className="flex flex-col space-y-3">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Learning Resources & Lab Materials</h2>
+                <h2 className="text-2xl font-bold text-slate-900">{getSectionTitle('resources', 'Learning Resources & Lab Materials')}</h2>
                 <p className="text-sm text-slate-500">
                   {classes.length > 0
                     ? `Showing learning resources uploaded by teachers for your ${classes.length} registered course${classes.length === 1 ? '' : 's'}.`
@@ -2823,6 +2828,26 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               </div>
             )}
           </div>
+          )}
+
+          {/* Frequently Asked Questions FAQ Section */}
+          {isSectionEnabled('faq') && faqs && faqs.length > 0 && (
+            <div style={{ order: getSectionOrder('faq') }} className="space-y-4">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-blue-600" />
+                <h2 className="text-2xl font-bold text-slate-900">{getSectionTitle('faq', 'Frequently Asked Questions (FAQ)')}</h2>
+              </div>
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {faqs.slice(0, 6).map((faq) => (
+                    <div key={faq.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                      <h4 className="text-sm font-bold text-slate-900">{faq.question}</h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">{faq.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
         </div>
       )}

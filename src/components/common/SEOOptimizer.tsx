@@ -12,7 +12,7 @@ export interface SEOOptimizerProps {
 
 const TAB_METADATA_MAP: Record<string, { title: string; description: string; keywords: string }> = {
   home: {
-    title: 'Shaw STEM Academy - Premium Science, Technology & Engineering Portal',
+    title: 'Shaw STEM Academy - Premium Online CSEC & CAPE classes',
     description: 'Welcome to Shaw STEM Academy. Discover advanced engineering, physics, science, and coding curricula for students, parents, faculty, and administrators.',
     keywords: 'Shaw STEM Academy, STEM school portal, science course registration, engineering laboratory classes, coding school, academics, admissions portal',
   },

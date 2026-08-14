@@ -2435,6 +2435,9 @@ export default function App() {
     studentSections: SectionOrderItem[],
     teacherSections: SectionOrderItem[]
   ) => {
+    setStudentPortalSections(studentSections);
+    setTeacherDashboardSections(teacherSections);
+
     const success = await saveSectionOrdersToFirestore({
       studentPortalSections: studentSections,
       teacherDashboardSections: teacherSections,
@@ -2446,12 +2449,6 @@ export default function App() {
         'Customized student portal and teacher dashboard section orders',
         { studentSectionsCount: studentSections.length, teacherSectionsCount: teacherSections.length }
       );
-      setFirestoreToast({
-        id: `toast-${Date.now()}`,
-        title: 'Layout Saved Successfully',
-        message: 'The new customized section layout has been saved to Firebase and synchronized with all portals.',
-        type: 'success',
-      });
     } else {
       setFirestoreToast({
         id: `toast-${Date.now()}`,
@@ -2460,6 +2457,7 @@ export default function App() {
         type: 'error',
       });
     }
+    return success;
   };
 
   const handleDeleteUser = async (userId: string) => {
