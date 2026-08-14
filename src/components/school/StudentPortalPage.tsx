@@ -1981,19 +1981,16 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
                 {academicTab === 'add_drop' && (() => {
                   const currentReg = registrationRecord || allRegistrations[0];
-                  const registeredClassesForDrop = currentReg?.selectedClasses || classes || [];
-                  const unregisteredClassesForAdd = (allClasses || []).filter(
-                    (c) => !registeredClassesForDrop.some((regCls) => regCls.id === c.id)
+
+                  // Payment status check: student must have paid or verified tuition payment
+                  const isPaymentCompleted = Boolean(
+                    studentUser?.status === 'enrolled_paid' ||
+                    currentReg?.isPaid ||
+                    currentReg?.status === 'verified' ||
+                    currentReg?.status === 'completed' ||
+                    (currentReg?.payments && currentReg.payments.length > 0) ||
+                    allRegistrations.some(r => r.isPaid || r.status === 'verified' || r.status === 'completed' || (r.payments && r.payments.length > 0))
                   );
-
-                  const selectedDropClass = registeredClassesForDrop.find((c) => c.id === selectedDropClassId);
-                  const selectedAddClass = unregisteredClassesForAdd.find((c) => c.id === selectedAddClassId);
-
-                  // Discount calculation for drop
-                  const currentRegSubtotal = currentReg?.subtotal || registeredClassesForDrop.reduce((s, c) => s + (c.price || 0), 0);
-                  const currentRegTotalPrice = currentReg?.totalPrice || currentRegSubtotal;
-                  const discountRatio = currentRegSubtotal > 0 ? currentRegTotalPrice / currentRegSubtotal : 1;
-                  const dropEffectivePrice = selectedDropClass ? Math.round(selectedDropClass.price * discountRatio * 100) / 100 : 0;
 
                   // Student's requests
                   const myRequests = (addDropRequests || []).filter((r) => {
@@ -2003,8 +2000,62 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                     return studentEmailMatches || studentIdMatches || regIdMatches;
                   });
 
+                  // Identify all course IDs picked in registration or requested for add
+                  const pickedClassIds = new Set<string>();
+
+                  if (currentReg?.selectedClasses) {
+                    currentReg.selectedClasses.forEach((c) => pickedClassIds.add(c.id));
+                  }
+                  if (allRegistrations && allRegistrations.length > 0) {
+                    allRegistrations.forEach((reg) => {
+                      if (reg.selectedClasses) {
+                        reg.selectedClasses.forEach((c) => pickedClassIds.add(c.id));
+                      }
+                      if (reg.verifiedClassIds) {
+                        reg.verifiedClassIds.forEach((id) => pickedClassIds.add(id));
+                      }
+                    });
+                  }
+                  if (classes && classes.length > 0) {
+                    classes.forEach((c) => pickedClassIds.add(c.id));
+                  }
+                  // Exclude courses that are already pending or approved for add by this student
+                  myRequests.forEach((req) => {
+                    if (req.type === 'add' && (req.status === 'pending' || req.status === 'approved') && req.classItem?.id) {
+                      pickedClassIds.add(req.classItem.id);
+                    }
+                  });
+
+                  const availableCatalog = (allClasses && allClasses.length > 0) ? allClasses : [];
+
+                  // Registered classes for Drop dropdown
+                  const registeredClassesForDrop = availableCatalog.filter((c) => pickedClassIds.has(c.id));
+                  const finalDropClasses = registeredClassesForDrop.length > 0
+                    ? registeredClassesForDrop
+                    : (currentReg?.selectedClasses || classes || []);
+
+                  // Unregistered classes for Add dropdown: ONLY courses that ARE NOT picked in registration
+                  const unregisteredClassesForAdd = availableCatalog.filter(
+                    (c) => !pickedClassIds.has(c.id)
+                  );
+
+                  const selectedDropClass = finalDropClasses.find((c) => c.id === selectedDropClassId);
+                  const selectedAddClass = unregisteredClassesForAdd.find((c) => c.id === selectedAddClassId);
+
+                  // Discount calculation for drop
+                  const currentRegSubtotal = currentReg?.subtotal || finalDropClasses.reduce((s, c) => s + (c.price || 0), 0);
+                  const currentRegTotalPrice = currentReg?.totalPrice || currentRegSubtotal;
+                  const discountRatio = currentRegSubtotal > 0 ? currentRegTotalPrice / currentRegSubtotal : 1;
+                  const dropEffectivePrice = selectedDropClass ? Math.round(selectedDropClass.price * discountRatio * 100) / 100 : 0;
+
                   const handleStudentSubmitAddDrop = (e: React.FormEvent) => {
                     e.preventDefault();
+
+                    if (!isPaymentCompleted) {
+                      alert("Add / Drop requests cannot be submitted until your tuition payment is completed and verified by the Registrar.");
+                      return;
+                    }
+
                     if (!currentReg) {
                       alert("No active registration record found. Please complete course registration first.");
                       return;
@@ -2069,7 +2120,33 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
                   return (
                     <div className="space-y-6">
-                      <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-slate-800 dark:to-purple-950/30 p-6 rounded-2xl border border-purple-100 dark:border-purple-900/50 space-y-4">
+                      {!isPaymentCompleted && (
+                        <div className="p-5 bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300/80 dark:border-amber-800 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2.5 bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded-xl shrink-0 mt-0.5 sm:mt-0">
+                              <Lock className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="font-extrabold text-sm text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                                Add / Drop Form Locked (Payment Required)
+                              </h4>
+                              <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-0.5 leading-relaxed font-medium">
+                                Official course additions and drops are locked until your initial tuition payment is completed and verified by the Registrar. Please complete your payment first.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setAcademicTab('tuition')}
+                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer shrink-0"
+                          >
+                            <CreditCard className="w-4 h-4" />
+                            <span>Go to Tuition Payment</span>
+                          </button>
+                        </div>
+                      )}
+
+                      <div className={`bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-slate-800 dark:to-purple-950/30 p-6 rounded-2xl border border-purple-100 dark:border-purple-900/50 space-y-4 ${!isPaymentCompleted ? 'opacity-60 pointer-events-none select-none' : ''}`}>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-purple-200/60 dark:border-purple-900/50 pb-4">
                           <div>
                             <h4 className="font-extrabold text-base text-purple-900 dark:text-purple-200 flex items-center gap-2">
@@ -2121,7 +2198,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                                 className="w-full px-3.5 py-2.5 text-xs border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-purple-500"
                               >
                                 <option value="">-- Choose a course from your schedule --</option>
-                                {registeredClassesForDrop.map((cls) => (
+                                {finalDropClasses.map((cls) => (
                                   <option key={cls.id} value={cls.id}>
                                     {cls.title} ({cls.category || 'CSEC'}) - List Price: ${cls.price?.toFixed(2)}
                                   </option>
@@ -2152,7 +2229,11 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                                 onChange={(e) => setSelectedAddClassId(e.target.value)}
                                 className="w-full px-3.5 py-2.5 text-xs border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-purple-500"
                               >
-                                <option value="">-- Choose a new course to add --</option>
+                                <option value="">
+                                  {unregisteredClassesForAdd.length > 0
+                                    ? "-- Choose a new course to add --"
+                                    : "-- No additional courses available (all registered) --"}
+                                </option>
                                 {unregisteredClassesForAdd.map((cls) => (
                                   <option key={cls.id} value={cls.id}>
                                     {cls.title} ({cls.category || 'CSEC'}) - Full Price: ${cls.price?.toFixed(2)}

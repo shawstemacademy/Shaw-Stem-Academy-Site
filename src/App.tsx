@@ -3388,6 +3388,7 @@ export default function App() {
                 onUpdateUserProfile={handleUpdateUserProfile}
                 onDeleteRegistration={handleDeleteRegistration}
                 classes={enrolledClasses}
+                allClasses={classList}
                 resources={resources}
                 announcements={announcements}
                 categories={resourceCategories}
