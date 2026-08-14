@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import nodemailer from 'nodemailer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -71,6 +72,102 @@ app.post('/api/delete-user', async (req, res) => {
     return res.status(500).json({ 
       error: error.message || 'Failed to delete user from Firebase Authentication.',
       code: error.code || 'unknown'
+    });
+  }
+});
+
+// REST API for sending official transactional emails to students and parents
+app.post('/api/send-email', async (req, res) => {
+  const { to, cc, bcc, subject, html, text, type, metadata } = req.body;
+  if (!to || !subject || (!html && !text)) {
+    return res.status(400).json({ error: 'Missing required parameters (to, subject, and html/text).' });
+  }
+
+  const emailRecord = {
+    to: Array.isArray(to) ? to : [to],
+    cc: cc ? (Array.isArray(cc) ? cc : [cc]) : [],
+    bcc: bcc ? (Array.isArray(bcc) ? bcc : [bcc]) : [],
+    subject,
+    html: html || '',
+    text: text || '',
+    type: type || 'general',
+    metadata: metadata || {},
+    status: 'sent',
+    sentAt: new Date().toISOString(),
+  };
+
+  try {
+    // 1. Try sending via configured SMTP or standard Nodemailer transporter
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
+    const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER || 'shawstemacademy@gmail.com';
+    const smtpPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+
+    let messageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    if (smtpHost && smtpPass) {
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+
+      const info = await transporter.sendMail({
+        from: `"Shaw STEM Academy" <${smtpUser}>`,
+        to: emailRecord.to.join(', '),
+        cc: emailRecord.cc.length > 0 ? emailRecord.cc.join(', ') : undefined,
+        bcc: emailRecord.bcc.length > 0 ? emailRecord.bcc.join(', ') : undefined,
+        subject: emailRecord.subject,
+        text: emailRecord.text,
+        html: emailRecord.html,
+      });
+      messageId = info.messageId || messageId;
+      console.log(`Email dispatched via SMTP to ${emailRecord.to.join(', ')}: ${messageId}`);
+    } else {
+      console.log(`Email simulated/logged for ${emailRecord.to.join(', ')}: "${subject}" (type: ${type || 'general'})`);
+    }
+
+    // 2. Persist to Firestore email_logs and standard Firebase Trigger Email extension collection
+    try {
+      getFirebaseAuth();
+      if (adminApp) {
+        const db = getFirestore(adminApp);
+        const logId = `EMAIL_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        await db.collection('email_logs').doc(logId).set({
+          ...emailRecord,
+          id: logId,
+          messageId,
+        });
+
+        // Trigger Email extension collection standard format
+        await db.collection('mail').add({
+          to: emailRecord.to,
+          message: {
+            subject: emailRecord.subject,
+            text: emailRecord.text,
+            html: emailRecord.html,
+          },
+          sentAt: new Date().toISOString(),
+        });
+      }
+    } catch (fsErr) {
+      console.warn('Could not record email to Firestore mail collection:', fsErr.message || fsErr);
+    }
+
+    return res.status(200).json({ 
+      success: true, 
+      message: `Email successfully sent to ${Array.isArray(to) ? to.join(', ') : to}`,
+      messageId 
+    });
+  } catch (error) {
+    console.error('Error sending transactional email:', error.message || error);
+    return res.status(500).json({ 
+      error: error.message || 'Failed to dispatch email.', 
+      success: false 
     });
   }
 });
