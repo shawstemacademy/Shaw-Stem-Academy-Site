@@ -72,7 +72,9 @@ import {
   FormTheme,
   NotificationLogItem,
   NotificationPreferences,
-  AddDropRequest
+  AddDropRequest,
+  SectionOrderItem,
+  DEFAULT_STUDENT_SECTION_ORDER
 } from '../../types';
 import { FormFieldSetting } from '../../lib/formFieldsConfig';
 import { StudentInfoForm } from '../StudentInfoForm';
@@ -103,6 +105,7 @@ interface StudentPortalPageProps {
   fieldSettings?: FormFieldSetting[];
   isAdminLoggedIn?: boolean;
   onToggleFieldSetting?: (formId: string, fieldId: string, property: 'enabled' | 'required') => void;
+  studentPortalSections?: SectionOrderItem[];
 }
 
 export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
@@ -127,6 +130,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   fieldSettings = [],
   isAdminLoggedIn = false,
   onToggleFieldSetting,
+  studentPortalSections = DEFAULT_STUDENT_SECTION_ORDER,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showQrFullscreen, setShowQrFullscreen] = useState(false);
@@ -473,6 +477,16 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
           </span>
         );
     }
+  };
+
+  const getSectionOrder = (sectionId: string): number => {
+    const section = studentPortalSections.find(s => s.id === sectionId);
+    return section ? studentPortalSections.indexOf(section) : 99;
+  };
+
+  const isSectionEnabled = (sectionId: string): boolean => {
+    const section = studentPortalSections.find(s => s.id === sectionId);
+    return section ? section.enabled !== false : true;
   };
 
   return (
@@ -839,9 +853,11 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
       {/* ENROLLED / ACCEPTED / REGISTERED STUDENT VIEW */}
       {(status === 'enrolled_paid' || status === 'pending_verification' || status === 'accepted') && (
-        <div className="space-y-10 animate-fade-in">
+        <div className="flex flex-col gap-10 animate-fade-in">
           {/* Digital Student ID & Attendance QR Pass */}
-          <div className="bg-slate-900 text-white rounded-3xl p-6 border border-slate-800 shadow-xl relative overflow-hidden space-y-6">
+          {isSectionEnabled('student_id') && (
+            <>
+          <div style={{ order: getSectionOrder('student_id') }} className="bg-slate-900 text-white rounded-3xl p-6 border border-slate-800 shadow-xl relative overflow-hidden space-y-6">
             <div className="absolute -right-24 -top-24 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute -left-24 -bottom-24 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
             
@@ -1098,9 +1114,12 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               </div>
             </div>
           )}
+            </>
+          )}
 
           {/* Enrolled Classes Bar */}
-          <div className="space-y-4">
+          {isSectionEnabled('registered_classes') && (
+          <div style={{ order: getSectionOrder('registered_classes') }} className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">My Registered Classes</h2>
@@ -1280,9 +1299,11 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 </div>
               </div>
             )}
+          </div>
+          )}
 
-            {hasCourseRegistrations && (
-              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm mt-8">
+          {isSectionEnabled('academics') && hasCourseRegistrations && (
+              <div style={{ order: getSectionOrder('academics') }} className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm mt-8">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
                   <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <BookOpen className="w-5 h-5 text-blue-600" />
@@ -2366,12 +2387,11 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               </div>
             )}
           </div>
-        </div>
-      )}
+          )}
 
           {/* Quick Pay Section - Only show when student has registered for courses */}
-          {hasCourseRegistrations && (status === 'accepted' || status === 'pending_verification' || status === 'enrolled_paid') && (
-            <div className="space-y-4">
+          {isSectionEnabled('tuition_payment') && hasCourseRegistrations && (status === 'accepted' || status === 'pending_verification' || status === 'enrolled_paid') && (
+            <div style={{ order: getSectionOrder('tuition_payment') }} className="space-y-4">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Quick Pay Dashboard</h2>
@@ -2565,7 +2585,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
           )}
 
           {/* Enrollment & Registration History */}
-          <div className="space-y-4">
+          {isSectionEnabled('registration_history') && (
+          <div style={{ order: getSectionOrder('registration_history') }} className="space-y-4">
             <div className="flex items-center gap-2">
               <FolderOpen className="w-5 h-5 text-purple-600" />
               <h2 className="text-2xl font-bold text-slate-900">Enrollment & Payment History</h2>
@@ -2664,9 +2685,11 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               </div>
             )}
           </div>
+          )}
 
           {/* Teacher Announcements Feed */}
-          <div className="space-y-4">
+          {isSectionEnabled('announcements') && (
+          <div style={{ order: getSectionOrder('announcements') }} className="space-y-4">
             <div className="flex items-center gap-2">
               <Bell className="w-5 h-5 text-purple-600" />
               <h2 className="text-2xl font-bold text-slate-900">Class Announcements</h2>
@@ -2702,9 +2725,11 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               </div>
             )}
           </div>
+          )}
 
           {/* COURSE RESOURCES & LAB MATERIALS DOWNLOAD CENTER */}
-          <div className="space-y-4">
+          {isSectionEnabled('resources') && (
+          <div style={{ order: getSectionOrder('resources') }} className="space-y-4">
             <div className="flex flex-col space-y-3">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">Learning Resources & Lab Materials</h2>
@@ -2798,6 +2823,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               </div>
             )}
           </div>
+          )}
         </div>
       )}
 

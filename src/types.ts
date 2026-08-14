@@ -528,5 +528,116 @@ export interface TeacherHourlyRate {
   hourlyRate: number; // e.g. 35.00
 }
 
+export interface SectionOrderItem {
+  id: string;
+  title: string;
+  description: string;
+  enabled?: boolean;
+}
+
+export interface PortalSectionOrders {
+  id?: string;
+  studentPortalSections: SectionOrderItem[];
+  teacherDashboardSections: SectionOrderItem[];
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export const DEFAULT_STUDENT_SECTION_ORDER: SectionOrderItem[] = [
+  {
+    id: 'student_id',
+    title: 'Digital Student ID & Attendance Pass',
+    description: 'Digital ID badge with real-time QR attendance pass',
+    enabled: true,
+  },
+  {
+    id: 'registered_classes',
+    title: 'My Registered Classes & Direct Links',
+    description: 'Cards for enrolled courses with Google Classroom & Meet links',
+    enabled: true,
+  },
+  {
+    id: 'academics',
+    title: 'Student Academics Hub',
+    description: 'Class schedule, attendance log, grades, progress tracking, and Add/Drop course requests',
+    enabled: true,
+  },
+  {
+    id: 'tuition_payment',
+    title: 'Quick Pay & Tuition Payment',
+    description: 'Outstanding tuition balance summary and payment submission form',
+    enabled: true,
+  },
+  {
+    id: 'registration_history',
+    title: 'Enrollment & Payment Receipts',
+    description: 'Historical registration receipts, invoices, and payment verifications',
+    enabled: true,
+  },
+  {
+    id: 'announcements',
+    title: 'Class Announcements Feed',
+    description: 'Broadcast notices and alerts from assigned teachers',
+    enabled: true,
+  },
+  {
+    id: 'resources',
+    title: 'Learning Resources & Lab Materials',
+    description: 'Class worksheets, Arduino schematics, and downloadable materials',
+    enabled: true,
+  },
+  {
+    id: 'faq',
+    title: 'Frequently Asked Questions (FAQ)',
+    description: 'Helpful answers regarding registration, classes, and portal features',
+    enabled: true,
+  },
+];
+
+export const DEFAULT_TEACHER_SECTION_ORDER: SectionOrderItem[] = [
+  {
+    id: 'classes',
+    title: 'Assigned Courses & Google Classroom Links',
+    description: 'Faculty course roster, Google Classroom link management, and student management',
+    enabled: true,
+  },
+  {
+    id: 'performance',
+    title: 'Student Performance Distribution',
+    description: 'Grade breakdown tiers and faculty academic performance distribution',
+    enabled: true,
+  },
+  {
+    id: 'claims',
+    title: 'Teaching Claim Form & Calendar',
+    description: 'Monthly teaching log submitter and payroll claim records',
+    enabled: true,
+  },
+  {
+    id: 'resources',
+    title: 'Publish Announcements & Learning Resources',
+    description: 'Forms to post class notices and upload course lab files',
+    enabled: true,
+  },
+  {
+    id: 'published_announcements',
+    title: 'My Published Announcements',
+    description: 'Management log of announcements published to student portals',
+    enabled: true,
+  },
+  {
+    id: 'published_resources',
+    title: 'My Published Course Resources',
+    description: 'Management log of course materials and worksheets uploaded',
+    enabled: true,
+  },
+  {
+    id: 'hod_news_management',
+    title: 'HOD Categories & Department News Controls',
+    description: 'Resource category management and department news manager (HOD & Admin)',
+    enabled: true,
+  },
+];
+
 
 

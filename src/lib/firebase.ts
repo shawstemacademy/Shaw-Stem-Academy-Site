@@ -605,6 +605,58 @@ export interface SecurityLogEvent {
   userAgent?: string;
 }
 
+export const subscribeToDocument = <T = any>(
+  collectionName: string,
+  docId: string,
+  callback: (data: T | null) => void
+) => {
+  const docRef = doc(db, collectionName, docId);
+  return onSnapshot(
+    docRef,
+    (snapshot) => {
+      if (snapshot.exists()) {
+        callback({ id: snapshot.id, ...snapshot.data() } as unknown as T);
+      } else {
+        callback(null);
+      }
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.GET, `${collectionName}/${docId}`);
+    }
+  );
+};
+
+export const subscribeToSectionOrders = (
+  callback: (data: { studentPortalSections?: any[]; teacherDashboardSections?: any[] } | null) => void
+) => {
+  return subscribeToDocument<{ studentPortalSections?: any[]; teacherDashboardSections?: any[] }>(
+    'sectionOrders',
+    'config',
+    callback
+  );
+};
+
+export const saveSectionOrdersToFirestore = async (
+  sectionOrders: { studentPortalSections: any[]; teacherDashboardSections: any[]; updatedBy?: string }
+) => {
+  try {
+    const docRef = doc(db, 'sectionOrders', 'config');
+    const cleanData = JSON.parse(JSON.stringify(sectionOrders));
+    await setDoc(docRef, {
+      ...cleanData,
+      updatedAt: new Date().toISOString(),
+      timestamp: serverTimestamp(),
+    }, { merge: true });
+    notifyWriteListeners('sectionOrders', 'config', cleanData, true);
+    return true;
+  } catch (err: any) {
+    const errMsg = err?.message || String(err);
+    handleFirestoreError(err, OperationType.WRITE, 'sectionOrders/config');
+    notifyWriteListeners('sectionOrders', 'config', sectionOrders, false, errMsg);
+    return false;
+  }
+};
+
 /**
  * Records authentication attempts, suspicious activity, and reCAPTCHA verifications to 'securityLogs' Firestore collection
  */

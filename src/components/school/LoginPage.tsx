@@ -12,6 +12,7 @@ import {
 import { UserRole, StudentStatus, PortalTab, SchoolUser } from '../../types';
 import { googleSignIn, sendUserPasswordResetEmail, logSecurityEvent } from '../../lib/firebase';
 import { getRecaptchaToken, createRecaptchaAssessment } from '../../lib/recaptcha';
+import { requestNotificationPermission } from '../../lib/notifications';
 
 interface LoginPageProps {
   onLoginProfile: (role: UserRole, studentStatus?: StudentStatus, userObj?: SchoolUser, targetTab?: PortalTab) => void;
@@ -41,6 +42,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [resetLoading, setResetLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
+    try {
+      await requestNotificationPermission();
+    } catch (e) {
+      console.warn('Notification permission error:', e);
+    }
     setAuthLoading(true);
     try {
       setLoginMessage('Connecting to Google Authentication...');
@@ -84,6 +90,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      await requestNotificationPermission();
+    } catch (err) {
+      console.warn('Notification permission error:', err);
+    }
     setLoginMessage(null);
     setIsSuccessMessage(false);
     setAuthLoading(true);

@@ -65,12 +65,13 @@ import { StudentSearchDashboard } from './StudentSearchDashboard';
 import { ClassClaimForm } from './ClassClaimForm';
 import { AdminAddDropManager } from './AdminAddDropManager';
 import { AdminFormFieldsEditor } from './AdminFormFieldsEditor';
+import { SectionOrderManager } from './SectionOrderManager';
 import { FormFieldSetting } from '../../lib/formFieldsConfig';
-import { HelpCircle, Newspaper, Send, Smartphone, Laptop, Globe, Wifi, Copy, RefreshCw, CheckCircle, AlertCircle, MessageSquare, Info, SendHorizontal, Download, Database } from 'lucide-react';
+import { HelpCircle, Newspaper, Send, Smartphone, Laptop, Globe, Wifi, Copy, RefreshCw, CheckCircle, AlertCircle, MessageSquare, Info, SendHorizontal, Download, Database, GripVertical } from 'lucide-react';
 import { isFcmSupported, requestAndSaveFcmToken, onForegroundMessage, revokeFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
 import { subscribeToCollection, db } from '../../lib/firebase';
 import { collection, deleteDoc, doc, addDoc } from 'firebase/firestore';
-import { ClassItem, SbaHubOption, ScheduleClash, ClashAdmissibility, ClassType, LocationOption, ClassClaimItem, TeacherHourlyRate } from '../../types';
+import { ClassItem, SbaHubOption, ScheduleClash, ClashAdmissibility, ClassType, LocationOption, ClassClaimItem, TeacherHourlyRate, SectionOrderItem } from '../../types';
 
 interface AdminDashboardPageProps {
   registrationLogs: RegistrationRecord[];
@@ -133,6 +134,9 @@ interface AdminDashboardPageProps {
   fieldSettings?: FormFieldSetting[];
   onSaveFieldSettings?: (updated: FormFieldSetting[]) => void;
   onResetFieldSettingsToDefaults?: () => void;
+  studentPortalSections?: SectionOrderItem[];
+  teacherDashboardSections?: SectionOrderItem[];
+  onSaveSectionOrders?: (studentSections: SectionOrderItem[], teacherSections: SectionOrderItem[]) => Promise<boolean | void>;
 }
 
 export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
@@ -196,8 +200,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   fieldSettings = [],
   onSaveFieldSettings = () => {},
   onResetFieldSettingsToDefaults = () => {},
+  studentPortalSections = [],
+  teacherDashboardSections = [],
+  onSaveSectionOrders = async () => {},
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields'>(
+  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields' | 'section_order'>(
     currentRole === 'hod' ? 'users' : 'overview'
   );
 
@@ -1027,6 +1034,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       label: 'Form Field Settings',
       icon: <Sliders className="w-4 h-4 text-purple-400" />,
       badge: `${fieldSettings.length} Fields`,
+    },
+    {
+      id: 'section_order' as const,
+      label: 'Portal Section Ordering',
+      icon: <GripVertical className="w-4 h-4 text-blue-400" />,
+      badge: 'Drag & Drop',
     },
     {
       id: 'activity' as const,
@@ -2019,6 +2032,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           fieldSettings={fieldSettings}
           onSaveSettings={onSaveFieldSettings}
           onResetToDefaults={onResetFieldSettingsToDefaults}
+        />
+      )}
+
+      {/* 5.6. PORTAL SECTION ORDERING TAB */}
+      {activeAdminTab === 'section_order' && (
+        <SectionOrderManager
+          studentSections={studentPortalSections}
+          teacherSections={teacherDashboardSections}
+          onSave={onSaveSectionOrders}
         />
       )}
 

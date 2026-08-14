@@ -62,7 +62,9 @@ import {
   TeacherHourlyRate,
   AttendanceRecord,
   RegistrationRecord,
-  LocationOption
+  LocationOption,
+  SectionOrderItem,
+  DEFAULT_TEACHER_SECTION_ORDER
 } from '../../types';
 import { AdminNewsManagement } from './AdminNewsManagement';
 import { HodResourceCategoryManager } from './HodResourceCategoryManager';
@@ -96,6 +98,7 @@ interface TeacherDashboardPageProps {
   registrationLogs?: RegistrationRecord[];
   onUpdateRegistration?: (updated: RegistrationRecord) => void;
   locations?: LocationOption[];
+  teacherDashboardSections?: SectionOrderItem[];
 }
 
 export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
@@ -126,8 +129,9 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   registrationLogs = [],
   onUpdateRegistration = (updated: RegistrationRecord) => {},
   locations = [],
+  teacherDashboardSections = DEFAULT_TEACHER_SECTION_ORDER,
 }) => {
-  const [activeSection, setActiveSection] = useState<'classes' | 'performance' | 'claims' | 'resources'>('classes');
+  const [activeSection, setActiveSection] = useState<string>('classes');
   const [performanceClassFilter, setPerformanceClassFilter] = useState<string>('all');
 
   // Fallback teacher profile if the teachers collection is empty (e.g., when an admin first logs in and views the overseer dashboard)
@@ -171,6 +175,24 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
       }
     }
   }, [teachers, loggedInUser, activeTeacherId]);
+
+  // Auto-select first enabled section if activeSection is not enabled
+  React.useEffect(() => {
+    const enabledSections = teacherDashboardSections.filter((s) => s.enabled !== false);
+    if (enabledSections.length > 0 && !enabledSections.some((s) => s.id === activeSection)) {
+      setActiveSection(enabledSections[0].id);
+    }
+  }, [teacherDashboardSections, activeSection]);
+
+  const getSectionOrder = (sectionId: string): number => {
+    const section = teacherDashboardSections.find((s) => s.id === sectionId);
+    return section ? teacherDashboardSections.indexOf(section) : 99;
+  };
+
+  const isSectionEnabled = (sectionId: string): boolean => {
+    const section = teacherDashboardSections.find((s) => s.id === sectionId);
+    return section ? section.enabled !== false : true;
+  };
 
   // For teacher role, strictly enforce showing ONLY their own dashboard and information
   const currentTeacherRaw = (currentRole === 'teacher' && loggedInUser)
@@ -834,53 +856,60 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
 
       {/* Section Switcher Tabs */}
       <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
-        <button
-          onClick={() => setActiveSection('classes')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-            activeSection === 'classes'
-              ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <BookOpen className="w-4 h-4 text-blue-600" />
-          <span>Assigned Courses & Links</span>
-        </button>
+        {teacherDashboardSections
+          .filter((section) => section.enabled !== false)
+          .sort((a, b) => getSectionOrder(a.id) - getSectionOrder(b.id))
+          .map((section) => {
+            let icon = <BookOpen className="w-4 h-4 text-blue-600" />;
+            let activeClass = 'bg-white text-slate-900 shadow-xs border border-slate-200';
+            const inactiveClass = 'text-slate-600 hover:text-slate-900';
 
-        <button
-          onClick={() => setActiveSection('performance')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-            activeSection === 'performance'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4 text-indigo-200" />
-          <span>Student Performance Distribution</span>
-        </button>
+            switch (section.id) {
+              case 'classes':
+                icon = <BookOpen className="w-4 h-4 text-blue-600" />;
+                activeClass = 'bg-white text-slate-900 shadow-xs border border-slate-200';
+                break;
+              case 'performance':
+                icon = <BarChart3 className="w-4 h-4 text-indigo-500" />;
+                activeClass = 'bg-indigo-600 text-white shadow-md';
+                break;
+              case 'claims':
+                icon = <Clock className="w-4 h-4 text-emerald-500" />;
+                activeClass = 'bg-blue-600 text-white shadow-md';
+                break;
+              case 'resources':
+                icon = <FileText className="w-4 h-4 text-purple-600" />;
+                activeClass = 'bg-white text-slate-900 shadow-xs border border-slate-200';
+                break;
+              case 'published_announcements':
+                icon = <Bell className="w-4 h-4 text-amber-500" />;
+                activeClass = 'bg-amber-600 text-white shadow-md';
+                break;
+              case 'published_resources':
+                icon = <FileText className="w-4 h-4 text-teal-500" />;
+                activeClass = 'bg-teal-600 text-white shadow-md';
+                break;
+              case 'hod_news_management':
+                icon = <Building2 className="w-4 h-4 text-indigo-600" />;
+                activeClass = 'bg-indigo-600 text-white shadow-md';
+                break;
+              default:
+                break;
+            }
 
-        <button
-          onClick={() => setActiveSection('claims')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-            activeSection === 'claims'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Clock className="w-4 h-4 text-emerald-400" />
-          <span>Teaching Claim Form & Calendar</span>
-        </button>
-
-        <button
-          onClick={() => setActiveSection('resources')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 ${
-            activeSection === 'resources'
-              ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <FileText className="w-4 h-4 text-purple-600" />
-          <span>Announcements & Materials</span>
-        </button>
+            return (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
+                  activeSection === section.id ? activeClass : inactiveClass
+                }`}
+              >
+                {icon}
+                <span>{section.title}</span>
+              </button>
+            );
+          })}
       </div>
 
       {activeSection === 'performance' && (() => {
@@ -1779,7 +1808,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
       )}
 
       {/* PUBLISH SECTION: Announcement Form & Resource Form */}
-      {(activeSection === 'resources' || activeSection === 'classes') && (
+      {(activeSection === 'resources') && (
         <div className="space-y-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
@@ -1969,6 +1998,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
       </div>
 
       {/* Published Announcements List for this Teacher */}
+      {(activeSection === 'published_announcements' || activeSection === 'resources') && (
       <div className="space-y-4">
         <h2 className="text-xl font-bold text-slate-900">My Published Announcements</h2>
         {teacherAnnouncements.length === 0 ? (
@@ -2006,8 +2036,10 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
           </div>
         )}
       </div>
+      )}
 
       {/* Published Resources List for this Teacher */}
+      {(activeSection === 'published_resources' || activeSection === 'resources') && (
       <div className="space-y-4">
         <h2 className="text-xl font-bold text-slate-900">My Published Course Resources</h2>
         {teacherResources.length === 0 ? (
@@ -2043,9 +2075,10 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
           </div>
         )}
       </div>
+      )}
 
       {/* HOD Resource Category Manager & Department News Management */}
-      {(currentRole === 'hod' || currentRole === 'admin' || (loggedInUser && 'role' in loggedInUser && (loggedInUser.role === 'hod' || loggedInUser.role === 'admin'))) && (
+      {(activeSection === 'hod_news_management' || activeSection === 'resources') && (currentRole === 'hod' || currentRole === 'admin' || (loggedInUser && 'role' in loggedInUser && (loggedInUser.role === 'hod' || loggedInUser.role === 'admin'))) && (
         <div className="pt-8 border-t border-slate-200 space-y-8">
           <HodResourceCategoryManager
             categories={resourceCategories}

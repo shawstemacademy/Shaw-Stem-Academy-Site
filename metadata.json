@@ -1,7 +1,7 @@
 {
   "name": "Shaw STEM Academy",
   "description": "Google Form style class registration with live running total cost, custom discount thresholds, and Google Workspace integration.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]

@@ -30,6 +30,8 @@ import {
   toggleUserDisabledInFirestore,
   onFirestoreWrite,
   logSecurityEvent,
+  subscribeToSectionOrders,
+  saveSectionOrdersToFirestore,
 } from './lib/firebase';
 import { captureClientMetadata, fetchClientIp } from './lib/clientMetadata';
 import { getRecaptchaToken, createRecaptchaAssessment, verifyRecaptcha } from './lib/recaptcha';
@@ -64,6 +66,9 @@ import {
   ClassClaimItem,
   TeacherHourlyRate,
   AddDropRequest,
+  SectionOrderItem,
+  DEFAULT_STUDENT_SECTION_ORDER,
+  DEFAULT_TEACHER_SECTION_ORDER,
 } from './types';
 import { detectScheduleClashes } from './lib/scheduleClashUtils';
 import {
@@ -887,6 +892,10 @@ export default function App() {
   const [promoError, setPromoError] = useState('');
   const [promoSuccess, setPromoSuccess] = useState('');
 
+  // Portal and Dashboard Drag & Drop Section Ordering
+  const [studentPortalSections, setStudentPortalSections] = useState<SectionOrderItem[]>(DEFAULT_STUDENT_SECTION_ORDER);
+  const [teacherDashboardSections, setTeacherDashboardSections] = useState<SectionOrderItem[]>(DEFAULT_TEACHER_SECTION_ORDER);
+
   // Modals
   const [isDiscountConfigOpen, setIsDiscountConfigOpen] = useState(false);
   const [isManageListOptionsOpen, setIsManageListOptionsOpen] = useState(false);
@@ -1059,6 +1068,30 @@ export default function App() {
       }),
       subscribeToCollection<ResourceCategory>('resourceCategories', (data) => {
         setResourceCategories(data || []);
+      }),
+      subscribeToSectionOrders((data) => {
+        if (data) {
+          if (data.studentPortalSections && Array.isArray(data.studentPortalSections)) {
+            const loaded = data.studentPortalSections;
+            const merged = [...loaded];
+            DEFAULT_STUDENT_SECTION_ORDER.forEach((def) => {
+              if (!merged.some(m => m.id === def.id)) {
+                merged.push(def);
+              }
+            });
+            setStudentPortalSections(merged);
+          }
+          if (data.teacherDashboardSections && Array.isArray(data.teacherDashboardSections)) {
+            const loaded = data.teacherDashboardSections;
+            const merged = [...loaded];
+            DEFAULT_TEACHER_SECTION_ORDER.forEach((def) => {
+              if (!merged.some(m => m.id === def.id)) {
+                merged.push(def);
+              }
+            });
+            setTeacherDashboardSections(merged);
+          }
+        }
       }),
     ];
 
@@ -2398,6 +2431,37 @@ export default function App() {
     );
   };
 
+  const handleSaveSectionOrders = async (
+    studentSections: SectionOrderItem[],
+    teacherSections: SectionOrderItem[]
+  ) => {
+    const success = await saveSectionOrdersToFirestore({
+      studentPortalSections: studentSections,
+      teacherDashboardSections: teacherSections,
+      updatedBy: loggedInUser?.name || loggedInUser?.email || 'Admin',
+    });
+    if (success) {
+      logSystemAction(
+        'other',
+        'Customized student portal and teacher dashboard section orders',
+        { studentSectionsCount: studentSections.length, teacherSectionsCount: teacherSections.length }
+      );
+      setFirestoreToast({
+        id: `toast-${Date.now()}`,
+        title: 'Layout Saved Successfully',
+        message: 'The new customized section layout has been saved to Firebase and synchronized with all portals.',
+        type: 'success',
+      });
+    } else {
+      setFirestoreToast({
+        id: `toast-${Date.now()}`,
+        title: 'Error Saving Layout',
+        message: 'Failed to synchronize layout changes to Firebase. Please check firestore security rules.',
+        type: 'error',
+      });
+    }
+  };
+
   const handleDeleteUser = async (userId: string) => {
     const userToDel = schoolUsers.find(u => u.id === userId);
     const displayName = userToDel ? `${userToDel.name} (${userToDel.role.toUpperCase()})` : userId;
@@ -3399,6 +3463,7 @@ export default function App() {
                 fieldSettings={fieldSettings}
                 isAdminLoggedIn={currentRole === 'admin'}
                 onToggleFieldSetting={handleToggleFieldSetting}
+                studentPortalSections={studentPortalSections}
               />
             )
           )}
@@ -3431,6 +3496,7 @@ export default function App() {
               onUpdateUserProfile={handleUpdateUserProfile}
               onUpdateUser={handleUpdateUser}
               locations={locations}
+              teacherDashboardSections={teacherDashboardSections}
             />
           )}
 
@@ -3512,6 +3578,9 @@ export default function App() {
               addDropRequests={addDropRequests}
               onApproveAddDropRequest={handleApproveAddDropRequest}
               onRejectAddDropRequest={handleRejectAddDropRequest}
+              studentPortalSections={studentPortalSections}
+              teacherDashboardSections={teacherDashboardSections}
+              onSaveSectionOrders={handleSaveSectionOrders}
               onDeleteAllData={async () => {
                 const ok = await deleteAllSiteData();
                 if (ok) {
