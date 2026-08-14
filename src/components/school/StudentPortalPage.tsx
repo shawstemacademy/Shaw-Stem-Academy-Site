@@ -477,6 +477,126 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
   return (
     <div className="space-y-8 pb-16">
+      {/* Student Portal Header */}
+      {status === 'accepted' ? (
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 text-white p-6 sm:p-8 rounded-3xl shadow-xl space-y-4 border border-emerald-400/30 animate-fade-in relative overflow-hidden">
+          <div className="absolute top-0 right-0 translate-x-1/4 -translate-y-1/4 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 relative z-10">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 text-white text-2xl font-black shadow-inner">
+                🎉
+              </div>
+              <div className="space-y-2 flex-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-black uppercase tracking-wider text-white border border-white/30">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+                  <span>Application Accepted</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight animate-fade-in">
+                  Congratulations, {studentUser?.name || 'Student'}! You Have Been Accepted!
+                </h1>
+                <p className="text-emerald-50 text-sm max-w-2xl leading-relaxed font-medium">
+                  We are thrilled to welcome you to Shaw STEM Academy. Your student application has been officially accepted by school administration!
+                </p>
+
+                {hasCourseRegistrations ? (
+                  totalOutstandingBalance > 0 ? (
+                    <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl mt-3">
+                      <p className="text-sm font-bold text-white flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-rose-200" />
+                        Payment Required
+                      </p>
+                      <p className="text-emerald-100 text-xs mt-1">
+                        To finalize your enrollment and unlock course materials, please ensure your tuition fee payment is submitted to the registrar.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl mt-3">
+                      <p className="text-sm font-bold text-white flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                        Fully Paid
+                      </p>
+                      <p className="text-emerald-100 text-xs mt-1">
+                        Your course registrations are fully paid and verified. Your enrollment is complete!
+                      </p>
+                    </div>
+                  )
+                ) : (
+                  <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-3">
+                    <div>
+                      <p className="text-sm font-bold text-white flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-emerald-200" />
+                        Next Step: Register for Courses
+                      </p>
+                      <p className="text-emerald-100 text-xs mt-1">
+                        Please select your desired STEM classes as your next step to complete course enrollment.
+                      </p>
+                    </div>
+                    <button
+                      onClick={onOpenRegistration}
+                      className="px-4 py-2 bg-white text-emerald-950 hover:bg-emerald-50 font-extrabold text-xs rounded-xl shadow-md transition-all shrink-0 cursor-pointer"
+                    >
+                      Register for Courses →
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {studentUser && (
+              <div className="flex-shrink-0 self-start">
+                <button
+                  onClick={handleEditProfileClick}
+                  className="px-4 py-2 bg-slate-900/40 hover:bg-slate-900/60 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2 border border-white/20 backdrop-blur-md shadow-sm cursor-pointer"
+                >
+                  <User className="w-4 h-4 text-emerald-200" />
+                  <span>Edit Profile</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-slate-900 text-white rounded-3xl p-8 border border-slate-800 space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-wider border border-blue-500/20">
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  <span>Shaw STEM Student Portal</span>
+                </div>
+                {getStatusBadge()}
+              </div>
+
+              <h1 className="text-3xl font-extrabold tracking-tight animate-fade-in">
+                Welcome, {studentUser?.name || 'Student'}!
+              </h1>
+              <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
+                {status === 'enrolled_paid'
+                  ? 'Your enrollment and tuition payment are verified. Access your enrolled class Zoom links, Google Classroom materials, and teacher lab files below.'
+                  : status === 'pending_verification'
+                  ? 'Your course selections have been submitted and are currently pending registrar verification. Your class schedule is active below.'
+                  : status === 'awaiting_acceptance' || status === 'unverified' || status === 'prospective'
+                  ? 'Your student account registration has been received and is currently being reviewed by admissions officers. You are waiting for acceptance. Your application has not yet been accepted.'
+                  : ''}
+              </p>
+            </div>
+            
+            {studentUser && (
+              <div className="flex-shrink-0">
+                <button
+                  onClick={handleEditProfileClick}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2 border border-slate-700 cursor-pointer"
+                >
+                  <User className="w-4 h-4 text-purple-400" />
+                  <span>Edit Profile</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main Student Portal Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
         <button
@@ -585,6 +705,57 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
           )}
         </div>
       </div>
+
+      {/* Real-time Push Notifications Opt-In */}
+      {fcmSupported && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm animate-fade-in">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-500/10 dark:bg-blue-500/5 rounded-2xl border border-blue-500/20 text-blue-600 dark:text-blue-400">
+              <Bell className="w-6 h-6 animate-pulse" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">Real-Time Push Notifications</h3>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+                {fcmToken 
+                  ? '✓ Web Push enabled! You will receive live school updates and class notices.' 
+                  : 'Receive real-time scheduling alerts, class announcements, and admissions updates.'}
+              </p>
+              {fcmError && (
+                <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold bg-rose-500/5 px-2.5 py-1 rounded-md border border-rose-500/10 mt-1 max-w-xl">
+                  ⚠️ Error registering: {fcmError}. Note: In some sandboxed development environments or iframes, you might need to "Open App in New Tab" to authorize notifications.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="shrink-0 self-start sm:self-auto">
+            {fcmToken ? (
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/30">
+                <Check className="w-4 h-4 text-emerald-500" />
+                <span>Web Push Active</span>
+              </span>
+            ) : (
+              <button
+                onClick={handleRegisterFcm}
+                disabled={isRequestingToken}
+                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed transition-all shadow-md"
+              >
+                {isRequestingToken ? (
+                  <>
+                    <Clock className="w-3.5 h-3.5 animate-spin" />
+                    <span>Enrolling...</span>
+                  </>
+                ) : (
+                  <>
+                    <Bell className="w-3.5 h-3.5" />
+                    <span>Enable Push Alerts</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Notifications and Alerts by Status */}
 
@@ -2198,126 +2369,6 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
         </div>
       )}
 
-          {/* Acceptance / Welcome Header Banner - Placed under Student Academics */}
-          {status === 'accepted' ? (
-            <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 text-white p-6 sm:p-8 rounded-3xl shadow-xl space-y-4 border border-emerald-400/30 animate-fade-in relative overflow-hidden">
-              <div className="absolute top-0 right-0 translate-x-1/4 -translate-y-1/4 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-              
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 relative z-10">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 text-white text-2xl font-black shadow-inner">
-                    🎉
-                  </div>
-                  <div className="space-y-2 flex-1">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-black uppercase tracking-wider text-white border border-white/30">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
-                      <span>Application Accepted</span>
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight animate-fade-in">
-                      Congratulations, {studentUser?.name || 'Student'}! You Have Been Accepted!
-                    </h1>
-                    <p className="text-emerald-50 text-sm max-w-2xl leading-relaxed font-medium">
-                      We are thrilled to welcome you to Shaw STEM Academy. Your student application has been officially accepted by school administration!
-                    </p>
-
-                    {hasCourseRegistrations ? (
-                      totalOutstandingBalance > 0 ? (
-                        <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl mt-3">
-                          <p className="text-sm font-bold text-white flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4 text-rose-200" />
-                            Payment Required
-                          </p>
-                          <p className="text-emerald-100 text-xs mt-1">
-                            To finalize your enrollment and unlock course materials, please ensure your tuition fee payment is submitted to the registrar.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl mt-3">
-                          <p className="text-sm font-bold text-white flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-200" />
-                            Fully Paid
-                          </p>
-                          <p className="text-emerald-100 text-xs mt-1">
-                            Your course registrations are fully paid and verified. Your enrollment is complete!
-                          </p>
-                        </div>
-                      )
-                    ) : (
-                      <div className="p-3 bg-white/10 border border-white/20 rounded-xl max-w-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-3">
-                        <div>
-                          <p className="text-sm font-bold text-white flex items-center gap-2">
-                            <BookOpen className="w-4 h-4 text-emerald-200" />
-                            Next Step: Register for Courses
-                          </p>
-                          <p className="text-emerald-100 text-xs mt-1">
-                            Please select your desired STEM classes as your next step to complete course enrollment.
-                          </p>
-                        </div>
-                        <button
-                          onClick={onOpenRegistration}
-                          className="px-4 py-2 bg-white text-emerald-950 hover:bg-emerald-50 font-extrabold text-xs rounded-xl shadow-md transition-all shrink-0 cursor-pointer"
-                        >
-                          Register for Courses →
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {studentUser && (
-                  <div className="flex-shrink-0 self-start">
-                    <button
-                      onClick={handleEditProfileClick}
-                      className="px-4 py-2 bg-slate-900/40 hover:bg-slate-900/60 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2 border border-white/20 backdrop-blur-md shadow-sm cursor-pointer"
-                    >
-                      <User className="w-4 h-4 text-emerald-200" />
-                      <span>Edit Profile</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-slate-900 text-white rounded-3xl p-8 border border-slate-800 space-y-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-wider border border-blue-500/20">
-                      <GraduationCap className="w-3.5 h-3.5" />
-                      <span>Shaw STEM Student Portal</span>
-                    </div>
-                    {getStatusBadge()}
-                  </div>
-
-                  <h1 className="text-3xl font-extrabold tracking-tight animate-fade-in">
-                    Welcome, {studentUser?.name || 'Student'}!
-                  </h1>
-                  <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-                    {status === 'enrolled_paid'
-                      ? 'Your enrollment and tuition payment are verified. Access your enrolled class Zoom links, Google Classroom materials, and teacher lab files below.'
-                      : status === 'pending_verification'
-                      ? 'Your course selections have been submitted and are currently pending registrar verification. Your class schedule is active below.'
-                      : status === 'awaiting_acceptance' || status === 'unverified' || status === 'prospective'
-                      ? 'Your student account registration has been received and is currently being reviewed by admissions officers. You are waiting for acceptance. Your application has not yet been accepted.'
-                      : ''}
-                  </p>
-                </div>
-                
-                {studentUser && (
-                  <div className="flex-shrink-0">
-                    <button
-                      onClick={handleEditProfileClick}
-                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2 border border-slate-700 cursor-pointer"
-                    >
-                      <User className="w-4 h-4 text-purple-400" />
-                      <span>Edit Profile</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Quick Pay Section - Only show when student has registered for courses */}
           {hasCourseRegistrations && (status === 'accepted' || status === 'pending_verification' || status === 'enrolled_paid') && (
             <div className="space-y-4">
@@ -2579,6 +2630,11 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                       </div>
 
                       <div className="flex flex-row sm:flex-col items-start sm:items-end justify-between sm:justify-center gap-3 shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                        <div className="text-left sm:text-right">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tuition Fee</p>
+                          <p className="text-lg font-black text-slate-900">${record.totalPrice}</p>
+                        </div>
+
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => setSelectedReceiptRecord(record)}
@@ -2742,57 +2798,6 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               </div>
             )}
           </div>
-
-          {/* Real-time Push Notifications Opt-In - Placed at the bottom of the screen */}
-          {fcmSupported && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm animate-fade-in mt-8">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-500/10 dark:bg-blue-500/5 rounded-2xl border border-blue-500/20 text-blue-600 dark:text-blue-400">
-                  <Bell className="w-6 h-6 animate-pulse" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">Real-Time Push Notifications</h3>
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
-                    {fcmToken 
-                      ? '✓ Web Push enabled! You will receive live school updates and class notices.' 
-                      : 'Receive real-time scheduling alerts, class announcements, and admissions updates.'}
-                  </p>
-                  {fcmError && (
-                    <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold bg-rose-500/5 px-2.5 py-1 rounded-md border border-rose-500/10 mt-1 max-w-xl">
-                      ⚠️ Error registering: {fcmError}. Note: In some sandboxed development environments or iframes, you might need to "Open App in New Tab" to authorize notifications.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="shrink-0 self-start sm:self-auto">
-                {fcmToken ? (
-                  <span className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/30">
-                    <Check className="w-4 h-4 text-emerald-500" />
-                    <span>Web Push Active</span>
-                  </span>
-                ) : (
-                  <button
-                    onClick={handleRegisterFcm}
-                    disabled={isRequestingToken}
-                    className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed transition-all shadow-md"
-                  >
-                    {isRequestingToken ? (
-                      <>
-                        <Clock className="w-3.5 h-3.5 animate-spin" />
-                        <span>Enrolling...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Bell className="w-3.5 h-3.5" />
-                        <span>Enable Push Alerts</span>
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
