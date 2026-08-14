@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatSafeDate } from '../../lib/formatDate';
 import { 
   GraduationCap, 
   Lock, 
@@ -2496,13 +2497,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
             ) : (
               <div className="space-y-3">
                 {allRegistrations.map((record) => {
-                  const recordDate = record.timestamp
-                    ? new Date(record.timestamp).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })
-                    : 'N/A';
+                  const recordDate = formatSafeDate(record.timestamp || (record as any).createdAt || (record as any).date);
                   
                   return (
                     <div

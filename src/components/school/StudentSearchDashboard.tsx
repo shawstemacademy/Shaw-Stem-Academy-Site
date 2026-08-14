@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { formatSafeDate } from '../../lib/formatDate';
 import { ConfirmationModal } from '../ConfirmationModal';
 import { 
   Search, 
@@ -1468,14 +1469,7 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                       ) : (
                         <div className="space-y-3">
                           {studentRegistrations.map((reg) => {
-                            const isValidDate = reg.timestamp && !isNaN(new Date(reg.timestamp).getTime());
-                            const regDate = isValidDate
-                              ? new Date(reg.timestamp).toLocaleDateString('en-US', {
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric',
-                                })
-                              : 'Unknown Date';
+                            const regDate = formatSafeDate(reg.timestamp || (reg as any).createdAt || (reg as any).date);
                             return (
                               <div key={reg.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs p-3 bg-slate-50 rounded-xl border border-slate-200">
                                 <div className="space-y-1">

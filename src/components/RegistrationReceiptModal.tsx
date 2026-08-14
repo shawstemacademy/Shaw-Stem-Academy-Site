@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { RegistrationRecord, FormTheme } from '../types';
 import { X, CheckCircle2, Printer, Download, Calendar, User, Mail, Phone, Tag, ShieldCheck, Clock, MapPin } from 'lucide-react';
 import { formatUSD } from '../lib/formatCurrency';
+import { formatSafeDate } from '../lib/formatDate';
 
 interface RegistrationReceiptModalProps {
   registration: RegistrationRecord | null;
@@ -107,7 +108,7 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
             </div>
             <div className="text-right text-xs text-slate-600">
               <p className="font-bold text-slate-900">Invoice #{registration.id.slice(-8).toUpperCase()}</p>
-              <p>Date: {new Date(registration.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p>Date: {formatSafeDate(registration.timestamp || (registration as any).createdAt || (registration as any).date)}</p>
             </div>
           </div>
         </div>
@@ -121,7 +122,7 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
             <div>
               <h2 className="text-lg font-bold text-white print:text-white">Registration Summary & Invoice</h2>
               <p className="text-xs text-purple-200 print:text-purple-100">
-                Invoice #{registration.id.slice(-8).toUpperCase()} • {new Date(registration.timestamp).toLocaleDateString()}
+                Invoice #{registration.id.slice(-8).toUpperCase()} • {formatSafeDate(registration.timestamp || (registration as any).createdAt || (registration as any).date)}
               </p>
             </div>
           </div>
