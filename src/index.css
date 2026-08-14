@@ -157,29 +157,14 @@
     overflow: visible !important;
   }
 
-  /* Reset container bounds when printing receipt modal */
-  body.printing-receipt-active #root,
-  body.printing-receipt-active main {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-
-  /* Hide background siblings that do not contain the receipt modal */
-  body.printing-receipt-active #root > *:not(:has(.printable-receipt-backdrop)),
-  body.printing-receipt-active main > *:not(.printable-receipt-backdrop):not(:has(.printable-receipt-backdrop)) {
+  /* Completely hide #root when receipt printing is active so no background elements or extra pages render */
+  body.printing-receipt-active #root {
     display: none !important;
   }
 
-  /* Exclusively format printable modal content */
+  /* Exclusively format printable modal content portaled to body */
   .printable-receipt-backdrop {
-    position: absolute !important;
+    position: static !important;
     top: 0 !important;
     left: 0 !important;
     width: 100% !important;

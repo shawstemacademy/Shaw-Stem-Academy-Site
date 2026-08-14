@@ -1,8 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { RegistrationRecord, FormTheme } from '../types';
-import { X, CheckCircle2, Printer, Download, Calendar, User, Mail, Phone, Tag, ShieldCheck, Clock, MapPin } from 'lucide-react';
+import { X, CheckCircle2, Printer, Download, Clock, ShieldCheck, Loader2 } from 'lucide-react';
 import { formatUSD } from '../lib/formatCurrency';
 import { formatSafeDate } from '../lib/formatDate';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 interface RegistrationReceiptModalProps {
   registration: RegistrationRecord | null;
@@ -15,6 +18,8 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
   onClose,
   theme,
 }) => {
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
   useEffect(() => {
     document.body.classList.add('printing-receipt-active');
     return () => {
@@ -35,8 +40,6 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
     gradeLevel: 'N/A',
     emergencyContact: 'N/A',
   };
-
-  const totalSavings = appliedDiscounts.reduce((sum, d) => sum + (d?.amountOff ?? 0), 0);
 
   const calculateAgeFromDob = (dob?: string) => {
     if (!dob) return '';
@@ -85,20 +88,52 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
     window.print();
   };
 
-  const handleDownloadPdf = () => {
-    const originalTitle = document.title;
-    const cleanStudentName = studentNameVal.replace(/[^a-zA-Z0-9]/g, '_');
-    const receiptCode = registration.id.slice(-8).toUpperCase();
-    document.title = `Shaw_STEM_Academy_Invoice_${receiptCode}_${cleanStudentName}`;
-    window.print();
-    setTimeout(() => {
-      document.title = originalTitle;
-    }, 1000);
+  const handleDownloadPdf = async () => {
+    const cardElement = document.getElementById('printable-invoice-card');
+    if (!cardElement) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      const canvas = await html2canvas(cardElement, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        ignoreElements: (element) => {
+          return element.classList.contains('no-pdf-export');
+        }
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const imgProps = pdf.getImageProperties(imgData);
+      const imgWidth = pdfWidth - 16; // 8mm margins
+      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+
+      pdf.addImage(imgData, 'PNG', 8, 8, imgWidth, imgHeight);
+
+      const receiptCode = registration.id.slice(-8).toUpperCase();
+      const cleanStudentName = studentNameVal.replace(/[^a-zA-Z0-9]/g, '_');
+      pdf.save(`Shaw_STEM_Academy_Invoice_${receiptCode}_${cleanStudentName}.pdf`);
+    } catch (err) {
+      console.error('Failed to export PDF:', err);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
-  return (
+  const modalContent = (
     <div className="printable-receipt-backdrop fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto print:p-0 print:bg-white print:static print:block print:overflow-visible">
-      <div className="printable-receipt-card bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-gray-200 overflow-hidden my-8 print:my-0 print:shadow-none print:border-none print:max-w-full print:rounded-none">
+      <div 
+        id="printable-invoice-card"
+        className="printable-receipt-card bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-gray-200 overflow-hidden my-8 print:my-0 print:shadow-none print:border-none print:max-w-full print:rounded-none"
+      >
         {/* Print-only Academy Official Header */}
         <div className="hidden print:block p-4 border-b border-slate-300 pb-2 mb-2">
           <div className="flex justify-between items-start">
@@ -126,7 +161,7 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 print:hidden">
+          <div className="flex items-center gap-2 print:hidden no-pdf-export">
             <button
               onClick={onClose}
               className="p-1.5 text-purple-200 hover:text-white hover:bg-purple-800 rounded-full transition-colors cursor-pointer"
@@ -229,7 +264,7 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-gray-100 border-t border-gray-200 flex items-center justify-between print:hidden">
+        <div className="p-4 bg-gray-100 border-t border-gray-200 flex items-center justify-between print:hidden no-pdf-export">
           <div className="flex items-center gap-1 text-xs text-gray-500">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span>Confirmation sent to {studentInfo.parentEmail}</span>
@@ -238,10 +273,15 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownloadPdf}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
+              disabled={isDownloadingPdf}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
             >
-              <Download className="w-4 h-4" />
-              <span>Download Invoice (PDF)</span>
+              {isDownloadingPdf ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span>{isDownloadingPdf ? 'Downloading PDF...' : 'Download Invoice (PDF)'}</span>
             </button>
             <button
               onClick={handlePrint}
@@ -261,4 +301,6 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
