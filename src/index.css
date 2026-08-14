@@ -137,11 +137,10 @@
     margin: 8mm;
   }
 
-  /* Hide non-printable UI elements and background pages */
+  /* Hide non-printable navigation, header, footer, and explicitly tagged elements */
   nav,
   header,
   footer,
-  main,
   .no-print,
   .print\:hidden {
     display: none !important;
@@ -158,25 +157,32 @@
     overflow: visible !important;
   }
 
-  /* Hide background content when receipt modal is active */
-  body.printing-receipt-active > #root > *:not(.printable-receipt-backdrop):not(:has(.printable-receipt-backdrop)) {
-    display: none !important;
-  }
-
-  body.printing-receipt-active #root {
+  /* Reset container bounds when printing receipt modal */
+  body.printing-receipt-active #root,
+  body.printing-receipt-active main {
     height: auto !important;
     min-height: 0 !important;
+    max-height: none !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: visible !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
-  /* Exclusively render printable modal content */
+  /* Hide background siblings that do not contain the receipt modal */
+  body.printing-receipt-active #root > *:not(:has(.printable-receipt-backdrop)),
+  body.printing-receipt-active main > *:not(.printable-receipt-backdrop):not(:has(.printable-receipt-backdrop)) {
+    display: none !important;
+  }
+
+  /* Exclusively format printable modal content */
   .printable-receipt-backdrop {
-    position: static !important;
-    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
     width: 100% !important;
-    max-width: 100% !important;
     height: auto !important;
     min-height: 0 !important;
     background: #ffffff !important;
@@ -184,7 +190,13 @@
     padding: 0 !important;
     margin: 0 !important;
     overflow: visible !important;
-    inset: auto !important;
+    display: block !important;
+    z-index: 999999 !important;
+    visibility: visible !important;
+  }
+
+  .printable-receipt-backdrop * {
+    visibility: visible !important;
   }
 
   .printable-receipt-card {
