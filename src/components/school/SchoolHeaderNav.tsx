@@ -93,17 +93,17 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
     : user 
     ? (user.displayName || user.email || 'Authenticated User') 
     : currentRole === 'teacher' 
-    ? 'Dr. Marcus Vance' 
+    ? 'Teacher User' 
     : currentRole === 'hod'
-    ? 'Dr. Marcus Vance'
+    ? 'Department Head'
     : currentRole === 'admin' 
-    ? 'Director Arthur Shaw' 
+    ? 'System Administrator' 
     : currentRole === 'registrar'
-    ? 'Clara Rodriguez'
+    ? 'Registrar'
     : studentStatus === 'enrolled_paid' 
     ? 'Student User' 
     : studentStatus === 'unverified'
-    ? 'Leo Sterling'
+    ? 'Applicant Student'
     : 'Guest Student';
 
   const resolvedRole = loggedInUser?.role || currentRole;

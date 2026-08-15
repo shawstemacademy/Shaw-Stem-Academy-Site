@@ -1805,24 +1805,32 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 {academicTab === 'progress' && (() => {
                   const enrolledCourses = classes.length > 0 ? classes : registrationRecord?.selectedClasses || [];
                   const realGrades = registrationRecord?.grades || [];
+
+                  if (realGrades.length === 0) {
+                    return (
+                      <div className="text-center py-12 px-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/60">
+                        <BarChart2 className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-base">No Grade Records Available Yet</h4>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs max-w-md mx-auto mt-1">
+                          No grades have been posted for your courses yet. Once your instructors record assignment scores or import classroom exports, your progress analytics will appear here.
+                        </p>
+                      </div>
+                    );
+                  }
+
                   const courseColors = ['#4f46e5', '#059669', '#d97706', '#9333ea', '#2563eb'];
-
-                  const milestoneLabels = ['Assignment 1', 'Quiz 1', 'Lab Project 1', 'Midterm Exam', 'Assignment 2', 'Final Project'];
                   
-                  const chartData = milestoneLabels.map((m, index) => {
-                    const point: any = { milestone: m };
+                  // Compute chart data strictly from user-entered realGrades
+                  const chartData = realGrades.map((g) => {
+                    const point: any = { milestone: g.assignmentName };
+                    const numScore = g.score ? parseFloat(g.score) : null;
+                    const possible = g.pointsPossible ? parseFloat(g.pointsPossible.toString()) : 100;
+                    const pct = numScore !== null && !isNaN(numScore) ? Math.round((numScore / (possible || 100)) * 100) : 0;
 
-                    enrolledCourses.forEach((c, cIdx) => {
-                      const match = realGrades.find(g => (g.classId === c.id || g.className === c.title) && (g.assignmentName.toLowerCase().includes(m.toLowerCase()) || realGrades.indexOf(g) === index));
-                      
-                      let pct = match && match.score && match.pointsPossible ? Math.round((match.score / match.pointsPossible) * 100) : null;
-
-                      if (pct === null) {
-                        const baseScore = 86 + ((cIdx * 3) % 8);
-                        pct = Math.min(100, Math.max(70, baseScore + (index * 2) - (index % 2 === 0 ? 1 : 0)));
+                    enrolledCourses.forEach((c) => {
+                      if (g.classId === c.id || g.className === c.title) {
+                        point[c.title] = pct;
                       }
-
-                      point[c.title] = pct;
                     });
 
                     return point;
@@ -1830,24 +1838,38 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
                   let totalPctSum = 0;
                   let count = 0;
-                  chartData.forEach(p => {
-                    enrolledCourses.forEach(c => {
-                      if (typeof p[c.title] === 'number') {
-                        totalPctSum += p[c.title];
+                  realGrades.forEach(g => {
+                    if (g.score) {
+                      const numScore = parseFloat(g.score);
+                      const possible = g.pointsPossible ? parseFloat(g.pointsPossible.toString()) : 100;
+                      if (!isNaN(numScore)) {
+                        totalPctSum += (numScore / (possible || 100)) * 100;
                         count++;
                       }
-                    });
+                    }
                   });
 
-                  const overallAvgPct = count > 0 ? Math.round(totalPctSum / count) : 92;
+                  const overallAvgPct = count > 0 ? Math.round(totalPctSum / count) : 0;
 
-                  const categoryData = [
-                    { category: 'Homework', score: 94 },
-                    { category: 'Quizzes', score: 88 },
-                    { category: 'Lab Projects', score: 96 },
-                    { category: 'Midterm', score: 90 },
-                    { category: 'Final Project', score: 95 },
-                  ];
+                  // Compute category averages strictly from real user-entered grades
+                  const categoryMap: { [cat: string]: { total: number; count: number } } = {};
+                  realGrades.forEach(g => {
+                    if (g.score) {
+                      const numScore = parseFloat(g.score);
+                      const possible = g.pointsPossible ? parseFloat(g.pointsPossible.toString()) : 100;
+                      if (!isNaN(numScore)) {
+                        const cat = g.assignmentName || 'General';
+                        if (!categoryMap[cat]) categoryMap[cat] = { total: 0, count: 0 };
+                        categoryMap[cat].total += (numScore / (possible || 100)) * 100;
+                        categoryMap[cat].count += 1;
+                      }
+                    }
+                  });
+
+                  const categoryData = Object.keys(categoryMap).map(cat => ({
+                    category: cat,
+                    score: Math.round(categoryMap[cat].total / categoryMap[cat].count)
+                  }));
 
                   const filteredEnrolledCourses = selectedProgressClassId === 'all' 
                     ? enrolledCourses 

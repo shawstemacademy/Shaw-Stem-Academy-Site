@@ -940,24 +940,6 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                             <Edit3 className="w-4 h-4" />
                           </button>
 
-                          <button
-                            onClick={() => {
-                              if (confirm(`Are you sure you want to Batch Clear all assigned departments and custom permissions for ${u.name}? This gives them a clean slate for reassignment.`)) {
-                                onUpdateUser({
-                                  ...u,
-                                  departmentId: '',
-                                  departmentIds: [],
-                                  departmentName: '',
-                                  permissions: [],
-                                });
-                              }
-                            }}
-                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[10px] rounded-lg border border-amber-200 transition-colors"
-                            title="Batch clear departments and permissions for a clean slate"
-                          >
-                            Batch Clear
-                          </button>
-
                           {isDisabled ? (
                             <button
                               onClick={() => handleEnableUser(u)}

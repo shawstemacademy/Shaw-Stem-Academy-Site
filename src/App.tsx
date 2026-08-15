@@ -303,59 +303,28 @@ export default function App() {
   const [fieldSettings, setFieldSettings] = useState<FormFieldSetting[]>(INITIAL_FORM_FIELD_SETTINGS);
 
   // Teaching Claims & Payroll System State
-  const [claims, setClaims] = useState<ClassClaimItem[]>([
-    {
-      id: 'claim-101-20260805',
-      classId: 'cls-101',
-      className: 'Advanced Robotics & Automation',
-      classCode: 'ROB-301',
-      classType: 'regular',
-      teacherId: 'usr-1',
-      teacherName: 'Dr. Marcus Vance',
-      teacherEmail: 'm.vance@shawstemacademy.edu',
-      date: '2026-08-05',
-      dayOfWeek: 'Wednesday',
-      startTime: '16:00',
-      endTime: '17:30',
-      durationHours: 1.5,
-      hourlyRate: 40,
-      calculatedPayout: 60,
-      status: 'verified',
-      claimedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      verifiedAt: new Date(Date.now() - 86400000).toISOString(),
-      verifiedBy: 'Clara Rodriguez',
-    },
-    {
-      id: 'claim-sba1-20260806',
-      classId: 'sba-1',
-      className: 'CSEC Physics SBA Practical Lab',
-      classCode: 'PHY-SBA',
-      classType: 'sba_hub',
-      teacherId: 'usr-1',
-      teacherName: 'Dr. Marcus Vance',
-      teacherEmail: 'm.vance@shawstemacademy.edu',
-      date: '2026-08-06',
-      dayOfWeek: 'Thursday',
-      startTime: '15:30',
-      endTime: '17:00',
-      durationHours: 1.5,
-      hourlyRate: 40,
-      calculatedPayout: 60,
-      status: 'claimed',
-      claimedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-    }
-  ]);
-  const [hourlyRates, setHourlyRates] = useState<TeacherHourlyRate[]>([
-    { userId: 'usr-1', userName: 'Dr. Marcus Vance', hourlyRate: 40.00 },
-    { userId: 'usr-2', userName: 'Sarah Jenkins', hourlyRate: 45.00 },
-  ]);
+  const [claims, setClaims] = useState<ClassClaimItem[]>([]);
+  const [hourlyRates, setHourlyRates] = useState<TeacherHourlyRate[]>([]);
 
   const handleUpdateClaims = (updatedClaims: ClassClaimItem[]) => {
+    // Sync deleted claims to Firestore
+    claims.forEach((oldC) => {
+      if (!updatedClaims.some((newC) => newC.id === oldC.id)) {
+        deleteDocFromFirestore('classClaims', oldC.id);
+      }
+    });
     setClaims(updatedClaims);
+    updatedClaims.forEach((c) => saveDocToFirestore('classClaims', c.id, c));
   };
 
   const handleUpdateHourlyRates = (updatedRates: TeacherHourlyRate[]) => {
+    hourlyRates.forEach((oldR) => {
+      if (!updatedRates.some((newR) => newR.userId === oldR.userId)) {
+        deleteDocFromFirestore('hourlyRates', oldR.userId);
+      }
+    });
     setHourlyRates(updatedRates);
+    updatedRates.forEach((r) => saveDocToFirestore('hourlyRates', r.userId, r));
   };
 
   // Add / Drop Requests State & Handlers
@@ -969,6 +938,8 @@ export default function App() {
       subscribeToCollection<AddDropRequest>('addDropRequests', (data) => setAddDropRequests(data || [])),
       subscribeToCollection<FaqItem>('faqs', (data) => setFaqs(data || [])),
       subscribeToCollection<AcademyInfo>('academyInfo', (data) => setAcademyInfo((data && data[0]) || DEFAULT_ACADEMY_INFO)),
+      subscribeToCollection<ClassClaimItem>('classClaims', (data) => setClaims(data || [])),
+      subscribeToCollection<TeacherHourlyRate>('hourlyRates', (data) => setHourlyRates(data || [])),
       subscribeToCollection<LandingPageSettings>('landingPageSettings', (data) => {
         if (data && data.length > 0) {
           const matched = (data as any[]).find(d => d.id === 'general') || data[0];

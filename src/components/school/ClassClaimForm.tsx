@@ -101,9 +101,9 @@ export const ClassClaimForm: React.FC<ClassClaimFormProps> = ({
   const [rejectionReason, setRejectionReason] = useState('');
 
   // Get current user details
-  const activeUserId = currentUser?.id || 'teacher-default';
-  const activeUserName = currentUser?.name || 'Dr. Marcus Vance';
-  const activeUserEmail = (currentUser as any)?.email || 'm.vance@shawstemacademy.edu';
+  const activeUserId = currentUser?.id || '';
+  const activeUserName = currentUser?.name || 'Staff Member';
+  const activeUserEmail = (currentUser as any)?.email || '';
 
   // Determine teacher profile for active claim view
   const resolvedTeacherId = (currentRole === 'admin' || currentRole === 'registrar') && selectedTeacherIdFilter !== 'all'
