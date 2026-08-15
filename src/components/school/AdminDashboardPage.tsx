@@ -33,8 +33,10 @@ import {
   Activity,
   Sparkles,
   Edit3,
-  AlertTriangle
+  AlertTriangle,
+  BookOpen
 } from 'lucide-react';
+import { UserManualPage } from './UserManualPage';
 import { ImageUploadInput } from '../common/ImageUploadInput';
 import { 
   RegistrationRecord, 
@@ -46,6 +48,7 @@ import {
   SystemActionLog,
   LandingPageSettings,
   UserRole,
+  PortalTab,
   FaqItem,
   SchoolNewsItem,
   AcademyInfo,
@@ -137,6 +140,7 @@ interface AdminDashboardPageProps {
   studentPortalSections?: SectionOrderItem[];
   teacherDashboardSections?: SectionOrderItem[];
   onSaveSectionOrders?: (studentSections: SectionOrderItem[], teacherSections: SectionOrderItem[]) => Promise<boolean | void>;
+  onNavigate?: (tab: PortalTab) => void;
 }
 
 export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
@@ -203,8 +207,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   studentPortalSections = [],
   teacherDashboardSections = [],
   onSaveSectionOrders = async () => {},
+  onNavigate = () => {},
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields' | 'section_order'>(
+  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields' | 'section_order' | 'manual'>(
     currentRole === 'hod' ? 'users' : 'overview'
   );
 
@@ -1043,6 +1048,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       label: 'Portal Section Ordering',
       icon: <GripVertical className="w-4 h-4 text-blue-400" />,
       badge: 'Drag & Drop',
+    },
+    {
+      id: 'manual' as const,
+      label: 'System Usage Manual',
+      icon: <BookOpen className="w-4 h-4 text-blue-400" />,
+      badge: 'Full Guide',
     },
     {
       id: 'activity' as const,
@@ -2961,6 +2972,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         <AdminAcademyInfoManagement
           academyInfo={academyInfo}
           featureCards={featureCards}
+        />
+      )}
+
+      {/* 14. SYSTEM USAGE MANUAL TAB */}
+      {activeAdminTab === 'manual' && (
+        <UserManualPage 
+          userRole="admin" 
+          loggedInUser={loggedInUser} 
+          onNavigate={onNavigate} 
+          embedInAdminDashboard={true} 
         />
       )}
 

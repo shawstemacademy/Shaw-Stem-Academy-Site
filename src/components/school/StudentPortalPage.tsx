@@ -76,7 +76,8 @@ import {
   NotificationPreferences,
   AddDropRequest,
   SectionOrderItem,
-  DEFAULT_STUDENT_SECTION_ORDER
+  DEFAULT_STUDENT_SECTION_ORDER,
+  PortalTab
 } from '../../types';
 import { FormFieldSetting } from '../../lib/formFieldsConfig';
 import { StudentInfoForm } from '../StudentInfoForm';
@@ -109,6 +110,7 @@ interface StudentPortalPageProps {
   onToggleFieldSetting?: (formId: string, fieldId: string, property: 'enabled' | 'required') => void;
   studentPortalSections?: SectionOrderItem[];
   initialAcademicTab?: 'schedule' | 'attendance' | 'grades' | 'progress' | 'add_drop';
+  onNavigate?: (tab: PortalTab) => void;
 }
 
 export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
@@ -135,6 +137,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   onToggleFieldSetting,
   studentPortalSections = DEFAULT_STUDENT_SECTION_ORDER,
   initialAcademicTab,
+  onNavigate = (_tab: PortalTab) => {},
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showQrFullscreen, setShowQrFullscreen] = useState(false);
@@ -612,13 +615,22 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
             </div>
             
             {studentUser && (
-              <div className="flex-shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <button
                   onClick={handleEditProfileClick}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2 border border-slate-700 cursor-pointer"
                 >
                   <User className="w-4 h-4 text-purple-400" />
                   <span>Edit Profile</span>
+                </button>
+
+                <button
+                  onClick={() => onNavigate && onNavigate('user-manual')}
+                  className="px-4 py-2 bg-blue-900/60 hover:bg-blue-800 text-blue-200 hover:text-white font-bold text-xs rounded-xl border border-blue-700/60 transition-all flex items-center gap-2 cursor-pointer"
+                  title="View Student User Manual"
+                >
+                  <BookOpen className="w-4 h-4 text-blue-400" />
+                  <span>Student Manual</span>
                 </button>
               </div>
             )}

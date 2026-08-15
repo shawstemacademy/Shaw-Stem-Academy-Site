@@ -137,6 +137,7 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
     { id: 'student-portal', label: 'Student Portal', icon: <BookOpen className="w-4 h-4" /> },
     { id: 'teacher-dashboard', label: 'Teacher Dashboard', icon: <Users className="w-4 h-4" /> },
     { id: 'admin-dashboard', label: 'Admin Dashboard', icon: <ShieldCheck className="w-4 h-4" /> },
+    { id: 'user-manual', label: 'User Manual', icon: <BookOpen className="w-4 h-4" /> },
   ];
 
   // Filter visible tabs based on user role and enrollment payment status

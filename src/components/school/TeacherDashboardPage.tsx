@@ -67,7 +67,8 @@ import {
   RegistrationRecord,
   LocationOption,
   SectionOrderItem,
-  DEFAULT_TEACHER_SECTION_ORDER
+  DEFAULT_TEACHER_SECTION_ORDER,
+  PortalTab
 } from '../../types';
 import { AdminNewsManagement } from './AdminNewsManagement';
 import { HodResourceCategoryManager } from './HodResourceCategoryManager';
@@ -102,6 +103,7 @@ interface TeacherDashboardPageProps {
   onUpdateRegistration?: (updated: RegistrationRecord) => void;
   locations?: LocationOption[];
   teacherDashboardSections?: SectionOrderItem[];
+  onNavigate?: (tab: PortalTab) => void;
 }
 
 export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
@@ -133,6 +135,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   onUpdateRegistration = (updated: RegistrationRecord) => {},
   locations = [],
   teacherDashboardSections = DEFAULT_TEACHER_SECTION_ORDER,
+  onNavigate = (_tab: PortalTab) => {},
 }) => {
   const [activeSection, setActiveSection] = useState<string>('classes');
   const [performanceClassFilter, setPerformanceClassFilter] = useState<string>('all');
@@ -841,6 +844,15 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                 >
                   <HelpCircle className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Quick Start Guide</span>
+                </button>
+
+                <button
+                  onClick={() => onNavigate && onNavigate('user-manual')}
+                  className="mt-2 px-3 py-1.5 bg-blue-900/60 hover:bg-blue-800 text-blue-200 hover:text-white font-bold text-xs rounded-xl border border-blue-700/60 transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                  title="View Faculty User Manual"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Faculty Usage Manual</span>
                 </button>
               </div>
             </div>

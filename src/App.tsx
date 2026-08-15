@@ -101,6 +101,7 @@ import { AdminDashboardPage } from './components/school/AdminDashboardPage';
 import { LoginPage } from './components/school/LoginPage';
 import { PrivacyPolicyPage } from './components/school/PrivacyPolicyPage';
 import { TermsOfServicePage } from './components/school/TermsOfServicePage';
+import { UserManualPage } from './components/school/UserManualPage';
 
 import { FormHeader } from './components/FormHeader';
 import { StudentInfoForm } from './components/StudentInfoForm';
@@ -272,7 +273,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
     if (tabParam) {
-      const allowedTabs: PortalTab[] = ['home', 'privacy', 'terms', 'login', 'academics', 'student-portal', 'teacher-dashboard', 'admin-dashboard', 'admissions', 'registration'];
+      const allowedTabs: PortalTab[] = ['home', 'privacy', 'terms', 'login', 'academics', 'student-portal', 'teacher-dashboard', 'admin-dashboard', 'admissions', 'registration', 'user-manual'];
       if (allowedTabs.includes(tabParam as PortalTab)) {
         setActiveTab(tabParam as PortalTab);
       }
@@ -3454,6 +3455,14 @@ export default function App() {
             <TermsOfServicePage />
           )}
 
+          {activeTab === 'user-manual' && (
+            <UserManualPage 
+              userRole={currentRole}
+              loggedInUser={loggedInUser}
+              onNavigate={setActiveTab} 
+            />
+          )}
+
           {activeTab === 'login' && (
             <LoginPage
               onLoginProfile={handleLoginProfile}
@@ -3520,6 +3529,7 @@ export default function App() {
                 onToggleFieldSetting={handleToggleFieldSetting}
                 studentPortalSections={studentPortalSections}
                 initialAcademicTab={studentPortalAcademicTab}
+                onNavigate={setActiveTab}
               />
             )
           )}
@@ -3553,11 +3563,13 @@ export default function App() {
               onUpdateUser={handleUpdateUser}
               locations={locations}
               teacherDashboardSections={teacherDashboardSections}
+              onNavigate={setActiveTab}
             />
           )}
 
           {activeTab === 'admin-dashboard' && (
             <AdminDashboardPage
+              onNavigate={setActiveTab}
               registrationLogs={registrationLogs}
               discountRules={discountRules}
               currentTheme={theme}
@@ -4105,6 +4117,8 @@ export default function App() {
                 <a href="?tab=privacy" onClick={(e) => { e.preventDefault(); setActiveTab('privacy'); }} className="text-left hover:text-blue-400 transition-colors">Privacy Policy</a>
                 <span>•</span>
                 <a href="?tab=terms" onClick={(e) => { e.preventDefault(); setActiveTab('terms'); }} className="text-left hover:text-blue-400 transition-colors">Terms of Service</a>
+                <span>•</span>
+                <a href="?tab=user-manual" onClick={(e) => { e.preventDefault(); setActiveTab('user-manual'); }} className="text-left hover:text-blue-400 transition-colors">User Manual</a>
               </div>
             </div>
           </div>
