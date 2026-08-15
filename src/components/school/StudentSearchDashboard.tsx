@@ -257,18 +257,20 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
     const updatedPayments = [...payments, newPayment];
     const newTotalPaid = totalPaid + (isRefund ? -Math.abs(amt) : Math.abs(amt));
     
-    // Auto-resolve paid flags and status
+    // Auto-resolve paid flags and status based on directory payment entries
+    const hasPaid = newTotalPaid > 0;
     const allPaid = newTotalPaid >= totalTuition && totalTuition > 0;
     const isPartial = newTotalPaid > 0 && !allPaid;
+    const hasVerifiedClasses = Boolean(currentRegistration.verifiedClassIds && currentRegistration.verifiedClassIds.length > 0);
 
     const updatedReg: RegistrationRecord = {
       ...currentRegistration,
       payments: updatedPayments,
-      isPaid: allPaid,
-      status: allPaid ? 'completed' : isPartial ? 'partial_payment' : 'pending_review',
+      isPaid: hasPaid || allPaid || hasVerifiedClasses,
+      status: allPaid ? 'completed' : (isPartial ? 'partial_payment' : (hasVerifiedClasses ? 'completed' : 'pending_review')),
     };
 
-    if (allPaid && selectedStudent) {
+    if (hasPaid && selectedStudent) {
       saveUserToFirestore({
         ...selectedStudent,
         status: 'enrolled_paid'
@@ -276,8 +278,8 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
       sendPushNotificationToUser(
         selectedStudent.email,
         selectedStudent.id,
-        '🎉 Enrollment Confirmed!',
-        `Your payment is complete and your enrollment at Shaw STEM Academy is finalized. Thank you!`
+        '🎉 Tuition Payment Recorded & Verified!',
+        `Your payment of $${Math.abs(amt).toFixed(2)} has been recorded in the Student Directory and your registration status is verified.`
       );
     } else if (isRefund && selectedStudent) {
       sendPushNotificationToUser(
@@ -337,10 +339,22 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
       nextVerified = [...verifiedClassIds, classId];
     }
 
+    const hasVerifiedClasses = nextVerified.length > 0;
+    const isVerifiedOrPaid = hasVerifiedClasses || totalPaid > 0 || currentRegistration.isPaid;
+
     const updatedReg: RegistrationRecord = {
       ...currentRegistration,
       verifiedClassIds: nextVerified,
+      isPaid: isVerifiedOrPaid,
+      status: isVerifiedOrPaid ? 'completed' : currentRegistration.status,
     };
+
+    if (isVerifiedOrPaid && selectedStudent) {
+      saveUserToFirestore({
+        ...selectedStudent,
+        status: 'enrolled_paid'
+      });
+    }
 
     onUpdateRegistration(updatedReg);
   };
@@ -351,10 +365,22 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
     const allowedCount = Math.min(coursesCoveredByPayment, appliedClasses.length);
     const nextVerified = appliedClasses.slice(0, allowedCount).map(c => c.id);
 
+    const hasVerifiedClasses = nextVerified.length > 0;
+    const isVerifiedOrPaid = hasVerifiedClasses || totalPaid > 0 || currentRegistration.isPaid;
+
     const updatedReg: RegistrationRecord = {
       ...currentRegistration,
       verifiedClassIds: nextVerified,
+      isPaid: isVerifiedOrPaid,
+      status: isVerifiedOrPaid ? 'completed' : currentRegistration.status,
     };
+
+    if (isVerifiedOrPaid && selectedStudent) {
+      saveUserToFirestore({
+        ...selectedStudent,
+        status: 'enrolled_paid'
+      });
+    }
 
     onUpdateRegistration(updatedReg);
   };
