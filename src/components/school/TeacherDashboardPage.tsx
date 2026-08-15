@@ -30,7 +30,8 @@ import {
   RotateCw,
   HelpCircle,
   ListChecks,
-  Sparkles
+  Sparkles,
+  Download
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -47,6 +48,8 @@ import {
 } from 'recharts';
 import { WeeklyOfficeHoursSelector } from './WeeklyOfficeHoursSelector';
 import { ImageUploadInput } from '../common/ImageUploadInput';
+import { FormattedText } from '../common/FormattedText';
+import { downloadImage } from '../../lib/downloadHelper';
 import { 
   TeacherProfile, 
   TeacherResource, 
@@ -292,6 +295,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   const [annContent, setAnnContent] = useState('');
   const [annClassId, setAnnClassId] = useState(teacherClasses[0]?.id || 'cls-101');
   const [annPriority, setAnnPriority] = useState<'normal' | 'urgent'>('normal');
+  const [annImageUrl, setAnnImageUrl] = useState('');
   const [annSuccess, setAnnSuccess] = useState(false);
 
   // New resource form state
@@ -299,6 +303,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   const [resCategory, setResCategory] = useState<'Lecture Notes' | 'Robotics Schematics' | 'Lab Worksheet' | 'Project Files' | 'Syllabus'>('Lecture Notes');
   const [resDesc, setResDesc] = useState('');
   const [resClassId, setResClassId] = useState(teacherClasses[0]?.id || 'cls-101');
+  const [resImageUrl, setResImageUrl] = useState('');
   const [resSuccess, setResSuccess] = useState(false);
 
   // Automatically select the first available course in the dropdowns when formClasses change
@@ -328,11 +333,13 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
       content: annContent.trim(),
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       priority: annPriority,
+      imageUrl: annImageUrl.trim() || undefined,
     };
 
     onAddAnnouncement(newAnn);
     setAnnTitle('');
     setAnnContent('');
+    setAnnImageUrl('');
     setAnnSuccess(true);
     setTimeout(() => setAnnSuccess(false), 4000);
   };
@@ -348,16 +355,18 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
       classId: resClassId,
       className: targetClass?.title || 'STEM Lab',
       category: resCategory,
-      fileUrl: 'https://shawstemacademy.edu/materials/demo',
+      fileUrl: resImageUrl.trim() || 'https://shawstemacademy.edu/materials/demo',
       uploadDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }),
       description: resDesc.trim(),
-      fileSize: '1.5 MB PDF',
+      fileSize: resImageUrl ? 'Image / Schematic' : '1.5 MB Resource',
       teacherName: currentTeacher.name,
+      imageUrl: resImageUrl.trim() || undefined,
     };
 
     onAddResource(newRes);
     setResTitle('');
     setResDesc('');
+    setResImageUrl('');
     setResSuccess(true);
     setTimeout(() => setResSuccess(false), 4000);
   };
@@ -1878,13 +1887,28 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Message Content</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">Message Content *</label>
+                <span className="text-[11px] text-blue-600 font-medium">Preserves linebreaks & paragraphs</span>
+              </div>
               <textarea
-                rows={3}
+                required
+                rows={4}
                 value={annContent}
                 onChange={(e) => setAnnContent(e.target.value)}
-                placeholder="Write your announcement message for enrolled students..."
-                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                placeholder="Write your announcement message for enrolled students. Multi-line instructions, paragraphs, and lists are formatted exactly as typed..."
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden whitespace-pre-wrap font-sans"
+              />
+            </div>
+
+            <div>
+              <ImageUploadInput
+                label="Optional Announcement Image / Flyer / Schematic"
+                value={annImageUrl}
+                onChange={setAnnImageUrl}
+                placeholder="Upload announcement graphic or enter image URL..."
+                aspectRatio="wide"
+                darkBg={false}
               />
             </div>
 
@@ -1915,7 +1939,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
 
           <button
             type="submit"
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5"
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Send className="w-4 h-4" />
             <span>Publish Announcement to Student Portal</span>
@@ -1939,7 +1963,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
             <h3 className="text-lg font-bold text-slate-900">Upload Learning Resource</h3>
           </div>
           <p className="text-xs text-slate-500">
-            Add Arduino schematics, Python templates, lab worksheets, or PDF syllabus links for your enrolled students.
+            Add Arduino schematics, Python templates, lab worksheets, diagrams, or PDF syllabus links for your enrolled students.
           </p>
 
           <div className="space-y-4">
@@ -1996,20 +2020,34 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Resource Description</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">Resource Description & Instructions</label>
+                <span className="text-[11px] text-purple-600 font-medium">Preserves linebreaks & paragraphs</span>
+              </div>
               <textarea
-                rows={3}
+                rows={4}
                 value={resDesc}
                 onChange={(e) => setResDesc(e.target.value)}
-                placeholder="Briefly describe what this schematic, worksheet, or template contains..."
-                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs"
+                placeholder="Describe what this schematic, worksheet, lab assignment, or template contains. Typed paragraphs and bullet points will be preserved..."
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs whitespace-pre-wrap font-sans"
+              />
+            </div>
+
+            <div>
+              <ImageUploadInput
+                label="Resource Schematic / Diagram / Worksheet Image (Downloadable by students)"
+                value={resImageUrl}
+                onChange={setResImageUrl}
+                placeholder="Upload schematic image or enter diagram URL..."
+                aspectRatio="auto"
+                darkBg={false}
               />
             </div>
           </div>
 
           <button
             type="submit"
-            className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5"
+            className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Upload className="w-4 h-4" />
             <span>Publish Resource to Enrolled Students</span>
@@ -2018,7 +2056,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
           {resSuccess && (
             <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Resource added! Enrolled students can download it from their portal.</span>
+              <span>Resource added! Enrolled students can download it and its images from their portal.</span>
             </div>
           )}
         </form>
@@ -2035,10 +2073,10 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
             {teacherAnnouncements.map((ann) => (
               <div
                 key={ann.id}
-                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-4"
+                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold text-slate-900">{ann.className}</span>
                     <span className="text-[11px] text-slate-400">{ann.date}</span>
                     {ann.priority === 'urgent' && (
@@ -2048,12 +2086,31 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                     )}
                   </div>
                   <h4 className="font-bold text-slate-900 text-sm">{ann.title}</h4>
-                  <p className="text-xs text-slate-600">{ann.content}</p>
+                  <div className="text-xs text-slate-600">
+                    <FormattedText text={ann.content} />
+                  </div>
+                  {ann.imageUrl && (
+                    <div className="pt-2 flex items-center gap-3">
+                      <img
+                        src={ann.imageUrl}
+                        alt="Announcement Attachment"
+                        className="h-20 w-32 object-cover rounded-lg border border-slate-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => downloadImage(ann.imageUrl!, `${ann.title.replace(/[^a-zA-Z0-9]/g, '_')}.png`)}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Download Image</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <button
                   onClick={() => onDeleteAnnouncement(ann.id)}
-                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                   title="Delete Announcement"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -2076,10 +2133,10 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
             {teacherResources.map((res) => (
               <div
                 key={res.id}
-                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-4"
+                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
                       {res.category}
                     </span>
@@ -2087,16 +2144,48 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                     <span className="text-[11px] text-slate-400">{res.uploadDate}</span>
                   </div>
                   <h4 className="font-bold text-slate-900 text-sm">{res.title}</h4>
-                  <p className="text-xs text-slate-600">{res.description}</p>
+                  <div className="text-xs text-slate-600">
+                    <FormattedText text={res.description} />
+                  </div>
+
+                  {(res.imageUrl || (res.fileUrl && res.fileUrl.startsWith('data:image'))) && (
+                    <div className="pt-2 flex items-center gap-3">
+                      <img
+                        src={res.imageUrl || res.fileUrl}
+                        alt="Resource Material Preview"
+                        className="h-20 w-32 object-cover rounded-lg border border-slate-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => downloadImage(res.imageUrl || res.fileUrl, `${res.title.replace(/[^a-zA-Z0-9]/g, '_')}.png`)}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Download Schematic / File</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <button
-                  onClick={() => onDeleteResource(res.id)}
-                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Delete Resource"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {res.imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => downloadImage(res.imageUrl!, `${res.title.replace(/[^a-zA-Z0-9]/g, '_')}.png`)}
+                      className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                      title="Download Resource Attachment"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onDeleteResource(res.id)}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                    title="Delete Resource"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

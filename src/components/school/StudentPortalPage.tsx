@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { formatSafeDate } from '../../lib/formatDate';
+import { FormattedText } from '../common/FormattedText';
+import { downloadImage } from '../../lib/downloadHelper';
 import { 
   GraduationCap, 
   Lock, 
@@ -977,7 +979,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
                 <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start text-center sm:text-left">
                   {/* Avatar Placeholder */}
-                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-700 p-0.5 shadow-lg shrink-0">
+                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-700 p-0.5 shadow-lg shrink-0 relative group">
                     <div className="w-full h-full bg-slate-950 rounded-2xl flex flex-col items-center justify-center text-white relative overflow-hidden">
                       {studentUser?.avatar ? (
                         <img referrerPolicy="no-referrer" src={studentUser.avatar} alt="Student Avatar" className="w-full h-full object-cover" />
@@ -990,6 +992,16 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                         SECURE
                       </div>
                     </div>
+                    {studentUser?.avatar && (
+                      <button
+                        type="button"
+                        onClick={() => downloadImage(studentUser.avatar!, `${(studentUser?.name || 'student').replace(/[^a-zA-Z0-9]/g, '_')}_profile_photo.png`)}
+                        className="absolute top-1.5 right-1.5 p-1.5 bg-slate-900/90 hover:bg-indigo-600 text-white rounded-lg text-[10px] font-bold shadow-md transition-all cursor-pointer flex items-center gap-1 opacity-90 group-hover:opacity-100"
+                        title="Download my profile photo"
+                      >
+                        <Download className="w-3 h-3 text-indigo-200" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Student Credentials */}
@@ -2732,7 +2744,18 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                     </div>
 
                     <h3 className="font-bold text-slate-900 text-sm mb-1">{ann.title}</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">{ann.content}</p>
+                    <div className="text-xs text-slate-600 leading-relaxed">
+                      <FormattedText text={ann.content} />
+                    </div>
+                    {ann.imageUrl && (
+                      <div className="pt-3">
+                        <img
+                          src={ann.imageUrl}
+                          alt="Announcement Graphic"
+                          className="h-28 w-44 object-cover rounded-xl border border-slate-200"
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -2807,7 +2830,18 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                       </div>
 
                       <h4 className="font-bold text-slate-900 text-sm">{res.title}</h4>
-                      <p className="text-xs text-slate-500 leading-relaxed">{res.description}</p>
+                      <div className="text-xs text-slate-500 leading-relaxed">
+                        <FormattedText text={res.description} />
+                      </div>
+                      {(res.imageUrl || (res.fileUrl && (res.fileUrl.startsWith('data:image') || res.fileUrl.startsWith('http')))) && (
+                        <div className="pt-2">
+                          <img
+                            src={res.imageUrl || res.fileUrl}
+                            alt="Lab Material Schematic"
+                            className="h-24 w-36 object-cover rounded-lg border border-slate-200"
+                          />
+                        </div>
+                      )}
                       <div className="text-[11px] text-slate-400">
                         Uploaded by {res.teacherName} • {res.uploadDate}
                       </div>
@@ -2818,7 +2852,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                         if (status !== 'enrolled_paid') {
                           alert("Learning materials are locked until the Registrar verifies your tuition payment and you are fully enrolled.");
                         } else {
-                          alert(`Downloading resource: ${res.title} (${res.fileSize})`);
+                          alert(`Accessing resource: ${res.title} (${res.fileSize})`);
                         }
                       }}
                       className={`p-2.5 rounded-xl transition-all shrink-0 ${
@@ -2826,7 +2860,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                           ? 'bg-slate-50 text-slate-400 cursor-not-allowed border border-slate-100'
                           : 'bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700'
                       }`}
-                      title={status !== 'enrolled_paid' ? 'Locked' : `Download ${res.fileSize}`}
+                      title={status !== 'enrolled_paid' ? 'Locked' : `Access ${res.title}`}
                       disabled={status !== 'enrolled_paid'}
                     >
                       <Download className="w-4 h-4" />

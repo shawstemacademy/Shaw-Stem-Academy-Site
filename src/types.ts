@@ -294,6 +294,7 @@ export interface TeacherResource {
   description: string;
   fileSize: string;
   teacherName: string;
+  imageUrl?: string;
 }
 
 export interface ClassAnnouncement {
@@ -305,6 +306,7 @@ export interface ClassAnnouncement {
   content: string;
   date: string;
   priority: 'normal' | 'urgent';
+  imageUrl?: string;
 }
 
 export interface FaqItem {

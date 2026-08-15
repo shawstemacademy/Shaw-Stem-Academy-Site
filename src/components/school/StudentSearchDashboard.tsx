@@ -30,12 +30,15 @@ import {
   Check,
   X,
   Lock,
-  CheckCircle2
+  CheckCircle2,
+  Download,
+  Eye
 } from 'lucide-react';
 import { SchoolUser, RegistrationRecord, ClassItem, AppliedDiscount, AddDropRequest } from '../../types';
 import { saveDocToFirestore, saveUserToFirestore } from '../../lib/firebase';
 import { sendPushNotificationToUser } from '../../lib/fcm';
 import { sendDesktopNotification } from '../../lib/notifications';
+import { downloadImage } from '../../lib/downloadHelper';
 
 interface StudentSearchDashboardProps {
   users: SchoolUser[];
@@ -871,6 +874,77 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
 
                     return (
                       <>
+                        {/* 0. Student Identification & Profile Photos Card (Staff Access) */}
+                        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl border border-indigo-900/50 p-5 space-y-4 shadow-md col-span-full">
+                          <div className="flex items-center justify-between pb-3 border-b border-indigo-900/60">
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4 text-indigo-400" />
+                              <h3 className="text-xs font-extrabold text-indigo-200 uppercase tracking-wider">
+                                Student Identification & Account Images (Staff Access)
+                              </h3>
+                            </div>
+                            <span className="text-[10px] font-mono font-bold bg-indigo-900/60 text-indigo-300 px-2.5 py-1 rounded-full border border-indigo-700/50">
+                              RECORD ID: {selectedStudent.id.substring(0, 10)}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* Default Google Account Avatar */}
+                            <div className="bg-slate-950/80 p-3.5 rounded-xl border border-indigo-900/40 flex items-center gap-3.5">
+                              <div className="w-14 h-14 rounded-xl bg-slate-800 border border-indigo-800/60 overflow-hidden shrink-0 flex items-center justify-center">
+                                {selectedStudent.avatar ? (
+                                  <img referrerPolicy="no-referrer" src={selectedStudent.avatar} alt="Default Google Profile" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-xl font-bold text-indigo-300">{(selectedStudent.name || 'S').charAt(0)}</span>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <span className="text-[10px] font-extrabold text-indigo-300 uppercase tracking-wide block">Default Google Account Photo</span>
+                                <p className="text-xs font-medium text-slate-300 truncate">{selectedStudent.email}</p>
+                                {selectedStudent.avatar && (
+                                  <button
+                                    type="button"
+                                    onClick={() => downloadImage(selectedStudent.avatar!, `${selectedStudent.name.replace(/[^a-zA-Z0-9]/g, '_')}_google_photo.png`)}
+                                    className="mt-1 px-2.5 py-1 bg-indigo-600/90 hover:bg-indigo-600 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
+                                    title="Download default Google profile photo"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    <span>Download Google Photo</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Uploaded Student ID / Photo */}
+                            <div className="bg-slate-950/80 p-3.5 rounded-xl border border-indigo-900/40 flex items-center gap-3.5">
+                              <div className="w-14 h-14 rounded-xl bg-slate-800 border border-indigo-800/60 overflow-hidden shrink-0 flex items-center justify-center">
+                                {(sInfo.photoUrl || selectedStudent.studentDetails?.photoUrl) ? (
+                                  <img referrerPolicy="no-referrer" src={sInfo.photoUrl || selectedStudent.studentDetails?.photoUrl} alt="Uploaded Student ID" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-xs font-semibold text-slate-500 text-center px-1">No Custom ID Uploaded</span>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wide block">Uploaded Student ID / Document</span>
+                                <p className="text-xs text-slate-400 font-medium truncate">
+                                  {(sInfo.photoUrl || selectedStudent.studentDetails?.photoUrl) ? 'Official Uploaded Image' : 'Using Google Avatar Default'}
+                                </p>
+                                {(sInfo.photoUrl || selectedStudent.studentDetails?.photoUrl) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => downloadImage((sInfo.photoUrl || selectedStudent.studentDetails?.photoUrl)!, `${selectedStudent.name.replace(/[^a-zA-Z0-9]/g, '_')}_uploaded_id.png`)}
+                                    className="mt-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
+                                    title="Download official student uploaded image"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    <span>Download Uploaded Image</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* 1. Student Details Card */}
                         <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xs">
                           <div className="flex items-center gap-2 pb-2.5 border-b border-slate-200">

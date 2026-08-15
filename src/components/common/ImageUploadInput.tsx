@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Link as LinkIcon, X, Image as ImageIcon, CheckCircle, RefreshCw, Download } from 'lucide-react';
+import { downloadImage } from '../../lib/downloadHelper';
 
 interface ImageUploadInputProps {
   value: string;
@@ -12,6 +13,7 @@ interface ImageUploadInputProps {
   quality?: number;
   className?: string;
   darkBg?: boolean;
+  hideDownload?: boolean;
 }
 
 export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
@@ -25,6 +27,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
   quality = 0.85,
   className = '',
   darkBg = false,
+  hideDownload = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'upload' | 'url'>('upload');
   const [urlInputValue, setUrlInputValue] = useState(value && !value.startsWith('data:') ? value : '');
@@ -118,54 +121,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
 
   const handleDownload = () => {
     if (!value) return;
-    
-    // Create an invisible anchor element
-    const link = document.createElement('a');
-    link.href = value;
-    
-    // Attempt to extract a nice filename or fallback to default
-    const isDataUrl = value.startsWith('data:');
-    if (isDataUrl) {
-      // Determine extension from mime type
-      const mimeMatch = value.match(/data:image\/([a-zA-Z0-9]+);/);
-      const ext = mimeMatch ? mimeMatch[1] : 'png';
-      link.download = `academy_image.${ext}`;
-    } else {
-      // It's a web URL, extract filename from URL if possible
-      try {
-        const urlObj = new URL(value);
-        const parts = urlObj.pathname.split('/');
-        const lastPart = parts[parts.length - 1];
-        link.download = lastPart || 'academy_image.png';
-      } catch (e) {
-        link.download = 'academy_image.png';
-      }
-    }
-    
-    // Need to use fetch for CORS URLs to download properly instead of opening in a new tab
-    if (!isDataUrl && value.startsWith('http')) {
-      fetch(value, { mode: 'cors' })
-        .then(response => response.blob())
-        .then(blob => {
-          const blobUrl = URL.createObjectURL(blob);
-          link.href = blobUrl;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(blobUrl);
-        })
-        .catch(err => {
-          // Fallback if fetch fails (e.g. CORS)
-          link.target = '_blank';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        });
-    } else {
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    downloadImage(value);
   };
 
   const isDataUrl = value?.startsWith('data:');
@@ -206,15 +162,17 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
               }}
             />
             <div className="absolute inset-0 bg-slate-950/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-3">
-              <button
-                type="button"
-                onClick={handleDownload}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
-                title="Download this image"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download</span>
-              </button>
+              {!hideDownload && (
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Download this image"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}

@@ -386,6 +386,7 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
                 }}
                 placeholder="Upload photo file from device..."
                 aspectRatio="square"
+                hideDownload={true}
               />
             </div>
           )}
