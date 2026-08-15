@@ -944,6 +944,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
   const teacherCount = activeUsers.filter((u) => u && u.role === 'teacher').length;
   const adminCount = activeUsers.filter((u) => u && u.role === 'admin').length;
+  const registrarCount = activeUsers.filter((u) => u && u.role === 'registrar').length;
+  const hodCount = activeUsers.filter((u) => u && u.role === 'hod').length;
 
   const adminTabs = [
     {
@@ -992,7 +994,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       id: 'roles' as const,
       label: 'Role Management & Privileges',
       icon: <Key className="w-4 h-4" />,
-      badge: `${teacherCount}T • ${adminCount}A`,
+      badge: `${adminCount}A • ${registrarCount}R • ${teacherCount}T • ${hodCount}H`,
     },
     {
       id: 'claims' as const,
@@ -1026,8 +1028,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     },
     {
       id: 'landing_page' as const,
-      label: 'Landing Page Settings',
+      label: 'Landing Page & Registration Controls',
       icon: <Sparkles className="w-4 h-4" />,
+      badge: landingPageSettings.isRegistrationClosed ? '🔴 Closed' : landingPageSettings.isPaidRegistrationReopened ? '🟡 Override' : undefined,
     },
     {
       id: 'form_fields' as const,
@@ -1980,47 +1983,230 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         />
       )}
 
-      {/* 5. LANDING PAGE SETTINGS TAB */}
+      {/* 5. LANDING PAGE & REGISTRATION SETTINGS TAB */}
       {activeAdminTab === 'landing_page' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-blue-600" />
-              <span>Landing Page Configuration</span>
-            </h2>
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 sm:p-8 space-y-6">
+        <div className="space-y-8">
+          {/* Registration Access Controls Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">School Title</label>
-                <input
-                  type="text"
-                  value={landingPageSettings.title}
-                  onChange={(e) => onUpdateLandingPageSettings({ ...landingPageSettings, title: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                  placeholder="e.g. Shaw STEM Academy"
-                />
+                <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-blue-600" />
+                  <span>Student Registration & Add/Drop Access Controls</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Configure global registration availability and customize access rules for new and paid students.
+                </p>
               </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Subtitle / Tagline</label>
-                <input
-                  type="text"
-                  value={landingPageSettings.subtitle}
-                  onChange={(e) => onUpdateLandingPageSettings({ ...landingPageSettings, subtitle: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                  placeholder="e.g. Innovate. Explore. Lead."
-                />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Toggle A: Close Class Registration (Global) */}
+              <div className={`p-6 rounded-2xl border transition-all ${
+                landingPageSettings.isRegistrationClosed
+                  ? 'bg-rose-50/70 border-rose-200 shadow-sm'
+                  : 'bg-white border-slate-200 shadow-xs'
+              }`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide border ${
+                        landingPageSettings.isRegistrationClosed
+                          ? 'bg-rose-100 text-rose-800 border-rose-300'
+                          : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      }`}>
+                        {landingPageSettings.isRegistrationClosed ? '🔴 Registration Closed (Global)' : '🟢 Registration Open'}
+                      </span>
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Toggle A — Close Class Registration
+                    </h3>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Close the Class Registration form for <strong>all students</strong> across the entire academy. When enabled, no student can submit new registrations regardless of whether they have paid. Functions as the global registration-period control.
+                    </p>
+                  </div>
+
+                  {/* Switch Button */}
+                  <button
+                    type="button"
+                    onClick={() => onUpdateLandingPageSettings({
+                      ...landingPageSettings,
+                      isRegistrationClosed: !landingPageSettings.isRegistrationClosed,
+                    })}
+                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 ${
+                      landingPageSettings.isRegistrationClosed ? 'bg-rose-600' : 'bg-slate-300'
+                    }`}
+                    role="switch"
+                    aria-checked={Boolean(landingPageSettings.isRegistrationClosed)}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        landingPageSettings.isRegistrationClosed ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-200/80 text-[11px] font-medium flex items-center justify-between">
+                  <span className="text-slate-500">Global Enrollment Period Status:</span>
+                  <span className={`font-bold ${landingPageSettings.isRegistrationClosed ? 'text-rose-700' : 'text-emerald-700'}`}>
+                    {landingPageSettings.isRegistrationClosed ? 'Closed for All Students' : 'Open for Eligible Students'}
+                  </span>
+                </div>
               </div>
 
-              <ImageUploadInput
-                label="Academy Logo Picture"
-                description="Upload a high-resolution logo image directly from your computer/device or paste a web URL. This logo will appear in the top header and hero banner."
-                value={landingPageSettings.logoUrl}
-                onChange={(newLogo) => onUpdateLandingPageSettings({ ...landingPageSettings, logoUrl: newLogo })}
-                placeholder="Upload logo from device or enter URL..."
-                aspectRatio="square"
-              />
+              {/* Toggle B: Reopen Registration for Paid Students (Override) */}
+              <div className={`p-6 rounded-2xl border transition-all ${
+                landingPageSettings.isPaidRegistrationReopened
+                  ? 'bg-amber-50/70 border-amber-200 shadow-sm'
+                  : 'bg-white border-slate-200 shadow-xs'
+              }`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide border ${
+                        landingPageSettings.isPaidRegistrationReopened
+                          ? 'bg-amber-100 text-amber-900 border-amber-300'
+                          : 'bg-blue-100 text-blue-800 border-blue-300'
+                      }`}>
+                        {landingPageSettings.isPaidRegistrationReopened ? '🟡 Paid Student Override Active' : '🔵 Default (Paid Students → Add/Drop)'}
+                      </span>
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Toggle B — Reopen Registration for Paid Students
+                    </h3>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      By default, paid students are automatically restricted from the Class Registration form and directed to the Add/Drop workflow. Enable this toggle to <strong>temporarily restore Class Registration access</strong> for students who have already paid.
+                    </p>
+                  </div>
+
+                  {/* Switch Button */}
+                  <button
+                    type="button"
+                    onClick={() => onUpdateLandingPageSettings({
+                      ...landingPageSettings,
+                      isPaidRegistrationReopened: !landingPageSettings.isPaidRegistrationReopened,
+                    })}
+                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
+                      landingPageSettings.isPaidRegistrationReopened ? 'bg-amber-600' : 'bg-slate-300'
+                    }`}
+                    role="switch"
+                    aria-checked={Boolean(landingPageSettings.isPaidRegistrationReopened)}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        landingPageSettings.isPaidRegistrationReopened ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-200/80 text-[11px] font-medium flex items-center justify-between">
+                  <span className="text-slate-500">Paid Student Workflow Target:</span>
+                  <span className={`font-bold ${landingPageSettings.isPaidRegistrationReopened ? 'text-amber-800' : 'text-blue-700'}`}>
+                    {landingPageSettings.isPaidRegistrationReopened ? 'Class Registration Form (Override)' : 'Add / Drop System in Portal (Default)'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Rule Priority Evaluation Summary Matrix */}
+            <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-blue-400" />
+                  Live Access Enforcement Matrix
+                </span>
+                <span className="text-[11px] text-slate-400 font-mono">Real-time Rule Hierarchy</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700/60 space-y-1">
+                  <div className="text-slate-400 font-semibold flex items-center justify-between">
+                    <span>New / Unpaid Students:</span>
+                    <span className={`font-bold ${landingPageSettings.isRegistrationClosed ? 'text-rose-400' : 'text-emerald-400'}`}>
+                      {landingPageSettings.isRegistrationClosed ? '⛔ Blocked (Global Closure)' : '✅ Normal Class Registration'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    {landingPageSettings.isRegistrationClosed
+                      ? 'Registration is globally closed. Unpaid students see registration closed notification.'
+                      : 'Can access and submit the initial Class Registration form normally.'}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700/60 space-y-1">
+                  <div className="text-slate-400 font-semibold flex items-center justify-between">
+                    <span>Paid Students:</span>
+                    <span className={`font-bold ${
+                      landingPageSettings.isRegistrationClosed
+                        ? 'text-rose-400'
+                        : landingPageSettings.isPaidRegistrationReopened
+                        ? 'text-amber-400'
+                        : 'text-purple-400'
+                    }`}>
+                      {landingPageSettings.isRegistrationClosed
+                        ? '⛔ Blocked (Global Closure)'
+                        : landingPageSettings.isPaidRegistrationReopened
+                        ? '🔓 Class Registration (Override)'
+                        : '🔄 Add/Drop Workflow Only'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    {landingPageSettings.isRegistrationClosed
+                      ? 'Registration is globally closed for all students.'
+                      : landingPageSettings.isPaidRegistrationReopened
+                      ? 'Admin override active: Paid students may re-access the standard Class Registration form.'
+                      : 'Standard Class Registration is locked for paid students. Must use Student Portal Add/Drop.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Landing Page Branding Section */}
+          <div className="space-y-4 pt-4 border-t border-slate-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-blue-600" />
+                <span>Landing Page & School Branding</span>
+              </h2>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-6 sm:p-8 space-y-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">School Title</label>
+                  <input
+                    type="text"
+                    value={landingPageSettings.title}
+                    onChange={(e) => onUpdateLandingPageSettings({ ...landingPageSettings, title: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-bold"
+                    placeholder="e.g. Shaw STEM Academy"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Subtitle / Tagline</label>
+                  <input
+                    type="text"
+                    value={landingPageSettings.subtitle}
+                    onChange={(e) => onUpdateLandingPageSettings({ ...landingPageSettings, subtitle: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    placeholder="e.g. Innovate. Explore. Lead."
+                  />
+                </div>
+
+                <ImageUploadInput
+                  label="Academy Logo Picture"
+                  description="Upload a high-resolution logo image directly from your computer/device or paste a web URL. This logo will appear in the top header and hero banner."
+                  value={landingPageSettings.logoUrl}
+                  onChange={(newLogo) => onUpdateLandingPageSettings({ ...landingPageSettings, logoUrl: newLogo })}
+                  placeholder="Upload logo from device or enter URL..."
+                  aspectRatio="square"
+                />
+              </div>
             </div>
           </div>
         </div>

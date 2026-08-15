@@ -36,6 +36,9 @@ interface SchoolHeaderNavProps {
   themeMode: 'light' | 'dark';
   onToggleThemeMode: () => void;
   logoUrl?: string;
+  isRegistrationClosed?: boolean;
+  isPaidRegistrationReopened?: boolean;
+  isStudentPaid?: boolean;
 }
 
 export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
@@ -56,6 +59,9 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
   themeMode,
   onToggleThemeMode,
   logoUrl,
+  isRegistrationClosed = false,
+  isPaidRegistrationReopened = false,
+  isStudentPaid = false,
 }) => {
   const [notifPerm, setNotifPerm] = React.useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
@@ -142,6 +148,14 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
       const isStudent = (loggedInUser?.role || currentRole) === 'student';
       if (isStudent) {
         if (!isLoggedIn) {
+          return false;
+        }
+        // Rule 1: If registration is closed globally, hide for students
+        if (isRegistrationClosed) {
+          return false;
+        }
+        // Rule 2: If student has paid and no reopen override, hide tab (paid students use Add/Drop)
+        if (isStudentPaid && !isPaidRegistrationReopened) {
           return false;
         }
         const status = loggedInUser?.status || studentStatus;

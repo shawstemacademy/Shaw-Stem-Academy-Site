@@ -266,6 +266,8 @@ export interface LandingPageSettings {
   title: string;
   subtitle: string;
   logoUrl: string;
+  isRegistrationClosed?: boolean; // Toggle A: Close Class Registration (Global)
+  isPaidRegistrationReopened?: boolean; // Toggle B: Reopen Registration for Paid Students (Override)
 }
 
 // School Website & Dashboard Types
@@ -468,7 +470,7 @@ export interface NotificationLogItem {
 export interface RolePermission {
   id: string;
   name: string;
-  category: 'Academics' | 'Administration' | 'Registration' | 'System';
+  category: 'Academics' | 'Administration' | 'Registration' | 'System' | 'Financials' | 'Faculty & Claims';
   description: string;
   teacherDefault: boolean;
   adminDefault: boolean;

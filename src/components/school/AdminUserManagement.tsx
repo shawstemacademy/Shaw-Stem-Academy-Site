@@ -745,14 +745,13 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                 <th className="py-3.5 px-4">Role & Privilege</th>
                 <th className="py-3.5 px-4">Department</th>
                 <th className="py-3.5 px-4">Status / Record</th>
-                <th className="py-3.5 px-4">Department Reassign</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
                     {roleFilter === 'disabled'
                       ? 'No disabled users found. Disabled accounts will be logged here.'
                       : 'No staff members match the selected filters or search query.'}
@@ -885,22 +884,6 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                               : 'Invited'}
                           </span>
                         )}
-                      </td>
-
-                      {/* Quick Department Reassignment */}
-                      <td className="py-4 px-4">
-                        <select
-                          disabled={isDisabled}
-                          value={u.departmentId}
-                          onChange={(e) => onDepartmentChange(u.id, e.target.value)}
-                          className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-50"
-                        >
-                          {departments.map((d, dIdx) => (
-                            <option key={d.id || `reassign-dept-${dIdx}`} value={d.id}>
-                              {d.name} ({d.code})
-                            </option>
-                          ))}
-                        </select>
                       </td>
 
                       {/* Edit, Disable, Re-enable Actions */}

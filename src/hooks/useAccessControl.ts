@@ -45,6 +45,59 @@ export function useAccessControl(currentUser: SchoolUser | null, rolePermissions
     });
   };
 
+  // Helper flags for key processes
+  const canManageRegistrationControls = useMemo(() => {
+    return isAdmin || isRegistrar || hasPermission('perm-reg-controls');
+  }, [isAdmin, isRegistrar, currentUser, rolePermissions]);
+
+  const canProcessRegistrations = useMemo(() => {
+    return isAdmin || isRegistrar || hasPermission('perm-reg-process');
+  }, [isAdmin, isRegistrar, currentUser, rolePermissions]);
+
+  const canManageAddDrop = useMemo(() => {
+    return isAdmin || isRegistrar || hasPermission('perm-add-drop');
+  }, [isAdmin, isRegistrar, currentUser, rolePermissions]);
+
+  const canUseQrScanner = useMemo(() => {
+    return isAdmin || isTeacher || isHod || hasPermission('perm-qr-attendance');
+  }, [isAdmin, isTeacher, isHod, currentUser, rolePermissions]);
+
+  const canSubmitClaims = useMemo(() => {
+    return isAdmin || isTeacher || isHod || hasPermission('perm-claim-submit');
+  }, [isAdmin, isTeacher, isHod, currentUser, rolePermissions]);
+
+  const canVerifyClaims = useMemo(() => {
+    return isAdmin || isHod || isRegistrar || hasPermission('perm-claim-verify');
+  }, [isAdmin, isHod, isRegistrar, currentUser, rolePermissions]);
+
+  const canManageCurriculum = useMemo(() => {
+    return isAdmin || isHod || isTeacher || hasPermission('perm-curriculum');
+  }, [isAdmin, isHod, isTeacher, currentUser, rolePermissions]);
+
+  const canUploadResources = useMemo(() => {
+    return isAdmin || isTeacher || isHod || hasPermission('perm-resources');
+  }, [isAdmin, isTeacher, isHod, currentUser, rolePermissions]);
+
+  const canPublishNews = useMemo(() => {
+    return isAdmin || isHod || hasPermission('perm-news-publish');
+  }, [isAdmin, isHod, currentUser, rolePermissions]);
+
+  const canManageDiscounts = useMemo(() => {
+    return isAdmin || isRegistrar || hasPermission('perm-discounts');
+  }, [isAdmin, isRegistrar, currentUser, rolePermissions]);
+
+  const canViewFinancials = useMemo(() => {
+    return isAdmin || isRegistrar || hasPermission('perm-billing');
+  }, [isAdmin, isRegistrar, currentUser, rolePermissions]);
+
+  const canManageUsers = useMemo(() => {
+    return isAdmin || hasPermission('perm-user-mgmt');
+  }, [isAdmin, currentUser, rolePermissions]);
+
+  const canManageRoles = useMemo(() => {
+    return isAdmin || hasPermission('perm-role-mgmt');
+  }, [isAdmin, currentUser, rolePermissions]);
+
   const canAccessTab = (tabName: string): boolean => {
     if (!currentUser) return false;
     if (isAdmin) return true;
@@ -53,7 +106,7 @@ export function useAccessControl(currentUser: SchoolUser | null, rolePermissions
       case 'dashboard':
         return true;
       case 'admin':
-        return isAdmin;
+        return isAdmin || isRegistrar;
       case 'teacher':
         return isTeacher || isAdmin || isHod;
       case 'registrar':
@@ -77,5 +130,20 @@ export function useAccessControl(currentUser: SchoolUser | null, rolePermissions
     hasRole,
     hasPermission,
     canAccessTab,
+    // Process-specific capabilities
+    canManageRegistrationControls,
+    canProcessRegistrations,
+    canManageAddDrop,
+    canUseQrScanner,
+    canSubmitClaims,
+    canVerifyClaims,
+    canManageCurriculum,
+    canUploadResources,
+    canPublishNews,
+    canManageDiscounts,
+    canViewFinancials,
+    canManageUsers,
+    canManageRoles,
   };
 }
+

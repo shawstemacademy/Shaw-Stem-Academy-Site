@@ -190,10 +190,20 @@ export const deleteUserFromFirestore = async (userId: string) => {
 };
 
 export const subscribeToAllSchoolUsers = (callback: (users: SchoolUser[]) => void) => {
-  const usersMap = new Map<string, SchoolUser>();
+  const collectionData = new Map<string, Map<string, SchoolUser>>();
+  ALL_USER_COLLECTIONS.forEach((col) => collectionData.set(col, new Map<string, SchoolUser>()));
 
   const emitCombined = () => {
-    callback(Array.from(usersMap.values()));
+    const combinedMap = new Map<string, SchoolUser>();
+    ALL_USER_COLLECTIONS.forEach((col) => {
+      const map = collectionData.get(col);
+      if (map) {
+        map.forEach((user, id) => {
+          combinedMap.set(id, user);
+        });
+      }
+    });
+    callback(Array.from(combinedMap.values()));
   };
 
   const unsubs = ALL_USER_COLLECTIONS.map((colName) => {
@@ -201,18 +211,12 @@ export const subscribeToAllSchoolUsers = (callback: (users: SchoolUser[]) => voi
     return onSnapshot(
       colRef,
       (snapshot) => {
-        // Clear previous records for this collection
-        for (const [id, user] of usersMap.entries()) {
-          const userCol = getUserCollectionName(user.role);
-          if (userCol === colName) {
-            usersMap.delete(id);
-          }
-        }
-        // Insert active records
+        const colMap = new Map<string, SchoolUser>();
         snapshot.forEach((docSnapshot) => {
           const data = docSnapshot.data() as SchoolUser;
-          usersMap.set(docSnapshot.id, { id: docSnapshot.id, ...data });
+          colMap.set(docSnapshot.id, { id: docSnapshot.id, ...data });
         });
+        collectionData.set(colName, colMap);
         emitCombined();
       },
       (err) => {

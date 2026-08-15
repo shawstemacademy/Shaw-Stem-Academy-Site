@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SEOOptimizer } from './components/common/SEOOptimizer';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { Lock, Loader2, Bell, CheckCircle2 } from 'lucide-react';
+import { Lock, Loader2, Bell, CheckCircle2, Plus, Sparkles } from 'lucide-react';
 import { requestNotificationPermission, sendDesktopNotification, playNotificationSound } from './lib/notifications';
 import { requestAndSaveFcmToken, DEFAULT_VAPID_KEY, sendPushNotificationToUser, sendPushNotificationToClass, sendPushNotificationToAll } from './lib/fcm';
 import {
@@ -131,6 +131,7 @@ export default function App() {
 
   // School Portal Navigation & Role State
   const [activeTab, setActiveTab] = useState<PortalTab>('home');
+  const [studentPortalAcademicTab, setStudentPortalAcademicTab] = useState<'schedule' | 'attendance' | 'grades' | 'progress' | 'add_drop'>('schedule');
   const [currentRole, setCurrentRole] = useState<UserRole>('student');
   const [studentStatus, setStudentStatus] = useState<StudentStatus>('prospective');
   const [loggedInUser, setLoggedInUser] = useState<SchoolUser | null>(null);
@@ -1173,13 +1174,28 @@ export default function App() {
       subscribeToCollection<AttendanceRecord>('attendance', (data) => setAttendanceRecords(data || [])),
       subscribeToCollection<RolePermission>('rolePermissions', (data) => {
         if (!data || data.length === 0) {
-          // Initialize role matrix if it's completely empty
           DEMO_ROLE_PERMISSIONS.forEach((perm) => {
             saveDocToFirestore('rolePermissions', perm.id, perm);
           });
           setRolePermissions(DEMO_ROLE_PERMISSIONS);
         } else {
-          setRolePermissions(data);
+          const firestoreMap = new Map(data.map((p) => [p.id, p]));
+          const mergedPermissions: RolePermission[] = DEMO_ROLE_PERMISSIONS.map((defaultPerm) => {
+            const saved = firestoreMap.get(defaultPerm.id);
+            if (saved) {
+              return { ...defaultPerm, ...saved };
+            } else {
+              saveDocToFirestore('rolePermissions', defaultPerm.id, defaultPerm);
+              return defaultPerm;
+            }
+          });
+          // Also include any custom added permissions from Firestore
+          data.forEach((p) => {
+            if (!mergedPermissions.some((mp) => mp.id === p.id)) {
+              mergedPermissions.push(p);
+            }
+          });
+          setRolePermissions(mergedPermissions);
         }
       }),
     ];
@@ -1986,6 +2002,19 @@ export default function App() {
   // Submit Registration & Auto-log
   const handleSubmitRegistration = () => {
     if (selectedClasses.length === 0 && selectedSbaHubIds.length === 0) return;
+
+    if (!canStudentAccessRegistration) {
+      if (landingPageSettings.isRegistrationClosed) {
+        alert('Class Registration is currently closed by the administration.');
+        return;
+      }
+      if (isCurrentStudentPaid && !landingPageSettings.isPaidRegistrationReopened) {
+        alert('Registration is already complete and paid. Please use the Add/Drop workflow in your Student Portal for course changes.');
+        setStudentPortalAcademicTab('add_drop');
+        setActiveTab('student-portal');
+        return;
+      }
+    }
 
     const currentEmail = studentInfo.email || loggedInUser?.email || user?.email || '';
     const currentName = studentInfo.studentName || loggedInUser?.name || user?.displayName || (currentEmail ? currentEmail.split('@')[0] : '');
@@ -3212,45 +3241,6 @@ export default function App() {
     logSystemAction('login', 'User signed out of portal');
   }
 
-  const handleTabSelect = (tab: PortalTab) => {
-    const isLoggedIn = !!user || !!loggedInUser;
-    if ((tab === 'student-portal' || tab === 'registration') && !isLoggedIn) {
-      alert('Authentication required: Please log in to your student account to access the Student Portal or Class Registration.');
-      setActiveTab('login');
-      return;
-    }
-    if (tab === 'registration') {
-      const isStudent = (loggedInUser?.role || currentRole) === 'student';
-      if (isStudent) {
-        const status = loggedInUser?.status || studentStatus;
-        if (status !== 'accepted' && status !== 'enrolled_paid') {
-          alert('Access denied: You must be accepted or enrolled to register for classes.');
-          setActiveTab('student-portal');
-          return;
-        }
-
-        // Pre-populate previously chosen classes and SBA Hub options for editing
-        const email = user?.email || loggedInUser?.email;
-        if (email) {
-          const matchedRecord = registrationLogs.find(
-            (log) => 
-              (log.studentInfo?.parentEmail || '').toLowerCase() === email.toLowerCase() || 
-              (log.studentInfo?.email || '').toLowerCase() === email.toLowerCase() || 
-              (log.studentInfo?.gmailAddress || '').toLowerCase() === email.toLowerCase()
-          );
-          if (matchedRecord) {
-            const classIds = matchedRecord.selectedClasses?.map(c => c.id) || [];
-            setSelectedClassIds(classIds);
-            
-            const sbaIds = matchedRecord.studentInfo?.selectedSbaHubIds || [];
-            setSelectedSbaHubIds(sbaIds);
-          }
-        }
-      }
-    }
-    setActiveTab(tab);
-  };
-
   const studentEmail = (user?.email || loggedInUser?.email || '').toLowerCase().trim();
   const studentId = loggedInUser?.id;
   const studentName = (loggedInUser?.name || user?.displayName || '').toLowerCase().trim();
@@ -3280,6 +3270,99 @@ export default function App() {
   const allStudentRegistrations = (studentEmail || studentId)
     ? registrationLogs.filter(isLogForStudent)
     : [];
+
+  // Determine if the current student has paid
+  const isCurrentStudentPaid = useMemo(() => {
+    const isStudent = (loggedInUser?.role || currentRole) === 'student';
+    if (!isStudent) return false;
+
+    if (loggedInUser?.status === 'enrolled_paid' || studentStatus === 'enrolled_paid') {
+      return true;
+    }
+
+    if (allStudentRegistrations && allStudentRegistrations.length > 0) {
+      const hasPaid = allStudentRegistrations.some(
+        (r) => r.isPaid || r.status === 'enrolled_paid' || (r.payments && r.payments.length > 0)
+      );
+      if (hasPaid) return true;
+    }
+
+    return false;
+  }, [loggedInUser, currentRole, studentStatus, allStudentRegistrations]);
+
+  // Unified Registration Access Control:
+  // 1. If registration is globally closed -> Block all students (unpaid and paid)
+  // 2. If student has paid -> Block normal registration unless admin "Reopen for Paid" override is active (direct to Add/Drop)
+  // 3. If student has not paid -> Allow access (unless globally closed)
+  const canStudentAccessRegistration = useMemo(() => {
+    if (currentRole === 'admin' || currentRole === 'registrar' || loggedInUser?.role === 'admin' || loggedInUser?.role === 'registrar') {
+      return true;
+    }
+
+    // Priority 1: IF global registration is closed -> No student can access Class Registration
+    if (landingPageSettings.isRegistrationClosed) {
+      return false;
+    }
+
+    // Priority 2: ELSE IF student has paid
+    if (isCurrentStudentPaid) {
+      // IF admin has enabled "Reopen Registration for Paid Students" -> Student can access
+      if (landingPageSettings.isPaidRegistrationReopened) {
+        return true;
+      }
+      // ELSE -> Student cannot access Class Registration. Must use Add/Drop
+      return false;
+    }
+
+    // Priority 3: ELSE IF student has not paid -> Student can access Class Registration
+    return true;
+  }, [currentRole, loggedInUser, landingPageSettings.isRegistrationClosed, landingPageSettings.isPaidRegistrationReopened, isCurrentStudentPaid]);
+
+  const handleTabSelect = (tab: PortalTab) => {
+    const isLoggedIn = !!user || !!loggedInUser;
+    if ((tab === 'student-portal' || tab === 'registration') && !isLoggedIn) {
+      alert('Authentication required: Please log in to your student account to access the Student Portal or Class Registration.');
+      setActiveTab('login');
+      return;
+    }
+    if (tab === 'registration') {
+      const isStudent = (loggedInUser?.role || currentRole) === 'student';
+      if (isStudent) {
+        const status = loggedInUser?.status || studentStatus;
+        if (status !== 'accepted' && status !== 'enrolled_paid') {
+          alert('Access denied: You must be accepted or enrolled to register for classes.');
+          setActiveTab('student-portal');
+          return;
+        }
+
+        // If paid student tries to access registration while override is disabled, smoothly redirect to Add/Drop
+        if (isCurrentStudentPaid && !landingPageSettings.isPaidRegistrationReopened && !landingPageSettings.isRegistrationClosed) {
+          setStudentPortalAcademicTab('add_drop');
+          setActiveTab('student-portal');
+          return;
+        }
+
+        // Pre-populate previously chosen classes and SBA Hub options for editing
+        const email = user?.email || loggedInUser?.email;
+        if (email) {
+          const matchedRecord = registrationLogs.find(
+            (log) => 
+              (log.studentInfo?.parentEmail || '').toLowerCase() === email.toLowerCase() || 
+              (log.studentInfo?.email || '').toLowerCase() === email.toLowerCase() || 
+              (log.studentInfo?.gmailAddress || '').toLowerCase() === email.toLowerCase()
+          );
+          if (matchedRecord) {
+            const classIds = matchedRecord.selectedClasses?.map(c => c.id) || [];
+            setSelectedClassIds(classIds);
+            
+            const sbaIds = matchedRecord.studentInfo?.selectedSbaHubIds || [];
+            setSelectedSbaHubIds(sbaIds);
+          }
+        }
+      }
+    }
+    setActiveTab(tab);
+  };
 
   // Synchronize enrolledClassIds and enrolledSbaHubIds dynamically with the student's registrations from Firestore
   useEffect(() => {
@@ -3363,6 +3446,9 @@ export default function App() {
           themeMode={themeMode}
           onToggleThemeMode={handleToggleThemeMode}
           logoUrl={landingPageSettings.logoUrl}
+          isRegistrationClosed={landingPageSettings.isRegistrationClosed}
+          isPaidRegistrationReopened={landingPageSettings.isPaidRegistrationReopened}
+          isStudentPaid={isCurrentStudentPaid}
         />
 
         {/* Main Portal Content */}
@@ -3462,6 +3548,7 @@ export default function App() {
                 isAdminLoggedIn={currentRole === 'admin'}
                 onToggleFieldSetting={handleToggleFieldSetting}
                 studentPortalSections={studentPortalSections}
+                initialAcademicTab={studentPortalAcademicTab}
               />
             )
           )}
@@ -3816,7 +3903,87 @@ export default function App() {
                   Go to Login Page
                 </button>
               </div>
+            ) : !canStudentAccessRegistration ? (
+              landingPageSettings.isRegistrationClosed ? (
+                <div className="max-w-xl mx-auto my-12 bg-white dark:bg-slate-900 rounded-3xl p-8 border border-rose-200 dark:border-rose-900 shadow-xl text-center space-y-6">
+                  <div className="w-16 h-16 bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mx-auto">
+                    <Lock className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 rounded-full text-xs font-bold uppercase tracking-wider">
+                      Registration Closed
+                    </div>
+                    <h2 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">
+                      Class Registration Period is Closed
+                    </h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
+                      The class registration period has been closed globally by the academy administration. No new registrations are currently being accepted.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      onClick={() => setActiveTab('student-portal')}
+                      className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer"
+                    >
+                      Go to Student Portal
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('home')}
+                      className="w-full sm:w-auto px-6 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                    >
+                      Back to Home
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="max-w-xl mx-auto my-12 bg-white dark:bg-slate-900 rounded-3xl p-8 border border-purple-200 dark:border-purple-900 shadow-xl text-center space-y-6">
+                  <div className="w-16 h-16 bg-purple-100 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 rounded-full text-xs font-bold uppercase tracking-wider">
+                      Registration & Payment Completed
+                    </div>
+                    <h2 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">
+                      You're Already Enrolled & Paid
+                    </h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
+                      You have already completed course registration and payment. For any future course additions, schedule adjustments, or course drops, please use the official <strong>Add/Drop</strong> workflow in your Student Portal.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      onClick={() => {
+                        setStudentPortalAcademicTab('add_drop');
+                        setActiveTab('student-portal');
+                      }}
+                      className="w-full sm:w-auto px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Go to Course Add / Drop →</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('student-portal')}
+                      className="w-full sm:w-auto px-6 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                    >
+                      Go to Student Portal
+                    </button>
+                  </div>
+                </div>
+              )
             ) : (
+            <div className="space-y-6">
+              {isCurrentStudentPaid && landingPageSettings.isPaidRegistrationReopened && (
+                <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-2xl p-4 flex items-center gap-3 text-xs text-amber-900 dark:text-amber-200 shadow-xs">
+                  <Sparkles className="w-5 h-5 text-amber-600 shrink-0" />
+                  <div>
+                    <p className="font-bold">Administrative Override Active</p>
+                    <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5">
+                      Class registration has been temporarily reopened for paid students by the academy administration. You may modify your class selections below.
+                    </p>
+                  </div>
+                </div>
+              )}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               {/* Left Column: Form Cards (Form Layout) */}
               <div className="lg:col-span-8 space-y-6">
@@ -3892,6 +4059,7 @@ export default function App() {
                   onOpenDiscountConfig={() => setIsDiscountConfigOpen(true)}
                 />
               </div>
+            </div>
             </div>
             )
           )}

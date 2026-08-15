@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatSafeDate } from '../../lib/formatDate';
 import { 
   GraduationCap, 
@@ -106,6 +106,7 @@ interface StudentPortalPageProps {
   isAdminLoggedIn?: boolean;
   onToggleFieldSetting?: (formId: string, fieldId: string, property: 'enabled' | 'required') => void;
   studentPortalSections?: SectionOrderItem[];
+  initialAcademicTab?: 'schedule' | 'attendance' | 'grades' | 'progress' | 'add_drop';
 }
 
 export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
@@ -131,6 +132,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   isAdminLoggedIn = false,
   onToggleFieldSetting,
   studentPortalSections = DEFAULT_STUDENT_SECTION_ORDER,
+  initialAcademicTab,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showQrFullscreen, setShowQrFullscreen] = useState(false);
@@ -138,7 +140,13 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   const [editingStudentInfo, setEditingStudentInfo] = useState<StudentInfo | null>(null);
   const [selectedReceiptRecord, setSelectedReceiptRecord] = useState<RegistrationRecord | null>(null);
   const [activePaymentMethod, setActivePaymentMethod] = useState<'zelle' | 'wire' | 'check'>('zelle');
-  const [academicTab, setAcademicTab] = useState<'schedule' | 'attendance' | 'grades' | 'progress' | 'add_drop'>('schedule');
+  const [academicTab, setAcademicTab] = useState<'schedule' | 'attendance' | 'grades' | 'progress' | 'add_drop'>(initialAcademicTab || 'schedule');
+
+  useEffect(() => {
+    if (initialAcademicTab) {
+      setAcademicTab(initialAcademicTab);
+    }
+  }, [initialAcademicTab]);
 
   // Attendance Calendar & Progress Filters State
   const [attendanceViewMode, setAttendanceViewMode] = useState<'calendar' | 'list'>('calendar');

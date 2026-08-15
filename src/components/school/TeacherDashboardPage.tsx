@@ -380,11 +380,22 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
     let animationFrameId: number | null = null;
     let isLocked = false;
 
+    // Strict access control: Only users authorized to access Teacher Dashboard can be prompted for or granted camera access
+    const hasTeacherAccess = currentRole === 'teacher' || currentRole === 'hod' || currentRole === 'admin';
+
+    if (!isScanningQr || !hasTeacherAccess) {
+      return;
+    }
+
     const startCamera = async () => {
       try {
         setScanFeedback("Accessing camera...");
         setScanFeedbackType(null);
         
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("Camera API is not supported in this browser environment.");
+        }
+
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment" }
         });
@@ -557,11 +568,22 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
     let animationFrameId: number | null = null;
     let isLocked = false;
 
+    // Strict access control: Only users authorized to access Teacher Dashboard can be prompted for or granted camera access
+    const hasTeacherAccess = currentRole === 'teacher' || currentRole === 'hod' || currentRole === 'admin';
+
+    if (!isGlobalScannerOpen || !hasTeacherAccess) {
+      return;
+    }
+
     const startCamera = async () => {
       try {
         setGlobalScanFeedback("Accessing camera...");
         setGlobalScanFeedbackType(null);
         
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("Camera API is not supported in this browser environment.");
+        }
+
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment" }
         });
