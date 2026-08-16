@@ -14,20 +14,22 @@ interface ImageUploadInputProps {
   className?: string;
   darkBg?: boolean;
   hideDownload?: boolean;
+  allowAllTypes?: boolean;
 }
 
 export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
   value,
   onChange,
-  label = 'Picture / Image',
-  description = 'Upload an image file directly from your device or paste a web URL.',
-  placeholder = 'https://example.com/image.jpg or select a file below',
+  label = 'Picture / Media File',
+  description = 'Upload an image, video, PowerPoint, PDF, or document from your device or paste a URL.',
+  placeholder = 'https://example.com/file.jpg or select a file below',
   aspectRatio = 'auto',
   maxDimension = 1000,
   quality = 0.85,
   className = '',
   darkBg = false,
   hideDownload = false,
+  allowAllTypes = true,
 }) => {
   const [activeTab, setActiveTab] = useState<'upload' | 'url'>('upload');
   const [urlInputValue, setUrlInputValue] = useState(value && !value.startsWith('data:') ? value : '');
@@ -35,58 +37,60 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Compress and resize uploaded image to Data URL
+  // Compress image or read generic file to Data URL
   const processImageFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      alert('Please select a valid image file (JPEG, PNG, WebP, GIF, SVG).');
-      return;
-    }
-
     setIsCompressing(true);
     const reader = new FileReader();
 
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
+    if (file.type.startsWith('image/')) {
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
 
-        // Calculate max dimension
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height * maxDimension) / width);
-            width = maxDimension;
-          } else {
-            width = Math.round((width * maxDimension) / height);
-            height = maxDimension;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
           }
-        }
 
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          // Standard webp or jpeg
-          const dataUrl = canvas.toDataURL('image/webp', quality);
-          onChange(dataUrl);
-        } else {
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/webp', quality);
+            onChange(dataUrl);
+          } else {
+            onChange(event.target?.result as string);
+          }
+          setIsCompressing(false);
+        };
+
+        img.onerror = () => {
           onChange(event.target?.result as string);
+          setIsCompressing(false);
+        };
+
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Non-image file (video, PowerPoint, PDF, Doc, Zip)
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          onChange(event.target.result as string);
         }
         setIsCompressing(false);
       };
-
-      img.onerror = () => {
-        // Fallback to original data URL if image rendering fails
-        onChange(event.target?.result as string);
-        setIsCompressing(false);
-      };
-
-      img.src = event.target?.result as string;
-    };
-
-    reader.readAsDataURL(file);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -300,7 +304,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={allowAllTypes ? "image/*,video/*,.pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.zip" : "image/*"}
         onChange={handleFileChange}
         className="hidden"
       />

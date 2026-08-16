@@ -21,9 +21,15 @@ export const AdminNewsManagement: React.FC<AdminNewsManagementProps> = ({
   currentRole = 'admin',
   logoUrl,
 }) => {
-  const isHOD = currentRole === 'hod' || loggedInUser?.role === 'hod';
+  const effectiveRole = loggedInUser?.role || currentRole;
+  const isAuthorized = effectiveRole === 'admin' || effectiveRole === 'hod';
+  const isHOD = effectiveRole === 'hod';
   const userDeptId = loggedInUser?.departmentId;
   const userDeptName = loggedInUser?.departmentName || loggedInUser?.department;
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);

@@ -42,6 +42,7 @@ interface ClassClaimFormProps {
   hourlyRates?: TeacherHourlyRate[];
   onUpdateHourlyRates?: (updatedRates: TeacherHourlyRate[]) => void;
   users?: SchoolUser[];
+  sectionTitle?: string;
 }
 
 // Utility to parse time strings like "16:00" or "4:00 PM" into hours
@@ -76,6 +77,7 @@ export const ClassClaimForm: React.FC<ClassClaimFormProps> = ({
   hourlyRates = [],
   onUpdateHourlyRates,
   users = [],
+  sectionTitle,
 }) => {
   const [activeTab, setActiveTab] = useState<'calendar' | 'my-claims' | 'registrar-verification'>('calendar');
   
@@ -702,7 +704,7 @@ export const ClassClaimForm: React.FC<ClassClaimFormProps> = ({
               <span>SBA Hub & Course Bank Claims Management</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Faculty Teaching Claim Portal
+              {sectionTitle || 'Faculty Teaching Claim Portal'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
               Mark classes taught from your scheduled Course Bank and SBA Hub options. Claims are logged on a calendar view and verified by the Registrar for payroll calculation.

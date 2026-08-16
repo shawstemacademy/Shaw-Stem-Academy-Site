@@ -85,6 +85,7 @@ import { RegistrationReceiptModal } from '../RegistrationReceiptModal';
 import { isFcmSupported, requestAndSaveFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
 import { subscribeToCollection, saveDocToFirestore, deleteDocFromFirestore, saveUserToFirestore } from '../../lib/firebase';
 import { calculateAge, isValidAge } from '../../lib/ageValidation';
+import { MediaAttachmentViewer } from './MediaAttachmentViewer';
 
 interface StudentPortalPageProps {
   status: StudentStatus;
@@ -93,6 +94,7 @@ interface StudentPortalPageProps {
   resources: TeacherResource[];
   announcements: ClassAnnouncement[];
   faqs?: FaqItem[];
+  logoUrl?: string;
   categories?: ResourceCategory[];
   studentUser?: SchoolUser | null;
   registrationRecord?: RegistrationRecord | null;
@@ -120,6 +122,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   resources = [],
   announcements = [],
   faqs = [],
+  logoUrl = '/logo.png',
   categories = [],
   studentUser,
   registrationRecord,
@@ -507,8 +510,30 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
     return section?.title || defaultTitle;
   };
 
+  const handleCourseActionClick = () => {
+    const isPaid =
+      status === 'enrolled_paid' ||
+      Boolean(registrationRecord?.isPaid) ||
+      Boolean(
+        allRegistrations &&
+          allRegistrations.some(
+            (r) => r.isPaid || r.status === 'enrolled_paid' || (r.payments && r.payments.length > 0)
+          )
+      );
+
+    if (isPaid) {
+      setAcademicTab('add_drop');
+      const elem = document.getElementById('academic-records-section') || document.getElementById('add-drop-form-section');
+      if (elem) {
+        elem.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else {
+      onOpenRegistration();
+    }
+  };
+
   return (
-    <div className="space-y-8 pb-16">
+    <div className="flex flex-col space-y-8 pb-16">
       {/* Student Portal Header */}
       {status === 'accepted' ? (
         <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 text-white p-6 sm:p-8 rounded-3xl shadow-xl space-y-4 border border-emerald-400/30 animate-fade-in relative overflow-hidden">
@@ -565,7 +590,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                       </p>
                     </div>
                     <button
-                      onClick={onOpenRegistration}
+                      onClick={handleCourseActionClick}
                       className="px-4 py-2 bg-white text-emerald-950 hover:bg-emerald-50 font-extrabold text-xs rounded-xl shadow-md transition-all shrink-0 cursor-pointer"
                     >
                       Register for Courses →
@@ -1166,8 +1191,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               </div>
 
               <button
-                onClick={onOpenRegistration}
-                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 shrink-0"
+                onClick={handleCourseActionClick}
+                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>{classes.length === 0 ? 'Select Courses Now' : 'Add / Modify Classes'}</span>
@@ -1193,7 +1218,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                   </div>
                   <div className="pt-2">
                     <button
-                      onClick={onOpenRegistration}
+                      onClick={handleCourseActionClick}
                       className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
                     >
                       View / Modify Requested Classes
@@ -1206,8 +1231,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                     You have not registered for any specific courses yet. Click below to choose your classes.
                   </p>
                   <button
-                    onClick={onOpenRegistration}
-                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm"
+                    onClick={handleCourseActionClick}
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
                   >
                     Go to Class Registration
                   </button>
@@ -1224,8 +1249,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                       </span>
                     </div>
                     <button
-                      onClick={onOpenRegistration}
-                      className="text-amber-800 dark:text-amber-300 font-bold hover:underline shrink-0"
+                      onClick={handleCourseActionClick}
+                      className="text-amber-800 dark:text-amber-300 font-bold hover:underline shrink-0 cursor-pointer"
                     >
                       Modify Request →
                     </button>
@@ -1506,6 +1531,51 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                     ? Math.round((perfectDaysCount / totalClassDays) * 100) 
                     : 100;
 
+                  const monthlyTrendChartData = (() => {
+                    const chartData = [];
+                    const now = new Date();
+
+                    for (let i = 5; i >= 0; i--) {
+                      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                      const yearStr = d.getFullYear();
+                      const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+                      const monthKey = `${yearStr}-${monthNum}`;
+                      const monthLabel = d.toLocaleString('default', { month: 'short' });
+                      const fullMonthName = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+                      const mRecords = (attendanceRecords || []).filter(
+                        (a) => (a.studentId === studentUser?.id || a.studentId === studentUser?.email) && a.date?.startsWith(monthKey)
+                      );
+
+                      let rate = 100;
+                      let presentCount = 0;
+                      let totalLogs = mRecords.length;
+
+                      if (totalLogs > 0) {
+                        presentCount = mRecords.filter((a) => a.status === 'present' || a.status === 'excused' || !a.status).length;
+                        rate = Math.round((presentCount / totalLogs) * 100);
+                      } else {
+                        if (i === 0 && totalClassDays > 0) {
+                          rate = attendanceRate;
+                          totalLogs = totalClassDays;
+                          presentCount = perfectDaysCount;
+                        } else {
+                          rate = 100;
+                        }
+                      }
+
+                      chartData.push({
+                        month: monthLabel,
+                        fullMonth: fullMonthName,
+                        attendanceRate: rate,
+                        presentCount,
+                        totalLogs,
+                      });
+                    }
+
+                    return chartData;
+                  })();
+
                   return (
                     <div className="space-y-6">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -1540,6 +1610,78 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                             <Clock className="w-3.5 h-3.5" />
                             Today's Check-In
                           </button>
+                        </div>
+                      </div>
+
+                      {/* Recharts Monthly Attendance Trend Chart */}
+                      <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h5 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                              <BarChart2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                              Monthly Attendance Percentage Trend
+                            </h5>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              Visual representation of your attendance rate percentage across recent months.
+                            </p>
+                          </div>
+                          <div className="text-xs font-extrabold px-3 py-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 rounded-full border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1">
+                            <TrendingUp className="w-3.5 h-3.5" />
+                            Average: {attendanceRate}%
+                          </div>
+                        </div>
+
+                        <div className="h-52 w-full pt-2">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={monthlyTrendChartData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.5} />
+                              <XAxis 
+                                dataKey="month" 
+                                tick={{ fontSize: 11, fill: '#64748b' }} 
+                                axisLine={false} 
+                                tickLine={false} 
+                              />
+                              <YAxis 
+                                domain={[0, 100]} 
+                                tick={{ fontSize: 11, fill: '#64748b' }} 
+                                axisLine={false} 
+                                tickLine={false} 
+                                unit="%" 
+                              />
+                              <RechartsTooltip 
+                                content={({ active, payload }) => {
+                                  if (active && payload && payload.length) {
+                                    const data = payload[0].payload;
+                                    return (
+                                      <div className="bg-slate-900 text-white text-xs p-3 rounded-xl shadow-lg border border-slate-700 space-y-1">
+                                        <p className="font-bold text-slate-200">{data.fullMonth}</p>
+                                        <p className="text-emerald-400 font-extrabold text-sm">
+                                          {data.attendanceRate}% Attendance Rate
+                                        </p>
+                                        {data.totalLogs > 0 ? (
+                                          <p className="text-[10px] text-slate-400">
+                                            {data.presentCount} present out of {data.totalLogs} logged check-ins
+                                          </p>
+                                        ) : (
+                                          <p className="text-[10px] text-slate-400">100% record maintained</p>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                              <Line 
+                                type="monotone" 
+                                dataKey="attendanceRate" 
+                                name="Attendance %" 
+                                stroke="#10b981" 
+                                strokeWidth={3} 
+                                dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#ffffff' }} 
+                                activeDot={{ r: 6, fill: '#059669' }} 
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
                         </div>
                       </div>
 
@@ -2781,15 +2923,12 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                     <div className="text-xs text-slate-600 leading-relaxed">
                       <FormattedText text={ann.content} />
                     </div>
-                    {ann.imageUrl && (
-                      <div className="pt-3">
-                        <img
-                          src={ann.imageUrl}
-                          alt="Announcement Graphic"
-                          className="h-28 w-44 object-cover rounded-xl border border-slate-200"
-                        />
-                      </div>
-                    )}
+                    <MediaAttachmentViewer
+                      url={ann.imageUrl || (ann as any).fileUrl}
+                      title={ann.title}
+                      logoUrl={logoUrl}
+                      type="announcement"
+                    />
                   </div>
                 ))}
               </div>
@@ -2867,15 +3006,12 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                       <div className="text-xs text-slate-500 leading-relaxed">
                         <FormattedText text={res.description} />
                       </div>
-                      {(res.imageUrl || (res.fileUrl && (res.fileUrl.startsWith('data:image') || res.fileUrl.startsWith('http')))) && (
-                        <div className="pt-2">
-                          <img
-                            src={res.imageUrl || res.fileUrl}
-                            alt="Lab Material Schematic"
-                            className="h-24 w-36 object-cover rounded-lg border border-slate-200"
-                          />
-                        </div>
-                      )}
+                      <MediaAttachmentViewer
+                        url={res.imageUrl || res.fileUrl}
+                        title={res.title}
+                        logoUrl={logoUrl}
+                        type="resource"
+                      />
                       <div className="text-[11px] text-slate-400">
                         Uploaded by {res.teacherName} • {res.uploadDate}
                       </div>
@@ -3225,22 +3361,22 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
       {/* Edit Profile Modal */}
       {isEditingProfile && editingStudentInfo && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="sticky top-0 bg-white/90 backdrop-blur-md px-8 py-5 border-b border-slate-100 flex items-center justify-between z-10">
-              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[88vh] sm:max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 my-auto overflow-hidden text-slate-900">
+            <div className="shrink-0 bg-white/95 backdrop-blur-md px-6 py-4 border-b border-slate-100 flex items-center justify-between z-10">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
                 <User className="w-5 h-5 text-purple-600" />
                 Edit Student Profile
               </h2>
               <button
                 onClick={handleCancelEdit}
-                className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-lg hover:bg-slate-50"
+                className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-lg hover:bg-slate-50 cursor-pointer"
               >
                 ✕
               </button>
             </div>
             
-            <div className="p-8">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8">
               <StudentInfoForm
                 studentInfo={editingStudentInfo}
                 onChange={(field, value) => {
@@ -3266,16 +3402,16 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               />
             </div>
             
-            <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-8 py-5 flex justify-end gap-3 rounded-b-3xl z-10">
+            <div className="shrink-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end gap-3 rounded-b-3xl z-10">
               <button
                 onClick={handleCancelEdit}
-                className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveProfile}
-                className="px-6 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-md transition-colors flex items-center gap-2"
+                className="px-6 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-md transition-colors flex items-center gap-2 cursor-pointer"
               >
                 <Check className="w-4 h-4" />
                 <span>Save Changes</span>

@@ -660,6 +660,65 @@ export default function App() {
     setClashes(detected);
   }, [classList]);
 
+  // Synchronize enrolled student count for all classes dynamically with live Firebase registrations and student accounts
+  useEffect(() => {
+    if (classList.length === 0) return;
+
+    let hasChanges = false;
+    const updatedClasses = classList.map((cls) => {
+      const studentKeys = new Set<string>();
+
+      // Count students from live registration logs in Firebase
+      registrationLogs.forEach((log) => {
+        const isPaid = Boolean(
+          log.isPaid || 
+          log.status === 'enrolled_paid' || 
+          log.status === 'completed' ||
+          (log.payments && log.payments.length > 0 && log.payments.reduce((sum, p) => sum + (p.amount || 0), 0) >= (log.totalPrice || 0) && (log.totalPrice || 0) > 0)
+        );
+
+        const isVerifiedForClass = Boolean(log.verifiedClassIds && log.verifiedClassIds.includes(cls.id));
+        const isSelectedForClass = Boolean(
+          log.selectedClasses?.some((c) => c.id === cls.id) || 
+          log.selectedClassIds?.includes(cls.id)
+        );
+
+        if (isVerifiedForClass || (isSelectedForClass && isPaid)) {
+          const key = log.studentId || log.userId || log.studentInfo?.email || log.studentInfo?.parentEmail || log.studentInfo?.studentName || log.id;
+          if (key) {
+            studentKeys.add(key.toLowerCase().trim());
+          }
+        }
+      });
+
+      // Count students from live school users in Firebase who are enrolled & paid
+      schoolUsers.forEach((u) => {
+        if (u.role === 'student' && u.status === 'enrolled_paid') {
+          if (u.registeredClassIds && u.registeredClassIds.includes(cls.id)) {
+            const key = u.id || u.email || u.name;
+            if (key) {
+              studentKeys.add(key.toLowerCase().trim());
+            }
+          }
+        }
+      });
+
+      const trueEnrolledCount = studentKeys.size;
+      if (cls.enrolled !== trueEnrolledCount) {
+        hasChanges = true;
+        const updated = { ...cls, enrolled: trueEnrolledCount };
+        // Sync the updated enrolled count to Firestore classes collection
+        saveDocToFirestore('classes', cls.id, updated);
+        return updated;
+      }
+      return cls;
+    });
+
+    if (hasChanges) {
+      setClassList(updatedClasses);
+    }
+  }, [registrationLogs, schoolUsers, classList]);
+
   // Enforce capacity of 10 for all current classes in the database
   useEffect(() => {
     if (classList.length > 0) {
@@ -3519,6 +3578,7 @@ export default function App() {
                 allClasses={classList}
                 resources={resources}
                 announcements={announcements}
+                logoUrl={landingPageSettings.logoUrl || '/logo.png'}
                 categories={resourceCategories}
                 faqs={faqs}
                 onOpenRegistration={() => handleTabSelect('registration')}
@@ -3540,6 +3600,7 @@ export default function App() {
               classes={classList}
               resources={resources}
               announcements={announcements}
+              logoUrl={landingPageSettings.logoUrl || '/logo.png'}
               attendanceRecords={attendanceRecords}
               onUpdateAttendance={handleUpdateAttendance}
               onUpdateRegistration={handleUpdateRegistration}
@@ -3571,6 +3632,7 @@ export default function App() {
             <AdminDashboardPage
               onNavigate={setActiveTab}
               registrationLogs={registrationLogs}
+              attendanceRecords={attendanceRecords}
               discountRules={discountRules}
               currentTheme={theme}
               systemActionLogs={systemActionLogs}

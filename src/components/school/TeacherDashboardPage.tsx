@@ -73,12 +73,14 @@ import {
 import { AdminNewsManagement } from './AdminNewsManagement';
 import { HodResourceCategoryManager } from './HodResourceCategoryManager';
 import { ClassClaimForm } from './ClassClaimForm';
+import { MediaAttachmentViewer } from './MediaAttachmentViewer';
 
 interface TeacherDashboardPageProps {
   teachers: TeacherProfile[];
   classes: ClassItem[];
   resources: TeacherResource[];
   announcements: ClassAnnouncement[];
+  logoUrl?: string;
   onAddAnnouncement: (announcement: ClassAnnouncement) => void;
   onDeleteAnnouncement: (id: string) => void;
   onAddResource: (resource: TeacherResource) => void;
@@ -111,6 +113,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   classes = [],
   resources = [],
   announcements = [],
+  logoUrl = '/logo.png',
   onAddAnnouncement,
   onDeleteAnnouncement,
   onAddResource,
@@ -205,9 +208,15 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
     return section?.title || defaultTitle;
   };
 
+  // Effective user role determination (loggedInUser role is ground truth if present)
+  const effectiveRole = loggedInUser?.role || currentRole;
+  const isActualAdmin = effectiveRole === 'admin';
+  const isActualHod = effectiveRole === 'hod';
+  const isActualTeacher = effectiveRole === 'teacher';
+
   // For teacher role, strictly enforce showing ONLY their own dashboard and information
-  const currentTeacherRaw = (currentRole === 'teacher' && loggedInUser)
-    ? (teachers.find((t) => t.id === loggedInUser.id || (t?.email || '').toLowerCase() === (loggedInUser?.email || '').toLowerCase()) || matchedTeacher)
+  const currentTeacherRaw = isActualTeacher
+    ? (teachers.find((t) => t.id === loggedInUser?.id || (t?.email || '').toLowerCase() === (loggedInUser?.email || '').toLowerCase()) || matchedTeacher)
     : (teachers.find((t) => t.id === activeTeacherId) || matchedTeacher);
 
   const currentTeacher = currentTeacherRaw || fallbackTeacher;
@@ -218,12 +227,12 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   );
 
   // Classes available for dropdowns (Admin sees all, HOD sees their dept + assigned, Teacher sees assigned)
-  const formClasses = currentRole === 'admin' 
+  const formClasses = isActualAdmin 
     ? classes 
-    : (currentRole === 'hod' && loggedInUser && 'role' in loggedInUser)
+    : isActualHod
       ? classes.filter(c => {
-          const deptNames = [loggedInUser.departmentName, ...(loggedInUser.departmentNames || [])].filter(Boolean);
-          const deptIds = [loggedInUser.departmentId, ...(loggedInUser.departmentIds || [])].filter(Boolean);
+          const deptNames = [loggedInUser?.departmentName, ...(loggedInUser?.departmentNames || [])].filter(Boolean);
+          const deptIds = [loggedInUser?.departmentId, ...(loggedInUser?.departmentIds || [])].filter(Boolean);
           
           // Try to match by category name or if we have department mapping
           const isDeptMatch = deptNames.includes(c.category);
@@ -543,7 +552,13 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
 
     return () => {
       if (activeStream) {
-        activeStream.getTracks().forEach(track => track.stop());
+        activeStream.getTracks().forEach((track) => {
+          track.stop();
+          track.enabled = false;
+        });
+      }
+      if (scanVideoRef.current) {
+        scanVideoRef.current.srcObject = null;
       }
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
@@ -568,12 +583,17 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
     setScannerRestartKey((prev) => prev + 1);
   };
 
-  // Set default class ID when classes are loaded or modal is opened
+  // Set default class ID when formClasses are loaded or active
   useEffect(() => {
-    if (classes.length > 0 && !globalScanClassId) {
-      setGlobalScanClassId(classes[0].id);
+    if (formClasses.length > 0) {
+      const ids = formClasses.map((c) => c.id);
+      if (!globalScanClassId || !ids.includes(globalScanClassId)) {
+        setGlobalScanClassId(formClasses[0].id);
+      }
+    } else {
+      setGlobalScanClassId('');
     }
-  }, [classes, globalScanClassId]);
+  }, [formClasses, globalScanClassId]);
 
   useEffect(() => {
     let activeStream: MediaStream | null = null;
@@ -743,13 +763,39 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
 
     return () => {
       if (activeStream) {
-        activeStream.getTracks().forEach(track => track.stop());
+        activeStream.getTracks().forEach((track) => {
+          track.stop();
+          track.enabled = false;
+        });
+      }
+      if (globalScanVideoRef.current) {
+        globalScanVideoRef.current.srcObject = null;
       }
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
       }
     };
   }, [isGlobalScannerOpen, globalScanClassId, classes, registrationLogs, attendanceRecords, scannerRestartKey]);
+
+  // Safety cleanup: Automatically close camera scanners if section tab changes or window loses focus
+  useEffect(() => {
+    if (activeSection !== 'classes') {
+      if (isScanningQr) setIsScanningQr(false);
+    }
+  }, [activeSection, isScanningQr]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (isScanningQr) setIsScanningQr(false);
+        if (isGlobalScannerOpen) setIsGlobalScannerOpen(false);
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isScanningQr, isGlobalScannerOpen]);
   
   const [editGcUrl, setEditGcUrl] = useState<string>('');
   const [editMeetUrl, setEditMeetUrl] = useState<string>('');
@@ -859,7 +905,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
           </div>
 
           {/* Switch Faculty Member Selector (Only visible to Admin) */}
-          {currentRole === 'admin' ? (
+          {isActualAdmin ? (
             <div className="bg-slate-800 p-3 rounded-2xl border border-slate-700 space-y-2 shrink-0">
               <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 Admin Overseer • Switch Faculty View:
@@ -904,8 +950,14 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
 
       {/* Section Switcher Tabs */}
       <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
-        {teacherDashboardSections
-          .filter((section) => section.enabled !== false)
+        {[...teacherDashboardSections]
+          .filter((section) => {
+            if (section.enabled === false) return false;
+            if (section.id === 'hod_news_management') {
+              return isActualHod || isActualAdmin;
+            }
+            return true;
+          })
           .sort((a, b) => getSectionOrder(a.id) - getSectionOrder(b.id))
           .map((section) => {
             let icon = <BookOpen className="w-4 h-4 text-blue-600" />;
@@ -1046,7 +1098,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                   <BarChart3 className="w-3.5 h-3.5 text-indigo-600" />
                   <span>Faculty Analytics & Student Mastery</span>
                 </div>
-                <h2 className="text-xl font-bold text-slate-900">Student Performance Distribution</h2>
+                <h2 className="text-xl font-bold text-slate-900">{getSectionTitle('performance', 'Student Performance Distribution')}</h2>
                 <p className="text-xs text-slate-500">
                   Comprehensive breakdown of student letter grades and averages across all classes taught by {currentTeacher.name}.
                 </p>
@@ -1317,6 +1369,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
           hourlyRates={hourlyRates}
           onUpdateHourlyRates={onUpdateHourlyRates}
           users={schoolUsers}
+          sectionTitle={getSectionTitle('claims', 'Faculty Teaching Claim Portal')}
         />
       )}
 
@@ -1478,8 +1531,21 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
           const cls = teacherClasses.find(c => c.id === managingAcademicsClassId);
           if (!cls) return null;
           
-          // Get enrolled students for this class
-          const enrolledStudents = registrationLogs.filter(log => log.verifiedClassIds?.includes(cls.id) && log.status === 'enrolled_paid');
+          // Get enrolled students for this class from live Firebase registrations
+          const enrolledStudents = registrationLogs.filter(log => {
+            const isVerifiedForClass = Boolean(log.verifiedClassIds && log.verifiedClassIds.includes(cls.id));
+            const isSelectedForClass = Boolean(
+              log.selectedClasses?.some((c) => c.id === cls.id) || 
+              log.selectedClassIds?.includes(cls.id)
+            );
+            const isPaidOrVerified = Boolean(
+              log.isPaid || 
+              log.status === 'enrolled_paid' || 
+              log.status === 'completed' || 
+              (log.payments && log.payments.length > 0)
+            );
+            return isVerifiedForClass || (isSelectedForClass && isPaidOrVerified);
+          });
           const todayStr = new Date().toISOString().split('T')[0];
           
           return (
@@ -1702,15 +1768,33 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                           <div className="mt-4 border-t border-slate-800 pt-4 relative z-10">
                             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Recent Scans ({recentScans.length})</h4>
                             <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
-                              {recentScans.map(scan => (
-                                <div key={scan.id} className="flex justify-between items-center bg-slate-900/60 border border-slate-800 p-2.5 rounded-lg">
-                                   <span className="text-xs text-slate-300 font-semibold">{scan.studentName}</span>
-                                   <span className="text-[10px] text-emerald-400 flex items-center gap-1.5 font-bold">
-                                     <CheckCircle2 className="w-3.5 h-3.5" />
-                                     {new Date(scan.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                   </span>
-                                </div>
-                              ))}
+                              {recentScans.map(scan => {
+                                const isJustScanned = scan.timestamp && (Date.now() - new Date(scan.timestamp).getTime() < 30000);
+                                return (
+                                  <div 
+                                    key={scan.id} 
+                                    className={`flex justify-between items-center p-2.5 rounded-lg transition-all duration-500 ${
+                                      isJustScanned 
+                                        ? 'bg-emerald-950/60 border border-emerald-500/50 shadow-md ring-1 ring-emerald-500/30 animate-pulse' 
+                                        : 'bg-slate-900/60 border border-slate-800'
+                                    }`}
+                                  >
+                                     <div className="flex items-center gap-2">
+                                       {isJustScanned && (
+                                         <span className="relative flex h-2 w-2 shrink-0">
+                                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                           <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                         </span>
+                                       )}
+                                       <span className="text-xs text-slate-300 font-semibold">{scan.studentName}</span>
+                                     </div>
+                                     <span className="text-[10px] text-emerald-400 flex items-center gap-1.5 font-bold">
+                                       <CheckCircle2 className={`w-3.5 h-3.5 ${isJustScanned ? 'animate-bounce text-emerald-300' : ''}`} />
+                                       {new Date(scan.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                     </span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         );
@@ -1731,16 +1815,43 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                         </thead>
                         <tbody>
                           {enrolledStudents.map(student => {
-                            const attId = `att-\${cls.id}-\${todayStr}-\${student.studentInfo.id || student.id}`;
+                            const attId = `att-${cls.id}-${todayStr}-${student.studentInfo.id || student.id}`;
                             const record = attendanceRecords?.find(a => a.id === attId);
+                            const isRecentlyScanned = Boolean(record && record.timestamp && (Date.now() - new Date(record.timestamp).getTime() < 30000));
+
                             return (
-                              <tr key={student.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                <td className="py-3 px-3 text-sm font-semibold text-slate-800">{student.studentInfo.studentName || student.studentInfo.firstName}</td>
+                              <tr 
+                                key={student.id} 
+                                className={`border-b border-slate-100 transition-colors duration-500 ${
+                                  isRecentlyScanned ? 'bg-emerald-50/70 font-medium' : 'hover:bg-slate-50'
+                                }`}
+                              >
+                                <td className="py-3 px-3 text-sm font-semibold text-slate-800 flex items-center gap-2">
+                                  {isRecentlyScanned && (
+                                    <span className="relative flex h-2 w-2 shrink-0">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                    </span>
+                                  )}
+                                  <span>{student.studentInfo.studentName || student.studentInfo.firstName}</span>
+                                </td>
                                 <td className="py-3 px-3 text-sm text-slate-500">{student.studentInfo.email || student.studentInfo.parentEmail}</td>
                                 <td className="py-3 px-3 text-right">
                                   {record ? (
-                                    <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                                      <CheckCircle2 className="w-3.5 h-3.5" /> Present
+                                    <span
+                                      className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border transition-all duration-700 ease-in-out ${
+                                        isRecentlyScanned
+                                          ? 'text-emerald-800 bg-emerald-100 border-emerald-400 ring-2 ring-emerald-400/40 shadow-xs animate-pulse scale-105'
+                                          : 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                                      }`}
+                                    >
+                                      <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${isRecentlyScanned ? 'text-emerald-600 animate-bounce' : ''}`} />
+                                      <span>Present</span>
+                                      {isRecentlyScanned && (
+                                        <span className="text-[10px] text-emerald-700 font-extrabold uppercase tracking-wide ml-0.5">
+                                          (Just Scanned)
+                                        </span>
+                                      )}
                                     </span>
                                   ) : (
                                     <button
@@ -1756,7 +1867,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                                           timestamp: new Date().toISOString()
                                         });
                                       }}
-                                      className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors"
+                                      className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
                                     >
                                       Mark Present
                                     </button>
@@ -2101,23 +2212,12 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                   <div className="text-xs text-slate-600">
                     <FormattedText text={ann.content} />
                   </div>
-                  {ann.imageUrl && (
-                    <div className="pt-2 flex items-center gap-3">
-                      <img
-                        src={ann.imageUrl}
-                        alt="Announcement Attachment"
-                        className="h-20 w-32 object-cover rounded-lg border border-slate-200"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => downloadImage(ann.imageUrl!, `${ann.title.replace(/[^a-zA-Z0-9]/g, '_')}.png`)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
-                      >
-                        <Download className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Download Image</span>
-                      </button>
-                    </div>
-                  )}
+                  <MediaAttachmentViewer
+                    url={ann.imageUrl || (ann as any).fileUrl}
+                    title={ann.title}
+                    logoUrl={logoUrl}
+                    type="announcement"
+                  />
                 </div>
 
                 <button
@@ -2160,23 +2260,12 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                     <FormattedText text={res.description} />
                   </div>
 
-                  {(res.imageUrl || (res.fileUrl && res.fileUrl.startsWith('data:image'))) && (
-                    <div className="pt-2 flex items-center gap-3">
-                      <img
-                        src={res.imageUrl || res.fileUrl}
-                        alt="Resource Material Preview"
-                        className="h-20 w-32 object-cover rounded-lg border border-slate-200"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => downloadImage(res.imageUrl || res.fileUrl, `${res.title.replace(/[^a-zA-Z0-9]/g, '_')}.png`)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
-                      >
-                        <Download className="w-3.5 h-3.5 text-purple-600" />
-                        <span>Download Schematic / File</span>
-                      </button>
-                    </div>
-                  )}
+                  <MediaAttachmentViewer
+                    url={res.imageUrl || res.fileUrl}
+                    title={res.title}
+                    logoUrl={logoUrl}
+                    type="resource"
+                  />
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -2206,7 +2295,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
       )}
 
       {/* HOD Resource Category Manager & Department News Management */}
-      {(activeSection === 'hod_news_management' || activeSection === 'resources') && (currentRole === 'hod' || currentRole === 'admin' || (loggedInUser && 'role' in loggedInUser && (loggedInUser.role === 'hod' || loggedInUser.role === 'admin'))) && (
+      {activeSection === 'hod_news_management' && (isActualHod || isActualAdmin) && (
         <div className="pt-8 border-t border-slate-200 space-y-8">
           <HodResourceCategoryManager
             categories={resourceCategories}
@@ -2226,9 +2315,9 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
       )}
       {/* MODAL: EDIT TEACHER FACULTY PROFILE */}
       {isEditingProfile && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-200 my-8 text-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl sm:max-w-2xl w-full max-h-[88vh] sm:max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 my-auto overflow-hidden text-slate-900">
+            <div className="shrink-0 flex items-center justify-between border-b border-slate-100 p-5 sm:px-8 bg-white z-10">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
                   <Edit3 className="w-5 h-5" />
@@ -2240,13 +2329,14 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
               </div>
               <button
                 onClick={() => setIsEditingProfile(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveProfile} className="space-y-4">
+            <form onSubmit={handleSaveProfile} className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-4">
               <ImageUploadInput
                 label="Faculty Profile Avatar"
                 value={editAvatar}
@@ -2374,8 +2464,9 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                   className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                 />
               </div>
+              </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              <div className="shrink-0 bg-slate-50 border-t border-slate-200 p-4 sm:px-8 flex items-center justify-end gap-3 rounded-b-3xl z-10">
                 <button
                   type="button"
                   onClick={() => setIsEditingProfile(false)}
@@ -2442,10 +2533,10 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                   }}
                   className="w-full bg-slate-900 text-slate-100 border border-slate-800 text-xs font-bold px-3 py-2.5 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                 >
-                  {classes.length === 0 ? (
+                  {formClasses.length === 0 ? (
                     <option value="">No courses assigned</option>
                   ) : (
-                    classes.map((cls) => (
+                    formClasses.map((cls) => (
                       <option key={cls.id} value={cls.id}>
                         {cls.title} ({cls.schedule})
                       </option>

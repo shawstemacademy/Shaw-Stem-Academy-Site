@@ -67,6 +67,24 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
 
+  // Keep Notification Permission in sync dynamically
+  React.useEffect(() => {
+    const updatePerm = () => {
+      if (typeof Notification !== 'undefined') {
+        setNotifPerm(Notification.permission);
+      }
+    };
+    updatePerm();
+    window.addEventListener('focus', updatePerm);
+    document.addEventListener('visibilitychange', updatePerm);
+    const interval = setInterval(updatePerm, 1000);
+    return () => {
+      window.removeEventListener('focus', updatePerm);
+      document.removeEventListener('visibilitychange', updatePerm);
+      clearInterval(interval);
+    };
+  }, []);
+
   const handleToggleNotifications = async () => {
     if (typeof Notification === 'undefined') {
       alert("System notifications are not supported by this browser.");
@@ -225,28 +243,33 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
             {/* Desktop Notification Toggle Icon */}
             <button
               onClick={handleToggleNotifications}
-              className={`p-2 rounded-xl border transition-all flex items-center justify-center relative ${
+              className={`p-2 rounded-xl border transition-all flex items-center justify-center relative cursor-pointer ${
                 notifPerm === 'granted'
-                  ? 'bg-blue-600/10 border-blue-500/30 text-blue-400 hover:bg-blue-600/20'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
                   : notifPerm === 'denied'
-                  ? 'bg-slate-800/50 border-slate-700/40 text-slate-500 opacity-60'
-                  : 'bg-amber-600/10 border-amber-500/30 text-amber-400 hover:bg-amber-600/20'
+                  ? 'bg-slate-800/80 border-slate-700/60 text-slate-400 hover:bg-slate-800'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
               }`}
               title={
                 notifPerm === 'granted'
-                  ? 'Desktop Notifications Enabled'
+                  ? 'Desktop Notifications Enabled & Active'
                   : notifPerm === 'denied'
-                  ? 'Notifications Blocked by Browser'
+                  ? 'Notifications Blocked by Browser Settings (Click for guide)'
                   : 'Click to Enable Desktop Notifications'
               }
             >
               {notifPerm === 'granted' ? (
-                <Bell className="w-4 h-4 text-blue-400 animate-bounce" style={{ animationIterationCount: 1, animationDuration: '1s' }} />
-              ) : (
+                <Bell className="w-4 h-4 text-emerald-400" />
+              ) : notifPerm === 'denied' ? (
                 <BellOff className="w-4 h-4 text-slate-400" />
+              ) : (
+                <Bell className="w-4 h-4 text-amber-400 animate-pulse" />
               )}
               {notifPerm === 'default' && (
                 <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping" />
+              )}
+              {notifPerm === 'granted' && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full" />
               )}
             </button>
 

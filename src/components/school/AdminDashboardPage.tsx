@@ -53,7 +53,8 @@ import {
   SchoolNewsItem,
   AcademyInfo,
   FeatureCard,
-  AddDropRequest
+  AddDropRequest,
+  AttendanceRecord
 } from '../../types';
 import { FORM_THEMES } from '../../data/initialClasses';
 import { AdminUserManagement } from './AdminUserManagement';
@@ -78,6 +79,7 @@ import { ClassItem, SbaHubOption, ScheduleClash, ClashAdmissibility, ClassType, 
 
 interface AdminDashboardPageProps {
   registrationLogs: RegistrationRecord[];
+  attendanceRecords?: AttendanceRecord[];
   discountRules: DiscountRule[];
   currentTheme: FormTheme;
   systemActionLogs?: SystemActionLog[];
@@ -145,6 +147,7 @@ interface AdminDashboardPageProps {
 
 export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   registrationLogs,
+  attendanceRecords = [],
   discountRules,
   currentTheme,
   systemActionLogs = [],
@@ -209,9 +212,95 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   onSaveSectionOrders = async () => {},
   onNavigate = () => {},
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields' | 'section_order' | 'manual'>(
+  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields' | 'section_order' | 'manual' | 'attendance'>(
     currentRole === 'hod' ? 'users' : 'overview'
   );
+
+  // Attendance Records CSV Export Filters & Handler
+  const [attendanceStartDate, setAttendanceStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(1); // Default to 1st day of current month
+    return d.toISOString().split('T')[0];
+  });
+  const [attendanceEndDate, setAttendanceEndDate] = useState<string>(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+  const [attendanceClassFilter, setAttendanceClassFilter] = useState<string>('all');
+  const [attendanceStatusFilter, setAttendanceStatusFilter] = useState<string>('all');
+  const [attendanceSearchQuery, setAttendanceSearchQuery] = useState<string>('');
+
+  const filteredAttendance = (attendanceRecords || []).filter((rec) => {
+    const recDateStr = rec.date || (rec.timestamp ? rec.timestamp.split('T')[0] : '');
+    if (attendanceStartDate && recDateStr < attendanceStartDate) return false;
+    if (attendanceEndDate && recDateStr > attendanceEndDate) return false;
+
+    if (attendanceClassFilter !== 'all' && rec.classId !== attendanceClassFilter) return false;
+    if (attendanceStatusFilter !== 'all' && rec.status !== attendanceStatusFilter) return false;
+
+    if (attendanceSearchQuery.trim()) {
+      const q = attendanceSearchQuery.toLowerCase();
+      const matchName = rec.studentName?.toLowerCase().includes(q);
+      const matchId = rec.studentId?.toLowerCase().includes(q);
+      const matchClass = rec.className?.toLowerCase().includes(q);
+      if (!matchName && !matchId && !matchClass) return false;
+    }
+
+    return true;
+  });
+
+  const handleExportAttendanceCsv = () => {
+    if (filteredAttendance.length === 0) {
+      alert('No attendance records match your selected date range and filters.');
+      return;
+    }
+
+    const escapeCsv = (str: any) => {
+      if (str === null || str === undefined) return '""';
+      const escaped = String(str).replace(/"/g, '""');
+      return `"${escaped}"`;
+    };
+
+    const headers = [
+      'Record ID',
+      'Date',
+      'Check-in Time',
+      'Student ID',
+      'Student Name',
+      'Class ID',
+      'Class Name',
+      'Status'
+    ];
+
+    const rows = filteredAttendance.map((rec) => {
+      const formattedTime = rec.timestamp
+        ? new Date(rec.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+        : 'N/A';
+
+      return [
+        escapeCsv(rec.id),
+        escapeCsv(rec.date),
+        escapeCsv(formattedTime),
+        escapeCsv(rec.studentId),
+        escapeCsv(rec.studentName),
+        escapeCsv(rec.classId),
+        escapeCsv(rec.className),
+        escapeCsv(rec.status ? rec.status.toUpperCase() : 'PRESENT')
+      ].join(',');
+    });
+
+    const csvData = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const startStr = attendanceStartDate || 'all-start';
+    const endStr = attendanceEndDate || 'all-end';
+    link.setAttribute('download', `school_attendance_${startStr}_to_${endStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Confirmation Modal States
   const [confirmModal, setConfirmModal] = useState<{
@@ -1012,6 +1101,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       label: 'Add / Drop Requests',
       icon: <RotateCcw className="w-4 h-4 text-purple-400" />,
       badge: `${(addDropRequests || []).filter((r) => r.status === 'pending').length} Pending`,
+    },
+    {
+      id: 'attendance' as const,
+      label: 'Attendance & CSV Export',
+      icon: <FileOutput className="w-4 h-4 text-emerald-400" />,
+      badge: `${(attendanceRecords || []).length} Logs`,
     },
     {
       id: 'news' as const,
@@ -2235,6 +2330,308 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         />
       )}
 
+      {/* 5.7. ATTENDANCE RECORDS & CSV EXPORT TAB */}
+      {activeAdminTab === 'attendance' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-emerald-900 via-slate-900 to-slate-900 text-white p-6 sm:p-8 rounded-2xl shadow-md border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-300 text-xs font-bold px-3 py-1 rounded-full border border-emerald-500/30">
+                <FileOutput className="w-3.5 h-3.5" />
+                <span>School Records & Analytics</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                Attendance Records & CSV Exporter
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+                Filter classroom check-in data by specific date ranges, courses, or statuses, and export official CSV reports for school administration and archival.
+              </p>
+            </div>
+
+            <button
+              onClick={handleExportAttendanceCsv}
+              disabled={filteredAttendance.length === 0}
+              className={`px-6 py-3 font-extrabold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer ${
+                filteredAttendance.length > 0
+                  ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 hover:shadow-emerald-500/20 active:scale-95'
+                  : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+              }`}
+            >
+              <Download className="w-4 h-4" />
+              <span>Export CSV ({filteredAttendance.length} Records)</span>
+            </button>
+          </div>
+
+          {/* Filter Controls Card */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-emerald-600" />
+                Date Range & Record Filters
+              </h3>
+              <span className="text-xs text-slate-500">
+                Showing <strong className="text-slate-900">{filteredAttendance.length}</strong> of <strong className="text-slate-900">{(attendanceRecords || []).length}</strong> total records
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Start Date */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Start Date</label>
+                <input
+                  type="date"
+                  value={attendanceStartDate}
+                  onChange={(e) => setAttendanceStartDate(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              {/* End Date */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">End Date</label>
+                <input
+                  type="date"
+                  value={attendanceEndDate}
+                  onChange={(e) => setAttendanceEndDate(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Class Filter */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Course / Class Filter</label>
+                <select
+                  value={attendanceClassFilter}
+                  onChange={(e) => setAttendanceClassFilter(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                >
+                  <option value="all">All Courses & Options ({classList.length})</option>
+                  {classList.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.title} ({cls.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Attendance Status</label>
+                <select
+                  value={attendanceStatusFilter}
+                  onChange={(e) => setAttendanceStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="present">Present</option>
+                  <option value="late">Late</option>
+                  <option value="absent">Absent</option>
+                  <option value="excused">Excused</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Presets and Search row */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-slate-100">
+              {/* Quick Presets */}
+              <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto">
+                <span className="text-xs font-bold text-slate-500 mr-1">Quick Ranges:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const today = new Date().toISOString().split('T')[0];
+                    setAttendanceStartDate(today);
+                    setAttendanceEndDate(today);
+                  }}
+                  className="px-2.5 py-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors cursor-pointer"
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const now = new Date();
+                    const day = now.getDay();
+                    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+                    const monday = new Date(now.setDate(diff)).toISOString().split('T')[0];
+                    setAttendanceStartDate(monday);
+                    setAttendanceEndDate(new Date().toISOString().split('T')[0]);
+                  }}
+                  className="px-2.5 py-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors cursor-pointer"
+                >
+                  This Week
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date();
+                    d.setDate(1);
+                    setAttendanceStartDate(d.toISOString().split('T')[0]);
+                    setAttendanceEndDate(new Date().toISOString().split('T')[0]);
+                  }}
+                  className="px-2.5 py-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors cursor-pointer"
+                >
+                  This Month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttendanceStartDate('');
+                    setAttendanceEndDate('');
+                  }}
+                  className="px-2.5 py-1 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors cursor-pointer"
+                >
+                  All Time
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="w-full sm:w-72">
+                <input
+                  type="text"
+                  placeholder="Search student or class name..."
+                  value={attendanceSearchQuery}
+                  onChange={(e) => setAttendanceSearchQuery(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="text-2xl font-extrabold text-slate-900">{filteredAttendance.length}</div>
+              <div className="text-xs font-semibold text-slate-500">Filtered Records</div>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="text-2xl font-extrabold text-emerald-600">
+                {filteredAttendance.filter(r => r.status === 'present' || !r.status).length}
+              </div>
+              <div className="text-xs font-semibold text-slate-500">Present Check-ins</div>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="text-2xl font-extrabold text-amber-600">
+                {filteredAttendance.filter(r => r.status === 'late').length}
+              </div>
+              <div className="text-xs font-semibold text-slate-500">Late Arrivals</div>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="text-2xl font-extrabold text-rose-600">
+                {filteredAttendance.filter(r => r.status === 'absent').length}
+              </div>
+              <div className="text-xs font-semibold text-slate-500">Absent Logs</div>
+            </div>
+          </div>
+
+          {/* Records Table Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <h4 className="font-bold text-slate-900 text-sm">
+                Matching Attendance Logs ({filteredAttendance.length})
+              </h4>
+              <button
+                onClick={handleExportAttendanceCsv}
+                disabled={filteredAttendance.length === 0}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export CSV
+              </button>
+            </div>
+
+            {filteredAttendance.length === 0 ? (
+              <div className="p-12 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+                  <FileOutput className="w-6 h-6" />
+                </div>
+                <h5 className="font-bold text-slate-800 text-base">No Attendance Records Found</h5>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  No student check-ins match your selected date range or filters. Try expanding the date range or selecting "All Time".
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttendanceStartDate('');
+                    setAttendanceEndDate('');
+                    setAttendanceClassFilter('all');
+                    setAttendanceStatusFilter('all');
+                    setAttendanceSearchQuery('');
+                  }}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Clear All Filters
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100/70 border-b border-slate-200">
+                      <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase">Date</th>
+                      <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase">Check-in Time</th>
+                      <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase">Student Name & ID</th>
+                      <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase">Class Title</th>
+                      <th className="py-3 px-4 text-xs font-bold text-slate-600 uppercase text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredAttendance.map((rec) => {
+                      const formattedTime = rec.timestamp
+                        ? new Date(rec.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+                        : 'N/A';
+                      
+                      const st = rec.status || 'present';
+
+                      return (
+                        <tr key={rec.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-3 px-4 text-xs font-bold text-slate-800 whitespace-nowrap">
+                            {rec.date}
+                          </td>
+                          <td className="py-3 px-4 text-xs text-slate-600 whitespace-nowrap">
+                            {formattedTime}
+                          </td>
+                          <td className="py-3 px-4 text-xs">
+                            <div className="font-bold text-slate-900">{rec.studentName || 'Student'}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">ID: {rec.studentId}</div>
+                          </td>
+                          <td className="py-3 px-4 text-xs">
+                            <div className="font-bold text-slate-800">{rec.className || 'Class'}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">Code: {rec.classId}</div>
+                          </td>
+                          <td className="py-3 px-4 text-xs text-right whitespace-nowrap">
+                            {st === 'present' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-extrabold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3" /> Present
+                              </span>
+                            )}
+                            {st === 'late' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-extrabold rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                Late
+                              </span>
+                            )}
+                            {st === 'absent' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-extrabold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                                Absent
+                              </span>
+                            )}
+                            {st === 'excused' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-extrabold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                Excused
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 6. ACTIVITY LOG TAB */}
       {activeAdminTab === 'activity' && (
         <AdminSystemActionLogs logs={systemActionLogs} />
@@ -3371,9 +3768,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       )}
       {/* MODAL: EDIT ADMIN PROFILE */}
       {isEditingAdminProfileModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-200 my-8 text-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl sm:max-w-2xl w-full max-h-[88vh] sm:max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 my-auto overflow-hidden text-slate-900">
+            <div className="shrink-0 flex items-center justify-between border-b border-slate-100 p-5 sm:px-8 bg-white z-10">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
                   <Edit3 className="w-5 h-5" />
@@ -3385,13 +3782,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               </div>
               <button
                 onClick={() => setIsEditingAdminProfileModal(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveAdminProfile} className="space-y-4">
+            <form onSubmit={handleSaveAdminProfile} className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-4">
               <ImageUploadInput
                 label="Administrator Profile Avatar"
                 value={adminEditAvatar}
@@ -3479,8 +3877,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                 />
               </div>
+              </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              <div className="shrink-0 bg-slate-50 border-t border-slate-200 p-4 sm:px-8 flex items-center justify-end gap-3 rounded-b-3xl z-10">
                 <button
                   type="button"
                   onClick={() => setIsEditingAdminProfileModal(false)}

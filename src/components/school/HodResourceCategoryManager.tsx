@@ -22,7 +22,8 @@ export const HodResourceCategoryManager: React.FC<HodResourceCategoryManagerProp
   const [editDesc, setEditDesc] = useState('');
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
-  const isHODOrAdmin = currentRole === 'hod' || currentRole === 'admin' || loggedInUser?.role === 'hod' || loggedInUser?.role === 'admin';
+  const effectiveRole = loggedInUser?.role || currentRole;
+  const isHODOrAdmin = effectiveRole === 'hod' || effectiveRole === 'admin';
 
   if (!isHODOrAdmin) {
     return null;
