@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { ClassItem, SbaHubOption, ClassType, Department, SchoolUser, LocationOption } from '../types';
 import { formatUSD } from '../lib/formatCurrency';
+import { formatPricePeriod } from '../lib/paymentUtils';
+import { alignClassesWithSummerSchedule } from '../lib/summerSchedule';
 import {
   Database,
   CheckCircle,
@@ -92,7 +94,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
       name: c.title,
       classType: c.classType || 'CSEC',
       yearlyPrice: c.price,
-      pricePeriod: c.pricePeriod || 'yr',
+      pricePeriod: 'one-time',
       isOffered: c.isOffered ?? true,
       days: c.days || [],
       startTime: c.startTime,
@@ -124,7 +126,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
       name: c.title,
       classType: c.classType || 'CSEC',
       yearlyPrice: c.price,
-      pricePeriod: c.pricePeriod || 'yr',
+      pricePeriod: 'one-time',
       isOffered: c.isOffered ?? true,
       days: c.days || [],
       startTime: c.startTime,
@@ -267,6 +269,16 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
     onUpdateClassList(updated);
   };
 
+  const handleAlignWithSummerSchedule = () => {
+    const { updatedClasses, changedCount } = alignClassesWithSummerSchedule(classList);
+    if (changedCount > 0) {
+      onUpdateClassList(updatedClasses);
+      alert(`Successfully aligned ${changedCount} classes with the official Summer School Schedule (pushed 3 hours ahead, earliest start 5:00 PM)!`);
+    } else {
+      alert(`All matching classes are already perfectly aligned with the official Summer School Schedule!`);
+    }
+  };
+
   // Form Modal for Adding/Editing Course
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -366,7 +378,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
   const [sbaDiscountType, setSbaDiscountType] = useState<string>('Exempt from Discounts');
   const [customDiscountInput, setCustomDiscountInput] = useState<string>('');
   const [price, setPrice] = useState<number>(100);
-  const [pricePeriod, setPricePeriod] = useState<'yr' | 'week' | 'month'>('yr');
+  const [pricePeriod, setPricePeriod] = useState<'yr' | 'week' | 'month' | 'one-time'>('yr');
   const [instructor, setInstructor] = useState(defaultInstructor);
   const [location, setLocation] = useState('STEM Lab A');
   const [daysInput, setDaysInput] = useState<string[]>(['Monday', 'Wednesday']);
@@ -424,7 +436,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
     setTitle(s.name);
     setSelectedClassType(s.classType || s.discountType || s.level || (classTypes[0]?.code || classTypes[0]?.name || 'CSEC'));
     setPrice(s.yearlyPrice);
-    setPricePeriod(s.pricePeriod || 'yr');
+    setPricePeriod(s.pricePeriod || 'one-time');
     setInstructor(getValidInstructor(s.instructor));
     setLocation(s.location || 'Online SBA Hub');
     setIsAddingNewLocation(false);
@@ -448,7 +460,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
     setSbaDiscountType('Exempt from Discounts');
     setCustomDiscountInput('');
     setPrice(activeTab === 'classes' ? 100 : 150);
-    setPricePeriod('yr');
+    setPricePeriod(activeTab === 'classes' ? 'month' : 'one-time');
     setInstructor(defaultInstructor);
     setLocation(availableLocations[0] || 'STEM Lab A');
     setIsAddingNewLocation(false);
@@ -475,6 +487,9 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
         ? customDiscountInput.trim() || 'Custom Discount'
         : sbaDiscountType;
 
+    const isSbaClass = classTypes.find(ct => ct.code === selectedClassType || ct.name === selectedClassType)?.isSbaHub || selectedClassType === 'SBA_HUB' || selectedClassType === 'SBA';
+    const finalPricePeriod = isSbaClass ? 'one-time' : pricePeriod;
+
     if (activeTab === 'classes') {
       if (editingItemId) {
         const updated = classList.map((c) =>
@@ -485,7 +500,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                 category,
                 classType: selectedClassType,
                 price: Number(price) || 100,
-                pricePeriod: pricePeriod,
+                pricePeriod: finalPricePeriod as any,
                 instructor: instructor.trim() || defaultInstructor,
                 location: location.trim() || 'STEM Lab A',
                 days: daysInput,
@@ -508,7 +523,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
           category,
           classType: selectedClassType,
           price: Number(price) || 100,
-          pricePeriod: pricePeriod,
+          pricePeriod: finalPricePeriod as any,
           instructor: instructor.trim() || defaultInstructor,
           schedule: schedText,
           ageGroup: 'All High School Levels',
@@ -536,7 +551,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                 classType: selectedClassType,
                 discountType: selectedClassType,
                 yearlyPrice: Number(price) || 150,
-                pricePeriod: pricePeriod,
+                pricePeriod: 'one-time',
                 instructor: instructor.trim() || defaultInstructor,
                 location: location.trim() || 'Online SBA Hub',
                 days: daysInput,
@@ -558,7 +573,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
           classType: selectedClassType,
           discountType: selectedClassType,
           yearlyPrice: Number(price) || 150,
-          pricePeriod: pricePeriod,
+          pricePeriod: 'one-time',
           instructor: instructor.trim() || defaultInstructor,
           location: location.trim() || 'Online SBA Hub',
           days: daysInput,
@@ -881,6 +896,55 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
           </div>
         )}
 
+        {/* Summer School Schedule Alignment Banner */}
+        {activeTab === 'classes' && (
+          (() => {
+            const { changedCount } = alignClassesWithSummerSchedule(classList);
+            if (changedCount > 0) {
+              return (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <Calendar className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-emerald-900">
+                        Official Summer School Schedule Sync Available ({changedCount} course{changedCount > 1 ? 's' : ''} can be aligned)
+                      </p>
+                      <p className="text-[11px] text-emerald-700 mt-0.5">
+                        Aligns schedules with the official Shaw STEM Academy Summer Timetable (shifted 3 hours ahead; earliest start at 5:00 PM). Matches existing database classes (Chemistry, Physics, Math, Integrated Science, Biology).
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAlignWithSummerSchedule}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Sync {changedCount} Classes</span>
+                  </button>
+                </div>
+              );
+            }
+            return (
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs text-slate-600 font-medium">
+                    All matching classes are perfectly aligned with the official Summer School Schedule (shifted 3 hours ahead; earliest start at 5:00 PM).
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAlignWithSummerSchedule}
+                  className="px-2.5 py-1 text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg transition-all cursor-pointer"
+                >
+                  Force Re-Sync
+                </button>
+              </div>
+            );
+          })()
+        )}
+
         {/* Bulk Selection and Conversion Action Bar */}
         <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3 shadow-2xs">
           <div className="flex items-center gap-3">
@@ -1063,7 +1127,10 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                             <h3 className="text-sm font-bold text-slate-900 mt-1.5">{cls.title}</h3>
                           </div>
                         </div>
-                        <span className="text-sm font-extrabold text-purple-700 shrink-0">{formatUSD(cls.price)}/{cls.pricePeriod || 'yr'}</span>
+                        <span className="text-sm font-extrabold text-purple-700 shrink-0">
+                          {formatUSD(cls.price)}
+                          {!(cls.isSbaHub || cls.classType === 'SBA_HUB' || cls.classType === 'SBA' || classTypes.find(ct => ct.code === cls.classType || ct.name === cls.classType)?.isSbaHub) && ` ${formatPricePeriod(cls.pricePeriod)}`}
+                        </span>
                       </div>
 
                     <div className="text-xs text-slate-600 space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
@@ -1213,7 +1280,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                             </p>
                           </div>
                         </div>
-                        <span className="text-sm font-extrabold text-purple-700 shrink-0">{formatUSD(sba.yearlyPrice)}/{sba.pricePeriod || 'yr'}</span>
+                        <span className="text-sm font-extrabold text-purple-700 shrink-0">{formatUSD(sba.yearlyPrice)}</span>
                       </div>
 
                       <div className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2">
@@ -1389,60 +1456,112 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Fee ($ USD)</label>
-                  <input
-                    type="number"
-                    required
-                    min={0}
-                    value={price}
-                    onChange={(e) => setPrice(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Price Period</label>
-                  <select
-                    value={pricePeriod}
-                    onChange={(e) => setPricePeriod(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-semibold text-slate-800"
-                  >
-                    <option value="yr">/yr</option>
-                    <option value="month">/month</option>
-                    <option value="week">/week</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Instructor / Supervisor</label>
-                  {staffMembers.length > 0 ? (
-                    <select
-                      value={instructor}
-                      onChange={(e) => setInstructor(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-semibold"
-                    >
-                      <option value="Vacant">Vacant (Unassigned)</option>
-                      {!staffMembers.some((u) => u.name === instructor) && instructor && instructor !== 'Vacant' && (
-                        <option value={instructor}>{instructor}</option>
-                      )}
-                      {staffMembers.map((u) => (
-                        <option key={u.id} value={u.name}>
-                          {u.name} ({u.role.toUpperCase()})
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
+              {activeTab === 'classes' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Fee ($ USD)</label>
                     <input
-                      type="text"
-                      value={instructor}
-                      onChange={(e) => setInstructor(e.target.value)}
+                      type="number"
+                      required
+                      min={0}
+                      value={price}
+                      onChange={(e) => setPrice(Number(e.target.value))}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl"
                     />
+                  </div>
+
+                  {!(classTypes.find(ct => ct.code === selectedClassType || ct.name === selectedClassType)?.isSbaHub || selectedClassType === 'SBA_HUB' || selectedClassType === 'SBA') ? (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Price Period</label>
+                      <select
+                        value={pricePeriod}
+                        onChange={(e) => setPricePeriod(e.target.value as any)}
+                        className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-semibold text-slate-800"
+                      >
+                        <option value="month">/ month (Monthly)</option>
+                        <option value="week">/ week (Weekly)</option>
+                        <option value="yr">/ year (Yearly)</option>
+                        <option value="one-time">One-time Payment</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 p-2 border border-slate-200 rounded-xl">
+                      <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Price Period</label>
+                      <span className="text-xs font-extrabold text-purple-700">One-time Payment</span>
+                    </div>
                   )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Instructor / Supervisor</label>
+                    {staffMembers.length > 0 ? (
+                      <select
+                        value={instructor}
+                        onChange={(e) => setInstructor(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-semibold"
+                      >
+                        <option value="Vacant">Vacant (Unassigned)</option>
+                        {!staffMembers.some((u) => u.name === instructor) && instructor && instructor !== 'Vacant' && (
+                          <option value={instructor}>{instructor}</option>
+                        )}
+                        {staffMembers.map((u) => (
+                          <option key={u.id} value={u.name}>
+                            {u.name} ({u.role.toUpperCase()})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={instructor}
+                        onChange={(e) => setInstructor(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl"
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Fee ($ USD)</label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      value={price}
+                      onChange={(e) => setPrice(Number(e.target.value))}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Instructor / Supervisor</label>
+                    {staffMembers.length > 0 ? (
+                      <select
+                        value={instructor}
+                        onChange={(e) => setInstructor(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-semibold"
+                      >
+                        <option value="Vacant">Vacant (Unassigned)</option>
+                        {!staffMembers.some((u) => u.name === instructor) && instructor && instructor !== 'Vacant' && (
+                          <option value={instructor}>{instructor}</option>
+                        )}
+                        {staffMembers.map((u) => (
+                          <option key={u.id} value={u.name}>
+                            {u.name} ({u.role.toUpperCase()})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={instructor}
+                        onChange={(e) => setInstructor(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl"
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Location Selection & Capacity */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

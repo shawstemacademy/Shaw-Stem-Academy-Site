@@ -23,7 +23,7 @@ export interface ClassItem {
   schedule: string;
   ageGroup: string;
   price: number;
-  pricePeriod?: 'yr' | 'week' | 'month';
+  pricePeriod?: 'yr' | 'week' | 'month' | 'one-time';
   capacity: number;
   enrolled: number;
   location: string;
@@ -58,7 +58,8 @@ export interface DiscountRule {
   enabled: boolean;
   
   // Categorization by Class Type
-  targetClassType?: string; // 'ALL' or specific ClassType code/name e.g. 'CSEC', 'CAPE', 'Primary'
+  targetClassType?: string; // specific ClassType code/name e.g. 'CSEC', 'CAPE', 'Primary'
+  appliesToSbaHub?: boolean; // if true, this discount applies to SBA Hub classes; if false/undefined, to regular classes
   
   minClassesRequired?: number;
   minAmountRequired?: number;
@@ -82,7 +83,7 @@ export interface SbaHubOption {
   level?: string; // Legacy level field
   discountType?: string; // Discount type e.g. 'Exempt from Discounts', 'Eligible for Multi-Class Discounts', etc.
   yearlyPrice: number;
-  pricePeriod?: 'yr' | 'week' | 'month';
+  pricePeriod?: 'yr' | 'week' | 'month' | 'one-time';
   capacity?: number;
 
   // Course Bank offering tag
@@ -198,11 +199,22 @@ export interface FormTheme {
   badgeBg: string;
 }
 
+export interface ArchivedClassRecord {
+  classId: string;
+  className: string;
+  archivedAt: string;
+  archivedBy?: string;
+  term?: string;
+  notes?: string;
+  status: 'completed' | 'finished';
+}
+
 export interface RegistrationRecord {
   id: string;
   timestamp: string;
   studentInfo: StudentInfo;
   selectedClasses: ClassItem[];
+  selectedClassIds?: string[];
   subtotal: number;
   appliedDiscounts: AppliedDiscount[];
   totalPrice: number;
@@ -219,6 +231,8 @@ export interface RegistrationRecord {
     type?: 'payment' | 'refund';
   }[];
   verifiedClassIds?: string[];
+  completedClassIds?: string[];
+  archivedClasses?: ArchivedClassRecord[];
   addDropRequests?: AddDropRequest[];
   grades?: {
     id: string;
@@ -465,6 +479,8 @@ export interface SchoolUser {
   officeHours?: string;
   assignedClassIds?: string[];
   registeredClassIds?: string[];
+  completedClassIds?: string[];
+  archivedClasses?: ArchivedClassRecord[];
   permissions?: string[];
   password?: string;
   studentDetails?: StudentInfo;

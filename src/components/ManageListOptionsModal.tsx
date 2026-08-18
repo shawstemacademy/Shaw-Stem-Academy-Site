@@ -416,7 +416,7 @@ export const ManageListOptionsModal: React.FC<ManageListOptionsModalProps> = ({
 
                 <div className="flex items-center justify-between gap-3 pt-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-700">Yearly Fee ($ USD):</span>
+                    <span className="text-xs font-semibold text-slate-700">Fee ($ USD):</span>
                     <input
                       type="number"
                       value={newSbaPrice}
@@ -457,7 +457,7 @@ export const ManageListOptionsModal: React.FC<ManageListOptionsModalProps> = ({
                         <div className="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5">
                           <span className="font-bold text-purple-700">{opt.classType || opt.discountType || opt.level || 'CSEC'}</span>
                           <span>•</span>
-                          <span>${opt.yearlyPrice} / yr</span>
+                          <span>${opt.yearlyPrice}</span>
                         </div>
                       </div>
 

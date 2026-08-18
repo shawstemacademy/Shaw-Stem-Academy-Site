@@ -73,6 +73,7 @@ import {
   OurSchoolPageData,
 } from './types';
 import { detectScheduleClashes } from './lib/scheduleClashUtils';
+import { calculateClassPaymentStatus } from './lib/paymentUtils';
 import {
   INITIAL_CLASSES,
   INITIAL_DISCOUNT_RULES,
@@ -658,24 +659,18 @@ export default function App() {
   const [selectedSbaHubIds, setSelectedSbaHubIds] = useState<string[]>([]);
   const [clashes, setClashes] = useState<ScheduleClash[]>([]);
 
-  const enrolledClasses = classList.filter((c) => enrolledClassIds.includes(c.id));
-
-  // Automatically recalculate schedule clashes when classList updates
-  useEffect(() => {
-    const detected = detectScheduleClashes(classList);
-    setClashes(detected);
-  }, [classList]);
-
-  // Synchronize enrolled student count for all classes dynamically with live Firebase registrations and student accounts
-  useEffect(() => {
-    if (classList.length === 0) return;
-
-    let hasChanges = false;
-    const updatedClasses = classList.map((cls) => {
+  const synchronizedClassList = useMemo(() => {
+    if (classList.length === 0) return [];
+    return classList.map((cls) => {
       const studentKeys = new Set<string>();
 
       // Count students from live registration logs in Firebase
       registrationLogs.forEach((log) => {
+        // Exclude students who completed / finished / archived this class
+        if (log.completedClassIds && log.completedClassIds.includes(cls.id)) {
+          return;
+        }
+
         const isPaid = Boolean(
           log.isPaid || 
           log.status === 'enrolled_paid' || 
@@ -700,6 +695,10 @@ export default function App() {
       // Count students from live school users in Firebase who are enrolled & paid
       schoolUsers.forEach((u) => {
         if (u.role === 'student' && u.status === 'enrolled_paid') {
+          // Exclude students who completed / finished / archived this class
+          if (u.completedClassIds && u.completedClassIds.includes(cls.id)) {
+            return;
+          }
           if (u.registeredClassIds && u.registeredClassIds.includes(cls.id)) {
             const key = u.id || u.email || u.name;
             if (key) {
@@ -710,76 +709,17 @@ export default function App() {
       });
 
       const trueEnrolledCount = studentKeys.size;
-      if (cls.enrolled !== trueEnrolledCount) {
-        hasChanges = true;
-        const updated = { ...cls, enrolled: trueEnrolledCount };
-        // Sync the updated enrolled count to Firestore classes collection
-        saveDocToFirestore('classes', cls.id, updated);
-        return updated;
-      }
-      return cls;
+      return { ...cls, enrolled: trueEnrolledCount };
     });
+  }, [classList, registrationLogs, schoolUsers]);
 
-    if (hasChanges) {
-      setClassList(updatedClasses);
-    }
-  }, [registrationLogs, schoolUsers, classList]);
+  const enrolledClasses = synchronizedClassList.filter((c) => enrolledClassIds.includes(c.id));
 
-  // Enforce capacity of 15 for all current classes in the database
+  // Automatically recalculate schedule clashes when synchronizedClassList updates
   useEffect(() => {
-    if (classList.length > 0) {
-      const needsUpdate = classList.some((c) => c.capacity !== 15);
-      if (needsUpdate) {
-        const updated = classList.map((c) => ({ ...c, capacity: 15 }));
-        handleUpdateClassList(updated);
-      }
-    }
-  }, [classList]);
-
-  // Automatically clean up users with orphaned/deleted departments
-  useEffect(() => {
-    if (schoolUsersLoaded && departments.length > 0 && schoolUsers.length > 0) {
-      schoolUsers.forEach((u) => {
-        const currentIds = u.departmentIds && u.departmentIds.length > 0 ? u.departmentIds : (u.departmentId ? [u.departmentId] : []);
-        if (currentIds.length === 0 && !u.departmentId && !u.departmentName) return;
-
-        const validIds = currentIds.filter(id => departments.some(d => d.id === id));
-        const hasInvalidPrimary = u.departmentId && !departments.some(d => d.id === u.departmentId);
-        const hasInvalidName = u.departmentName && !departments.some(d => d.name === u.departmentName);
-        const hasOrphanedIds = validIds.length !== currentIds.length;
-
-        if (hasOrphanedIds || hasInvalidPrimary || hasInvalidName) {
-          const nextIds = validIds;
-          const primaryDeptId = nextIds[0] || '';
-          const primaryDept = departments.find(d => d.id === primaryDeptId);
-          const primaryDeptName = primaryDept ? primaryDept.name : '';
-          const deptNames = nextIds.map(id => departments.find(d => d.id === id)?.name || '');
-          
-          const updatedUser = {
-            ...u,
-            departmentId: primaryDeptId,
-            departmentName: primaryDeptName,
-            departmentIds: nextIds,
-            departmentNames: deptNames,
-            department: primaryDeptName // for backwards compatibility
-          };
-          
-          saveUserToFirestore(updatedUser);
-
-          // Sync with teacherProfile if exists
-          const teacherProfile = teacherProfiles.find(t => t.id === u.id);
-          if (teacherProfile) {
-            saveDocToFirestore('teachers', teacherProfile.id, {
-              ...teacherProfile,
-              department: primaryDeptName,
-              departmentIds: nextIds,
-              departmentNames: deptNames
-            });
-          }
-        }
-      });
-    }
-  }, [schoolUsersLoaded, departments, schoolUsers, teacherProfiles]);
+    const detected = detectScheduleClashes(synchronizedClassList);
+    setClashes(detected);
+  }, [synchronizedClassList]);
 
   // Synchronize loggedInUser and currentRole with live changes from schoolUsers
   useEffect(() => {
@@ -811,7 +751,7 @@ export default function App() {
   };
 
   const handleRecalculateClashes = () => {
-    const detected = detectScheduleClashes(classList);
+    const detected = detectScheduleClashes(synchronizedClassList);
     setClashes(detected);
   };
 
@@ -1008,13 +948,7 @@ export default function App() {
         if (data) {
           const mockIds = new Set(['staff-1', 'staff-2', 'staff-3', 'staff-4']);
           const cleanedStaff = (data.staffMembers || []).filter((m) => !mockIds.has(m.id));
-          if (cleanedStaff.length !== (data.staffMembers || []).length) {
-            const updated = { ...data, staffMembers: cleanedStaff };
-            setOurSchoolData(updated);
-            saveDocToFirestore('ourSchool', 'pageData', updated);
-          } else {
-            setOurSchoolData(data);
-          }
+          setOurSchoolData({ ...data, staffMembers: cleanedStaff });
         }
       }),
       subscribeToCollection<ClassClaimItem>('classClaims', (data) => setClaims(data || [])),
@@ -1224,20 +1158,12 @@ export default function App() {
       subscribeToCollection<AttendanceRecord>('attendance', (data) => setAttendanceRecords(data || [])),
       subscribeToCollection<RolePermission>('rolePermissions', (data) => {
         if (!data || data.length === 0) {
-          DEMO_ROLE_PERMISSIONS.forEach((perm) => {
-            saveDocToFirestore('rolePermissions', perm.id, perm);
-          });
           setRolePermissions(DEMO_ROLE_PERMISSIONS);
         } else {
           const firestoreMap = new Map(data.map((p) => [p.id, p]));
           const mergedPermissions: RolePermission[] = DEMO_ROLE_PERMISSIONS.map((defaultPerm) => {
             const saved = firestoreMap.get(defaultPerm.id);
-            if (saved) {
-              return { ...defaultPerm, ...saved };
-            } else {
-              saveDocToFirestore('rolePermissions', defaultPerm.id, defaultPerm);
-              return defaultPerm;
-            }
+            return saved ? { ...defaultPerm, ...saved } : defaultPerm;
           });
           // Also include any custom added permissions from Firestore
           data.forEach((p) => {
@@ -1867,13 +1793,18 @@ export default function App() {
   };
 
   // Selected Class Objects
-  const selectedClasses = classList.filter((c) => selectedClassIds.includes(c.id));
+  const selectedClasses = synchronizedClassList.filter((c) => selectedClassIds.includes(c.id));
   const selectedSbaHubItems = sbaHubOptions.filter((s) => selectedSbaHubIds.includes(s.id));
 
   // --- RUNNING TOTAL & DISCOUNT ENGINE ---
   const classSubtotal = selectedClasses.reduce((sum, c) => sum + c.price, 0);
   const sbaSubtotal = selectedSbaHubItems.reduce((sum, s) => sum + s.yearlyPrice, 0);
   const subtotal = classSubtotal + sbaSubtotal;
+
+  // Helper to normalize target codes (removes spaces, dashes, underscores and makes uppercase)
+  const normalizeTargetCode = (target: string): string => {
+    return target.trim().toUpperCase().replace(/[-_\s]/g, '');
+  };
 
   // Helper to extract normalized class type code
   const getClassTypeCode = (c: ClassItem): string => {
@@ -1888,7 +1819,8 @@ export default function App() {
   // Group selected regular classes by Class Type (SBA Hub is NOT included in these groups)
   const classTypeStats: Record<string, { count: number; subtotal: number; items: ClassItem[] }> = {};
   selectedClasses.forEach((c) => {
-    const code = getClassTypeCode(c);
+    const rawCode = getClassTypeCode(c);
+    const code = normalizeTargetCode(rawCode);
     if (!classTypeStats[code]) {
       classTypeStats[code] = { count: 0, subtotal: 0, items: [] };
     }
@@ -1897,27 +1829,72 @@ export default function App() {
     classTypeStats[code].items.push(c);
   });
 
+  // Helper to determine the grade level of an SBA Hub option
+  const getSbaHubGradeLevel = (s: SbaHubOption): string => {
+    if (s.classType && s.classType.trim()) {
+      return s.classType.trim();
+    }
+    const val = (s.discountType || s.level || '').toUpperCase();
+    if (val.includes('CAPE')) return 'CAPE';
+    if (val.includes('PRIMARY')) return 'PRIMARY';
+    if (val.includes('LOWER SECONDARY')) return 'LOWER SECONDARY';
+    if (val.includes('CSEC')) return 'CSEC';
+    // Fallback to name-based if empty
+    const nameUpper = s.name.toUpperCase();
+    if (nameUpper.includes('CAPE')) return 'CAPE';
+    if (nameUpper.includes('PRIMARY')) return 'PRIMARY';
+    if (nameUpper.includes('LOWER SECONDARY')) return 'LOWER SECONDARY';
+    return 'CSEC'; // default fallback
+  };
+
+  // Group SBA Hub options by grade level / class type
+  const sbaTypeStats: Record<string, { count: number; subtotal: number; items: SbaHubOption[] }> = {};
+  selectedSbaHubItems.forEach((s) => {
+    const rawCode = getSbaHubGradeLevel(s);
+    const code = normalizeTargetCode(rawCode);
+    if (!sbaTypeStats[code]) {
+      sbaTypeStats[code] = { count: 0, subtotal: 0, items: [] };
+    }
+    sbaTypeStats[code].count += 1;
+    sbaTypeStats[code].subtotal += s.yearlyPrice;
+    sbaTypeStats[code].items.push(s);
+  });
+
   const appliedDiscounts: AppliedDiscount[] = [];
 
-  // 1. Categorized & Multi-Class Percentage Discounts
+  // 1. Categorized & Multi-Class Percentage Discounts (For both Regular Classes & SBA Hub Classes separately, avoiding confusion)
   const activeMultiClassRules = discountRules.filter(
     (r) => r.enabled && (r.type === 'percentage_multi_class' || r.type === 'class_type_multi_class') && r.minClassesRequired
   );
 
-  // Group candidate rules by target subject category (e.g. 'ALL', 'CSEC', 'CAPE', 'PRIMARY', etc.)
-  const rulesByTarget: Record<string, DiscountRule[]> = {};
-  for (const rule of activeMultiClassRules) {
-    const target = (rule.targetClassType || 'ALL').toUpperCase();
-    if (!rulesByTarget[target]) {
-      rulesByTarget[target] = [];
+  const regularRules = activeMultiClassRules.filter((r) => r.appliesToSbaHub !== true);
+  const sbaHubRules = activeMultiClassRules.filter((r) => r.appliesToSbaHub !== false);
+
+  // Group regular rules by target category
+  const regularRulesByTarget: Record<string, DiscountRule[]> = {};
+  for (const rule of regularRules) {
+    const rawTarget = rule.targetClassType || 'ALL';
+    const target = normalizeTargetCode(rawTarget);
+    if (!regularRulesByTarget[target]) {
+      regularRulesByTarget[target] = [];
     }
-    rulesByTarget[target].push(rule);
+    regularRulesByTarget[target].push(rule);
   }
 
-  // For each target category, select ONLY the single best qualifying discount rule
-  for (const [target, rules] of Object.entries(rulesByTarget)) {
-    const qualifyingRules: { rule: DiscountRule; discountAmount: number }[] = [];
+  // Group SBA Hub rules by target category
+  const sbaRulesByTarget: Record<string, DiscountRule[]> = {};
+  for (const rule of sbaHubRules) {
+    const rawTarget = rule.targetClassType || 'ALL';
+    const target = normalizeTargetCode(rawTarget);
+    if (!sbaRulesByTarget[target]) {
+      sbaRulesByTarget[target] = [];
+    }
+    sbaRulesByTarget[target].push(rule);
+  }
 
+  // A. Apply rules to Regular Classes
+  for (const [target, rules] of Object.entries(regularRulesByTarget)) {
+    const qualifyingRules: { rule: DiscountRule; discountAmount: number }[] = [];
     for (const rule of rules) {
       const minRequired = rule.minClassesRequired || 1;
       const pct = rule.percentageOff || 0;
@@ -1937,11 +1914,8 @@ export default function App() {
     }
 
     if (qualifyingRules.length > 0) {
-      // Pick the single best rule for this target subject category (highest discount amount or highest percentage off)
       qualifyingRules.sort((a, b) => {
-        if (b.discountAmount !== a.discountAmount) {
-          return b.discountAmount - a.discountAmount;
-        }
+        if (b.discountAmount !== a.discountAmount) return b.discountAmount - a.discountAmount;
         return (b.rule.percentageOff || 0) - (a.rule.percentageOff || 0);
       });
 
@@ -1949,32 +1923,67 @@ export default function App() {
       const minRequired = best.rule.minClassesRequired || 1;
       const pct = best.rule.percentageOff || 0;
 
-      if (target === 'ALL') {
-        appliedDiscounts.push({
-          ruleId: best.rule.id,
-          name: best.rule.name,
-          amountOff: best.discountAmount,
-          description: `${pct}% off regular class tuition for enrolling in ${minRequired}+ classes (Excl. SBA Hub)`,
-        });
-      } else {
-        appliedDiscounts.push({
-          ruleId: best.rule.id,
-          name: best.rule.name,
-          amountOff: best.discountAmount,
-          description: `${pct}% off ${target} tuition for enrolling in ${minRequired}+ ${target} classes (Excl. SBA Hub)`,
-        });
-      }
+      appliedDiscounts.push({
+        ruleId: best.rule.id,
+        name: best.rule.name,
+        amountOff: best.discountAmount,
+        description: target === 'ALL'
+          ? `${pct}% off regular class tuition for enrolling in ${minRequired}+ classes`
+          : `${pct}% off ${best.rule.targetClassType || target} regular class tuition for enrolling in ${minRequired}+ classes`,
+      });
     }
   }
 
-  // 2. Spend Threshold Flat Discount (Based strictly on class tuition, excluding SBA Hub)
+  // B. Apply rules to SBA Hub Classes (based on either general SBA_HUB rule, ALL rule, or matching grade-level target)
+  for (const [target, rules] of Object.entries(sbaRulesByTarget)) {
+    const qualifyingRules: { rule: DiscountRule; discountAmount: number }[] = [];
+    for (const rule of rules) {
+      const minRequired = rule.minClassesRequired || 1;
+      const pct = rule.percentageOff || 0;
+
+      if (target === 'ALL' || target === 'SBAHUB' || target === 'SBA') {
+        if (selectedSbaHubItems.length >= minRequired && sbaSubtotal > 0) {
+          const discountAmount = (sbaSubtotal * pct) / 100;
+          qualifyingRules.push({ rule, discountAmount });
+        }
+      } else {
+        const sbaStat = sbaTypeStats[target];
+        if (sbaStat && sbaStat.count >= minRequired && sbaStat.subtotal > 0) {
+          const discountAmount = (sbaStat.subtotal * pct) / 100;
+          qualifyingRules.push({ rule, discountAmount });
+        }
+      }
+    }
+
+    if (qualifyingRules.length > 0) {
+      qualifyingRules.sort((a, b) => {
+        if (b.discountAmount !== a.discountAmount) return b.discountAmount - a.discountAmount;
+        return (b.rule.percentageOff || 0) - (a.rule.percentageOff || 0);
+      });
+
+      const best = qualifyingRules[0];
+      const minRequired = best.rule.minClassesRequired || 1;
+      const pct = best.rule.percentageOff || 0;
+
+      appliedDiscounts.push({
+        ruleId: best.rule.id,
+        name: `${best.rule.name}`,
+        amountOff: best.discountAmount,
+        description: (target === 'ALL' || target === 'SBAHUB' || target === 'SBA')
+          ? `${pct}% off SBA Hub tuition for enrolling in ${minRequired}+ SBA Hub classes`
+          : `${pct}% off ${best.rule.targetClassType || target} SBA Hub tuition for enrolling in ${minRequired}+ SBA Hub classes`,
+      });
+    }
+  }
+
+  // 2. Spend Threshold Flat Discount (Based on total subtotal, including both regular classes and SBA Hub classes)
   const matchingSpendRules = discountRules
     .filter(
       (r) =>
         r.enabled &&
         r.type === 'amount_threshold' &&
         r.minAmountRequired &&
-        classSubtotal >= r.minAmountRequired
+        subtotal >= r.minAmountRequired
     )
     .sort((a, b) => (b.minAmountRequired || 0) - (a.minAmountRequired || 0));
 
@@ -1984,7 +1993,7 @@ export default function App() {
       ruleId: bestRule.id,
       name: bestRule.name,
       amountOff: bestRule.flatAmountOff || 0,
-      description: `$${bestRule.flatAmountOff} off class tuition for spending over $${bestRule.minAmountRequired} (Excl. SBA Hub)`,
+      description: `$${bestRule.flatAmountOff} off total tuition for spending over $${bestRule.minAmountRequired}`,
     });
   }
 
@@ -1995,7 +2004,7 @@ export default function App() {
       ruleId: siblingRule.id,
       name: siblingRule.name,
       amountOff: siblingRule.flatAmountOff || 20,
-      description: 'Sibling enrollment discount applied (Excl. SBA Hub)',
+      description: 'Sibling enrollment discount applied',
     });
   }
 
@@ -2006,9 +2015,13 @@ export default function App() {
     );
     if (promoRule) {
       const target = (promoRule.targetClassType || 'ALL').toUpperCase();
-      let baseAmount = classSubtotal;
-      if (target !== 'ALL' && classTypeStats[target]) {
-        baseAmount = classTypeStats[target].subtotal;
+      let baseAmount = subtotal;
+      if (target !== 'ALL') {
+        const regularSubtotal = classTypeStats[target]?.subtotal || 0;
+        const sbaSubtotalForType = (target === 'SBA_HUB' || target === 'SBA')
+          ? sbaSubtotal
+          : (sbaTypeStats[target]?.subtotal || 0);
+        baseAmount = regularSubtotal + sbaSubtotalForType;
       }
       const discountAmount = promoRule.percentageOff
         ? (baseAmount * promoRule.percentageOff) / 100
@@ -2018,7 +2031,7 @@ export default function App() {
         ruleId: promoRule.id,
         name: promoRule.name,
         amountOff: discountAmount,
-        description: `Promo Code '${promoRule.code}' Applied (Excl. SBA Hub)`,
+        description: `Promo Code '${promoRule.code}' Applied`,
       });
     }
   }
@@ -3423,12 +3436,39 @@ export default function App() {
       const matchedLogs = (studentEmail || studentId) ? registrationLogs.filter(isLogForStudent) : [];
 
       matchedLogs.forEach(reg => {
-        // ONLY add classes that have been released/verified by administration in the Student Directory!
+        // ONLY add classes that have been released/verified by administration AND whose payment is current
         if (reg.verifiedClassIds && Array.isArray(reg.verifiedClassIds)) {
-          reg.verifiedClassIds.forEach(id => classIdsFromRegistrations.add(id));
+          reg.verifiedClassIds.forEach(id => {
+            // Exclude completed/archived classes from active weekly class list
+            if (reg.completedClassIds?.includes(id) || loggedInUser.completedClassIds?.includes(id)) {
+              return;
+            }
+            const cls = classList.find(c => c.id === id);
+            if (cls) {
+              const payStatus = calculateClassPaymentStatus(cls, false, matchedLogs);
+              if (!payStatus.isOverdue) {
+                classIdsFromRegistrations.add(id);
+              }
+            } else {
+              classIdsFromRegistrations.add(id);
+            }
+          });
         }
         if (reg.studentInfo?.selectedSbaHubIds) {
-          reg.studentInfo.selectedSbaHubIds.forEach(id => sbaHubIdsFromRegistrations.add(id));
+          reg.studentInfo.selectedSbaHubIds.forEach(id => {
+            if (reg.completedClassIds?.includes(id) || loggedInUser.completedClassIds?.includes(id)) {
+              return;
+            }
+            const sba = sbaHubOptions.find(s => s.id === id);
+            if (sba) {
+              const payStatus = calculateClassPaymentStatus(sba, true, matchedLogs);
+              if (!payStatus.isOverdue) {
+                sbaHubIdsFromRegistrations.add(id);
+              }
+            } else {
+              sbaHubIdsFromRegistrations.add(id);
+            }
+          });
         }
       });
       
@@ -3509,7 +3549,7 @@ export default function App() {
               faqs={faqs}
               academyInfo={academyInfo}
               featureCards={featureCards}
-              classList={classList}
+              classList={synchronizedClassList}
               departments={departments}
               schoolUsers={schoolUsers}
               registrationLogs={registrationLogs}
@@ -3545,7 +3585,7 @@ export default function App() {
 
           {activeTab === 'timetable' && (
             <TimetablePage
-              classes={classList}
+              classes={synchronizedClassList}
               sbaHubOptions={sbaHubOptions}
               classTypes={classTypes}
               schoolUsers={schoolUsers}
@@ -3589,7 +3629,7 @@ export default function App() {
           {activeTab === 'academics' && (
             <AcademicsPage
               teachers={teacherProfiles}
-              classes={classList}
+              classes={synchronizedClassList}
               departments={departments}
               isLoggedIn={!!user || !!loggedInUser}
               isAccepted={studentStatus === 'accepted' || studentStatus === 'enrolled_paid'}
@@ -3630,7 +3670,7 @@ export default function App() {
                 onUpdateUserProfile={handleUpdateUserProfile}
                 onDeleteRegistration={handleDeleteRegistration}
                 classes={enrolledClasses}
-                allClasses={classList}
+                allClasses={synchronizedClassList}
                 resources={resources}
                 announcements={announcements}
                 logoUrl={landingPageSettings.logoUrl || '/logo.png'}
@@ -3644,6 +3684,7 @@ export default function App() {
                 onToggleFieldSetting={handleToggleFieldSetting}
                 studentPortalSections={studentPortalSections}
                 initialAcademicTab={studentPortalAcademicTab}
+                sbaHubOptions={sbaHubOptions}
                 onNavigate={setActiveTab}
               />
             )
@@ -3652,7 +3693,7 @@ export default function App() {
           {activeTab === 'teacher-dashboard' && (
             <TeacherDashboardPage
               teachers={teacherProfiles}
-              classes={classList}
+              classes={synchronizedClassList}
               resources={resources}
               announcements={announcements}
               logoUrl={landingPageSettings.logoUrl || '/logo.png'}
@@ -3721,7 +3762,7 @@ export default function App() {
               onTogglePaymentStatus={handleTogglePaymentStatus}
               onUpdateRegistration={handleUpdateRegistration}
               onDeleteRegistration={handleDeleteRegistration}
-              classList={classList}
+              classList={synchronizedClassList}
               sbaHubOptions={sbaHubOptions}
               clashes={clashes}
               onUpdateClassList={handleUpdateClassList}
@@ -4106,7 +4147,7 @@ export default function App() {
                 />
 
                 <ClassSelectionCatalog
-                  classList={classList}
+                  classList={synchronizedClassList}
                   selectedClassIds={selectedClassIds}
                   enrolledClassIds={enrolledClassIds}
                   onToggleClass={handleToggleClass}

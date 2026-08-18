@@ -31,6 +31,7 @@ import {
 import { ClassItem, SbaHubOption, ClassType, SchoolUser, TeacherProfile, PortalTab } from '../../types';
 import { extractDaysAndTimes, minutesToFormattedTime } from '../../lib/scheduleClashUtils';
 import { formatUSD } from '../../lib/formatCurrency';
+import { formatPricePeriod } from '../../lib/paymentUtils';
 
 interface LocationOption {
   id?: string;
@@ -304,7 +305,7 @@ export const TimetablePage: React.FC<TimetablePageProps> = ({
           instructor: s.instructor || 'SBA Hub Director',
           location: s.location || 'Online SBA Hub Studio',
           price: s.yearlyPrice,
-          pricePeriod: s.pricePeriod || 'yr',
+          pricePeriod: s.pricePeriod || 'one-time',
           category: 'SBA Hub',
           description: `Dedicated SBA moderation, lab practical guidance, and school-based assessment project support.`,
           rawSbaOption: s,
@@ -779,7 +780,7 @@ export const TimetablePage: React.FC<TimetablePageProps> = ({
                         {/* Footer Tuition Fee */}
                         <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
                           <span className="text-[10px] font-extrabold text-purple-700 dark:text-purple-400">
-                            {formatUSD(item.price)}/{item.pricePeriod || 'yr'}
+                            {formatUSD(item.price)} {!item.isSbaHub && formatPricePeriod(item.pricePeriod)}
                           </span>
                           <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <span>Details</span>
@@ -894,9 +895,11 @@ export const TimetablePage: React.FC<TimetablePageProps> = ({
                         <div className="font-extrabold text-purple-700 dark:text-purple-400 text-sm">
                           {formatUSD(item.price)}
                         </div>
-                        <div className="text-[10px] text-slate-400 uppercase">
-                          Per {item.pricePeriod || 'yr'}
-                        </div>
+                        {!item.isSbaHub && (
+                          <div className="text-[10px] text-slate-400 uppercase font-semibold">
+                            {formatPricePeriod(item.pricePeriod)}
+                          </div>
+                        )}
                       </td>
 
                       {/* Action */}
@@ -1008,7 +1011,7 @@ export const TimetablePage: React.FC<TimetablePageProps> = ({
               <div>
                 <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider block">Tuition Rate</span>
                 <span className="text-lg font-black text-purple-900 dark:text-purple-200">
-                  {formatUSD(selectedItemDetail.price)} / {selectedItemDetail.pricePeriod || 'yr'}
+                  {formatUSD(selectedItemDetail.price)} {!selectedItemDetail.isSbaHub && formatPricePeriod(selectedItemDetail.pricePeriod)}
                 </span>
               </div>
               <span className="text-[10px] text-purple-700 dark:text-purple-300 font-medium max-w-[160px] text-right">
@@ -1263,20 +1266,29 @@ export const TimetablePage: React.FC<TimetablePageProps> = ({
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>
-                <div className="space-y-1 col-span-1">
-                  <label className="block font-bold text-slate-700 dark:text-slate-300">
-                    Period
-                  </label>
-                  <select
-                    value={editPricePeriod}
-                    onChange={(e) => setEditPricePeriod(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
-                  >
-                    <option value="yr">Per Year</option>
-                    <option value="month">Per Month</option>
-                    <option value="week">Per Week</option>
-                  </select>
-                </div>
+                {!editingItem?.isSbaHub ? (
+                  <div className="space-y-1 col-span-1">
+                    <label className="block font-bold text-slate-700 dark:text-slate-300">
+                      Period
+                    </label>
+                    <select
+                      value={editPricePeriod}
+                      onChange={(e) => setEditPricePeriod(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                    >
+                      <option value="yr">Per Year</option>
+                      <option value="month">Per Month</option>
+                      <option value="week">Per Week</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div className="space-y-1 col-span-1 bg-slate-100 dark:bg-slate-900 p-2 border border-slate-200 dark:border-slate-800 rounded-xl">
+                    <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
+                      Period
+                    </label>
+                    <span className="text-xs font-extrabold text-purple-700 dark:text-purple-400">One-time Payment</span>
+                  </div>
+                )}
                 <div className="space-y-1 col-span-1">
                   <label className="block font-bold text-slate-700 dark:text-slate-300">
                     Capacity

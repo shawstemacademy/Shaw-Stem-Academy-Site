@@ -103,9 +103,17 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   const errMessage = error instanceof Error ? error.message : String(error);
   const errCode = (error as any)?.code;
 
-  // Suppress or warn gracefully on transient network/offline errors to prevent error overlays or fatal logs
-  if (errCode === 'unavailable' || errMessage.includes('Could not reach Cloud Firestore') || errMessage.includes('offline')) {
-    console.warn(`Firestore offline/connectivity status (${operationType} at ${path}):`, errMessage);
+  // Suppress or warn gracefully on transient network/offline/resource-exhausted errors to prevent fatal overlays
+  if (
+    errCode === 'unavailable' ||
+    errCode === 'resource-exhausted' ||
+    errMessage.includes('Could not reach Cloud Firestore') ||
+    errMessage.includes('offline') ||
+    errMessage.includes('resource-exhausted') ||
+    errMessage.includes('Write stream exhausted') ||
+    errMessage.includes('maximum allowed queued writes')
+  ) {
+    console.warn(`Firestore connectivity or write backoff (${operationType} at ${path}):`, errMessage);
     return;
   }
 
@@ -157,10 +165,11 @@ export const saveUserToFirestore = async (userData: SchoolUser | any) => {
     
     await setDoc(docRef, { ...cleanData, updatedAt: new Date().toISOString() }, { merge: true });
 
-    // Clean up from other role collections if role was changed
-    for (const otherCol of ALL_USER_COLLECTIONS) {
-      if (otherCol !== targetCollection) {
-        const otherRef = doc(db, otherCol, cleanData.id);
+    // Only clean up from other role collections if role was explicitly changed
+    if (cleanData.previousRole && cleanData.previousRole !== cleanData.role) {
+      const prevCollection = getUserCollectionName(cleanData.previousRole);
+      if (prevCollection !== targetCollection) {
+        const otherRef = doc(db, prevCollection, cleanData.id);
         await deleteDoc(otherRef).catch(() => {});
       }
     }

@@ -34,8 +34,10 @@ import {
   Sparkles,
   Edit3,
   AlertTriangle,
-  BookOpen
+  BookOpen,
+  Archive
 } from 'lucide-react';
+import { ClassBatchArchivingManager } from './ClassBatchArchivingManager';
 import { UserManualPage } from './UserManualPage';
 import { ImageUploadInput } from '../common/ImageUploadInput';
 import { 
@@ -212,7 +214,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   onSaveSectionOrders = async () => {},
   onNavigate = () => {},
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields' | 'section_order' | 'manual' | 'attendance'>(
+  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'class_archiving' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields' | 'section_order' | 'manual' | 'attendance'>(
     currentRole === 'hod' ? 'users' : 'overview'
   );
 
@@ -1077,6 +1079,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       label: 'Course Bank Manager',
       icon: <GraduationCap className="w-4 h-4 text-purple-400" />,
       badge: `${(classList || []).length} Courses`,
+    },
+    {
+      id: 'class_archiving' as const,
+      label: 'Batch Class Archiving & Completion',
+      icon: <Archive className="w-4 h-4 text-indigo-400" />,
+      badge: 'Batch Cohort',
     },
     {
       id: 'clashes' as const,
@@ -2583,21 +2591,35 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                       
                       const st = rec.status || 'present';
 
+                      const isAbsent = st === 'absent';
+
                       return (
-                        <tr key={rec.id} className="hover:bg-slate-50 transition-colors">
+                        <tr 
+                          key={rec.id} 
+                          className={`transition-colors ${
+                            isAbsent 
+                              ? 'bg-rose-50/80 hover:bg-rose-100/70 border-l-4 border-l-rose-500 border-b border-rose-100' 
+                              : 'hover:bg-slate-50 border-b border-slate-100'
+                          }`}
+                        >
                           <td className="py-3 px-4 text-xs font-bold text-slate-800 whitespace-nowrap">
-                            {rec.date}
+                            <div className="flex items-center gap-1.5">
+                              {isAbsent && (
+                                <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" title="Absent"></span>
+                              )}
+                              <span>{rec.date}</span>
+                            </div>
                           </td>
-                          <td className="py-3 px-4 text-xs text-slate-600 whitespace-nowrap">
+                          <td className={`py-3 px-4 text-xs whitespace-nowrap ${isAbsent ? 'text-rose-700/80' : 'text-slate-600'}`}>
                             {formattedTime}
                           </td>
                           <td className="py-3 px-4 text-xs">
-                            <div className="font-bold text-slate-900">{rec.studentName || 'Student'}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">ID: {rec.studentId}</div>
+                            <div className={`font-bold ${isAbsent ? 'text-rose-950 font-black' : 'text-slate-900'}`}>{rec.studentName || 'Student'}</div>
+                            <div className={`text-[10px] font-mono ${isAbsent ? 'text-rose-600/70' : 'text-slate-400'}`}>ID: {rec.studentId}</div>
                           </td>
                           <td className="py-3 px-4 text-xs">
-                            <div className="font-bold text-slate-800">{rec.className || 'Class'}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">Code: {rec.classId}</div>
+                            <div className={`font-bold ${isAbsent ? 'text-rose-900 font-semibold' : 'text-slate-800'}`}>{rec.className || 'Class'}</div>
+                            <div className={`text-[10px] font-mono ${isAbsent ? 'text-rose-600/70' : 'text-slate-400'}`}>Code: {rec.classId}</div>
                           </td>
                           <td className="py-3 px-4 text-xs text-right whitespace-nowrap">
                             {st === 'present' && (
@@ -2611,7 +2633,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                               </span>
                             )}
                             {st === 'absent' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-extrabold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-extrabold rounded-full bg-rose-100 text-rose-700 border border-rose-300 ring-1 ring-rose-400/30">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
                                 Absent
                               </span>
                             )}
@@ -3330,6 +3353,21 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           onDeleteClassType={onDeleteClassType}
           onSaveLocation={onSaveLocation}
           onDeleteLocation={onDeleteLocation}
+        />
+      )}
+
+      {/* 9B. BATCH CLASS ARCHIVING & COMPLETION TAB */}
+      {activeAdminTab === 'class_archiving' && (
+        <ClassBatchArchivingManager
+          classList={classList}
+          sbaHubOptions={sbaHubOptions}
+          registrationLogs={registrationLogs}
+          onUpdateRegistration={onUpdateRegistration}
+          schoolUsers={users}
+          onUpdateUser={onUpdateUser}
+          loggedInUser={loggedInUser}
+          currentRole={currentRole}
+          logoUrl={landingPageSettings?.logoUrl}
         />
       )}
 

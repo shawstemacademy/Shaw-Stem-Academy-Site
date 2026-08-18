@@ -56,7 +56,6 @@ export const AdminNewsManagement: React.FC<AdminNewsManagementProps> = ({
   useEffect(() => {
     const unsub = subscribeToCollection<NewsCategory>('newsCategories', (items) => {
       if (items.length === 0) {
-        // Seed default categories
         const defaults = [
           { id: 'ncat-1', name: 'STEM Lab' },
           { id: 'ncat-2', name: 'Robotics Competition' },
@@ -65,7 +64,6 @@ export const AdminNewsManagement: React.FC<AdminNewsManagementProps> = ({
           { id: 'ncat-5', name: 'Department Announcement' },
           { id: 'ncat-6', name: 'General' }
         ];
-        defaults.forEach(c => saveDocToFirestore('newsCategories', c.id, c));
         setCategories(defaults);
       } else {
         setCategories([...items].sort((a, b) => a.name.localeCompare(b.name)));

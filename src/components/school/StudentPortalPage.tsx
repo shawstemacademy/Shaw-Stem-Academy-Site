@@ -46,7 +46,8 @@ import {
   ChevronLeft,
   Award,
   Percent,
-  Target
+  Target,
+  Archive
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -77,8 +78,10 @@ import {
   AddDropRequest,
   SectionOrderItem,
   DEFAULT_STUDENT_SECTION_ORDER,
-  PortalTab
+  PortalTab,
+  SbaHubOption,
 } from '../../types';
+import { calculateClassPaymentStatus, formatPricePeriod } from '../../lib/paymentUtils';
 import { FormFieldSetting } from '../../lib/formFieldsConfig';
 import { StudentInfoForm } from '../StudentInfoForm';
 import { RegistrationReceiptModal } from '../RegistrationReceiptModal';
@@ -112,6 +115,7 @@ interface StudentPortalPageProps {
   onToggleFieldSetting?: (formId: string, fieldId: string, property: 'enabled' | 'required') => void;
   studentPortalSections?: SectionOrderItem[];
   initialAcademicTab?: 'schedule' | 'attendance' | 'grades' | 'progress' | 'add_drop';
+  sbaHubOptions?: SbaHubOption[];
   onNavigate?: (tab: PortalTab) => void;
 }
 
@@ -129,6 +133,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   allRegistrations = [],
   attendanceRecords = [],
   addDropRequests = [],
+  sbaHubOptions = [],
   onSubmitAddDropRequest,
   onUpdateAttendance,
   onUpdateRegistration,
@@ -318,6 +323,67 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
     .flatMap((r) => r.selectedClasses || [])
     .filter((c, idx, self) => c && c.id && self.findIndex((o) => o.id === c.id) === idx)
     .filter((c) => !classes.some((released) => released.id === c.id));
+
+  // Calculate overdue payment status for all registered/requested classes
+  const overdueClasses = React.useMemo(() => {
+    if (!studentUser) return [];
+
+    const overdueList: Array<{
+      classId: string;
+      classTitle: string;
+      dueDate: Date | null;
+      pricePeriod: string;
+      isSbaHub: boolean;
+    }> = [];
+
+    const candidateClasses: Array<{ item: ClassItem; isSba: boolean }> = [
+      ...classes.map((c) => ({ item: c, isSba: false })),
+      ...pendingRequestedClasses.map((c) => ({ item: c, isSba: false })),
+    ];
+
+    allRegistrations.forEach((reg) => {
+      if (reg.studentInfo?.selectedSbaHubIds) {
+        reg.studentInfo.selectedSbaHubIds.forEach((sbaId) => {
+          const sbaOpt = sbaHubOptions.find((s) => s.id === sbaId);
+          if (sbaOpt && !candidateClasses.some((c) => c.item.id === sbaId)) {
+            candidateClasses.push({
+              item: {
+                id: sbaOpt.id,
+                title: sbaOpt.name,
+                price: sbaOpt.yearlyPrice,
+                pricePeriod: sbaOpt.pricePeriod || 'one-time',
+                category: 'SBA Hub',
+                instructor: sbaOpt.instructor,
+                schedule: 'SBA Hub Session',
+                ageGroup: 'All Levels',
+                capacity: sbaOpt.capacity || 15,
+                enrolled: 0,
+                location: sbaOpt.location,
+                description: 'SBA Hub Course',
+                isOffered: sbaOpt.isOffered !== false,
+              },
+              isSba: true,
+            });
+          }
+        });
+      }
+    });
+
+    candidateClasses.forEach(({ item, isSba }) => {
+      const payStatus = calculateClassPaymentStatus(item, isSba, allRegistrations);
+      if (payStatus.isOverdue) {
+        overdueList.push({
+          classId: item.id,
+          classTitle: item.title,
+          dueDate: payStatus.dueDate,
+          pricePeriod: payStatus.pricePeriod,
+          isSbaHub: isSba,
+        });
+      }
+    });
+
+    return overdueList;
+  }, [classes, pendingRequestedClasses, allRegistrations, sbaHubOptions, studentUser]);
 
   const hasCourseRegistrations = classes.length > 0 || pendingRequestedClasses.length > 0 || (allRegistrations && allRegistrations.some(r => (r.selectedClasses && r.selectedClasses.length > 0) || (r.selectedClassIds && r.selectedClassIds.length > 0)));
 
@@ -709,6 +775,66 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
       {mainTab === 'portal' && (
         <div className="space-y-8">
+
+          {/* Overdue Payment Unrelease Banner */}
+          {overdueClasses.length > 0 && (
+            <div id="overdue-payment-banner" className="p-5 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-300 dark:border-rose-800 rounded-3xl shadow-md space-y-4 animate-in fade-in slide-in-from-top-2">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="p-3 bg-rose-600 text-white rounded-2xl shrink-0 shadow-sm mt-0.5">
+                    <AlertCircle className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-200/80 dark:bg-rose-900/80 text-rose-900 dark:text-rose-100 text-[10px] font-black uppercase tracking-wider border border-rose-300 dark:border-rose-700">
+                      <span>🚨 Notice: Recurring Payment Overdue</span>
+                    </div>
+                    <h3 className="text-base sm:text-lg font-black text-rose-950 dark:text-rose-100">
+                      {overdueClasses.length} Course(s) Temporarily Unreleased
+                    </h3>
+                    <p className="text-xs text-rose-800 dark:text-rose-200 leading-relaxed max-w-2xl">
+                      The active payment period starting from your previous tuition transaction date has ended for:{' '}
+                      <span className="font-bold underline">{overdueClasses.map((o) => o.classTitle).join(', ')}</span>.
+                      Per school policy, course access (Zoom links, Google Classroom materials, teacher lab files) is unreleased until payment is submitted.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="shrink-0 self-start md:self-center">
+                  <button
+                    onClick={() => {
+                      const elem = document.getElementById('academic-records-section') || document.getElementById('tuition-breakdown');
+                      if (elem) {
+                        elem.scrollIntoView({ behavior: 'smooth' });
+                      } else {
+                        onOpenRegistration();
+                      }
+                    }}
+                    className="px-5 py-3 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black text-xs rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer border border-rose-500"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>Pay Overdue Tuition</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Breakdown of overdue classes */}
+              <div className="pt-3 border-t border-rose-200 dark:border-rose-800/80 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-xs">
+                {overdueClasses.map((o) => (
+                  <div key={o.classId} className="p-3 bg-white/90 dark:bg-slate-900/90 rounded-2xl border border-rose-200 dark:border-rose-800 flex items-center justify-between gap-2 shadow-xs">
+                    <div>
+                      <span className="font-extrabold text-slate-900 dark:text-slate-100 block truncate max-w-[180px]">{o.classTitle}</span>
+                      <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 block">
+                        Due: {o.dueDate ? formatSafeDate(o.dueDate.toISOString()) : 'Overdue'} {!o.isSbaHub && `(${o.pricePeriod})`}
+                      </span>
+                    </div>
+                    <span className="px-2 py-1 bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-200 text-[10px] font-black rounded-lg shrink-0 border border-rose-200 dark:border-rose-800 uppercase">
+                      Unreleased
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
       {/* Registration Status Indicator Widget */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm animate-fade-in">
@@ -1877,17 +2003,34 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                             {classes.map((cls) => {
                               const attId = `att-${cls.id}-${todayStr}-${studentUser?.id}`;
                               const existingAtt = attendanceRecords?.find(a => a.id === attId);
+                              const isAbsent = existingAtt?.status === 'absent';
                               
                               return (
-                                <div key={cls.id} className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-slate-900/50">
+                                <div 
+                                  key={cls.id} 
+                                  className={`flex items-center justify-between p-4 rounded-2xl transition-colors ${
+                                    isAbsent
+                                      ? 'border-2 border-rose-400 bg-rose-50/90 text-rose-950 dark:bg-rose-950/40 dark:border-rose-700 shadow-xs'
+                                      : 'border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50'
+                                  }`}
+                                >
                                   <div>
-                                    <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">{cls.title}</h4>
-                                    <p className="text-xs text-slate-500">{cls.schedule}</p>
+                                    <h4 className={`font-bold text-sm flex items-center gap-2 ${isAbsent ? 'text-rose-950 dark:text-rose-200' : 'text-slate-900 dark:text-slate-100'}`}>
+                                      {isAbsent && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0"></span>}
+                                      <span>{cls.title}</span>
+                                    </h4>
+                                    <p className={`text-xs ${isAbsent ? 'text-rose-700/80 dark:text-rose-300/70' : 'text-slate-500'}`}>{cls.schedule}</p>
                                   </div>
                                   {existingAtt ? (
-                                    <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 flex items-center gap-1">
-                                      <CheckCircle2 className="w-3.5 h-3.5" /> Checked In
-                                    </span>
+                                    isAbsent ? (
+                                      <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-300 dark:bg-rose-900/60 dark:text-rose-300 flex items-center gap-1">
+                                        <XCircle className="w-3.5 h-3.5 text-rose-600" /> Marked Absent
+                                      </span>
+                                    ) : (
+                                      <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                                        <CheckCircle2 className="w-3.5 h-3.5" /> Checked In
+                                      </span>
+                                    )
                                   ) : (
                                     <button
                                       onClick={() => {
@@ -1953,6 +2096,57 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                         </table>
                       </div>
                     )}
+
+                    {/* Completed & Archived Courses Record */}
+                    {(() => {
+                      const completedClasses = registrationRecord?.archivedClasses || studentUser?.archivedClasses || [];
+                      const completedIds = registrationRecord?.completedClassIds || studentUser?.completedClassIds || [];
+                      
+                      if (completedClasses.length === 0 && completedIds.length === 0) {
+                        return null;
+                      }
+
+                      return (
+                        <div className="pt-6 border-t border-slate-200 dark:border-slate-800 space-y-4">
+                          <div className="flex items-center gap-2">
+                            <Archive className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <h4 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
+                              Completed Courses & Historical Transcripts
+                            </h4>
+                          </div>
+                          <p className="text-xs text-slate-500">
+                            The following courses have been completed and archived. Your final grades, tuition ledger, and attendance records are permanently preserved.
+                          </p>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {completedClasses.map((item, idx) => (
+                              <div
+                                key={idx}
+                                className="p-4 bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl space-y-1.5"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-extrabold text-xs text-slate-900 dark:text-slate-100">
+                                    {item.className || 'Academic Course'}
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase">
+                                    Completed
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                  <span>Term: <strong>{item.term || 'Completed Term'}</strong></span>
+                                  <span>{formatSafeDate(item.archivedAt)}</span>
+                                </div>
+                                {item.notes && (
+                                  <p className="text-[11px] text-slate-600 dark:text-slate-400 italic">
+                                    "{item.notes}"
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 

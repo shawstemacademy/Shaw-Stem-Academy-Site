@@ -31,7 +31,17 @@ import {
   HelpCircle,
   ListChecks,
   Sparkles,
-  Download
+  Download,
+  Search,
+  UserX,
+  Shield,
+  Calendar,
+  CalendarDays,
+  CalendarCheck,
+  ChevronLeft,
+  ChevronRight,
+  CalendarRange,
+  XCircle
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -74,6 +84,78 @@ import { AdminNewsManagement } from './AdminNewsManagement';
 import { HodResourceCategoryManager } from './HodResourceCategoryManager';
 import { ClassClaimForm } from './ClassClaimForm';
 import { MediaAttachmentViewer } from './MediaAttachmentViewer';
+import { AttendanceCalendarPicker } from './AttendanceCalendarPicker';
+
+function playAudioBeep() {
+  try {
+    const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtxClass) return;
+    const audioCtx = new AudioCtxClass();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.15);
+  } catch (e) {
+    // Ignore audio restrictions
+  }
+}
+
+export function getDayNameFromDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return '';
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  return d.toLocaleDateString('en-US', { weekday: 'long' });
+}
+
+export function getFormattedFullDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return '';
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export function isClassScheduledOnDay(cls: ClassItem, dayName: string): boolean {
+  if (!cls || !dayName) return false;
+  const targetDay = dayName.trim().toLowerCase();
+  const shortTarget = targetDay.substring(0, 3); // 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'
+
+  if (cls.days && Array.isArray(cls.days) && cls.days.length > 0) {
+    const matched = cls.days.some((d) => {
+      const dLower = d.trim().toLowerCase();
+      return dLower.includes(shortTarget) || dLower === targetDay;
+    });
+    if (matched) return true;
+  }
+
+  if (cls.schedule) {
+    const sched = cls.schedule.toLowerCase();
+    if (sched.includes('everyday') || sched.includes('daily')) return true;
+    if (sched.includes('mon-fri') || sched.includes('mon - fri') || sched.includes('weekday') || sched.includes('weekdays')) {
+      if (['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(targetDay)) return true;
+    }
+    if (sched.includes('weekend') || sched.includes('weekends') || sched.includes('sat-sun') || sched.includes('sat - sun')) {
+      if (['saturday', 'sunday'].includes(targetDay)) return true;
+    }
+
+    if (targetDay === 'monday' && (sched.includes('monday') || /\bmon\b/.test(sched))) return true;
+    if (targetDay === 'tuesday' && (sched.includes('tuesday') || /\btue\b|\btues\b/.test(sched))) return true;
+    if (targetDay === 'wednesday' && (sched.includes('wednesday') || /\bwed\b|\bweds\b/.test(sched))) return true;
+    if (targetDay === 'thursday' && (sched.includes('thursday') || /\bthu\b|\bthur\b|\bthurs\b/.test(sched))) return true;
+    if (targetDay === 'friday' && (sched.includes('friday') || /\bfri\b/.test(sched))) return true;
+    if (targetDay === 'saturday' && (sched.includes('saturday') || /\bsat\b/.test(sched))) return true;
+    if (targetDay === 'sunday' && (sched.includes('sunday') || /\bsun\b/.test(sched))) return true;
+  }
+
+  return false;
+}
 
 interface TeacherDashboardPageProps {
   teachers: TeacherProfile[];
@@ -568,6 +650,9 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
 
   // Dedicated Global QR Scanner States & Refs for the Modal
   const [isGlobalScannerOpen, setIsGlobalScannerOpen] = useState<boolean>(false);
+  const [globalScannerViewMode, setGlobalScannerViewMode] = useState<'camera' | 'name_register'>('camera');
+  const [nameSearchQuery, setNameSearchQuery] = useState<string>('');
+  const [nameStatusFilter, setNameStatusFilter] = useState<'all' | 'unmarked' | 'present' | 'late' | 'absent' | 'excused'>('all');
   const [globalScanFeedback, setGlobalScanFeedback] = useState<string | null>(null);
   const [globalScanFeedbackType, setGlobalScanFeedbackType] = useState<'success' | 'error' | null>(null);
   const [globalScanClassId, setGlobalScanClassId] = useState<string>('');
@@ -576,6 +661,196 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
   const [scannerRestartKey, setScannerRestartKey] = useState<number>(0);
   const globalScanVideoRef = useRef<HTMLVideoElement | null>(null);
   const globalScanCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Calendar & Day Selection States for Attendance Marking
+  const [attendanceDate, setAttendanceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [isCalendarPickerOpen, setIsCalendarPickerOpen] = useState<boolean>(false);
+  const [calendarViewMonth, setCalendarViewMonth] = useState<Date>(() => new Date());
+
+  // Academics Panel Attendance Date & Calendar State
+  const [academicsAttendanceDate, setAcademicsAttendanceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [isAcademicsCalendarOpen, setIsAcademicsCalendarOpen] = useState<boolean>(false);
+
+  // Day of week for selected attendance date
+  const selectedDayName = React.useMemo(() => getDayNameFromDate(attendanceDate), [attendanceDate]);
+
+  // Filter classes scheduled for the selected calendar day
+  const scheduledClassesOnSelectedDate = React.useMemo(() => {
+    return formClasses.filter((c) => isClassScheduledOnDay(c, selectedDayName));
+  }, [formClasses, selectedDayName]);
+
+  // When attendanceDate changes, auto-select first scheduled class if current selected class doesn't match this day
+  useEffect(() => {
+    if (scheduledClassesOnSelectedDate.length > 0) {
+      const isCurrentInScheduled = scheduledClassesOnSelectedDate.some((c) => c.id === globalScanClassId);
+      if (!isCurrentInScheduled) {
+        setGlobalScanClassId(scheduledClassesOnSelectedDate[0].id);
+      }
+    }
+  }, [attendanceDate, scheduledClassesOnSelectedDate]);
+
+  // Compute active current students enrolled in the class being marked (excluding archived/completed)
+  const activeCurrentStudentsInScanClass = React.useMemo(() => {
+    if (!globalScanClassId) return [];
+    const targetClass = classes.find((c) => c.id === globalScanClassId);
+    if (!targetClass) return [];
+
+    const studentsMap = new Map<string, {
+      id: string;
+      studentId: string;
+      studentName: string;
+      studentEmail: string;
+      status: 'present' | 'late' | 'absent' | 'excused' | 'unmarked';
+      timestamp?: string;
+    }>();
+
+    registrationLogs.forEach((log) => {
+      // Exclude students who completed / archived this class
+      if (log.completedClassIds && log.completedClassIds.includes(globalScanClassId)) {
+        return;
+      }
+
+      const isVerified = Boolean(log.verifiedClassIds && log.verifiedClassIds.includes(globalScanClassId));
+      const isSelected = Boolean(
+        log.selectedClasses?.some((c) => c.id === globalScanClassId) ||
+        log.selectedClassIds?.includes(globalScanClassId) ||
+        log.studentInfo?.selectedSbaHubIds?.includes(globalScanClassId)
+      );
+      const isPaidOrVerified = Boolean(
+        log.isPaid || 
+        log.status === 'enrolled_paid' || 
+        log.status === 'completed' ||
+        (log.payments && log.payments.length > 0)
+      );
+
+      if (isVerified || (isSelected && isPaidOrVerified)) {
+        const studentId = log.studentInfo?.id || log.studentId || log.userId || log.id;
+        const studentName = log.studentInfo?.studentName || `${log.studentInfo?.firstName || ''} ${log.studentInfo?.lastName || ''}`.trim() || 'Student';
+        const studentEmail = log.studentInfo?.email || log.studentInfo?.parentEmail || '';
+        const attId = `att-${globalScanClassId}-${attendanceDate}-${studentId}`;
+        const attRec = attendanceRecords?.find(
+          (a) => a.id === attId || (a.classId === globalScanClassId && a.date === attendanceDate && (a.studentId === studentId || a.studentName.toLowerCase() === studentName.toLowerCase()))
+        );
+
+        const key = studentId.toLowerCase();
+        if (!studentsMap.has(key)) {
+          studentsMap.set(key, {
+            id: log.id,
+            studentId,
+            studentName,
+            studentEmail,
+            status: attRec ? attRec.status : 'unmarked',
+            timestamp: attRec?.timestamp,
+          });
+        }
+      }
+    });
+
+    // Also check schoolUsers
+    schoolUsers.forEach((u) => {
+      if (u.role === 'student' && u.status !== 'disabled') {
+        if (u.completedClassIds && u.completedClassIds.includes(globalScanClassId)) {
+          return;
+        }
+        if (u.registeredClassIds && u.registeredClassIds.includes(globalScanClassId)) {
+          const studentId = u.id;
+          const studentName = u.name || 'Student';
+          const studentEmail = u.email;
+          const attId = `att-${globalScanClassId}-${attendanceDate}-${studentId}`;
+          const attRec = attendanceRecords?.find(
+            (a) => a.id === attId || (a.classId === globalScanClassId && a.date === attendanceDate && (a.studentId === studentId || a.studentName.toLowerCase() === studentName.toLowerCase()))
+          );
+
+          const key = studentId.toLowerCase();
+          if (!studentsMap.has(key)) {
+            studentsMap.set(key, {
+              id: u.id,
+              studentId,
+              studentName,
+              studentEmail,
+              status: attRec ? attRec.status : 'unmarked',
+              timestamp: attRec?.timestamp,
+            });
+          }
+        }
+      }
+    });
+
+    return Array.from(studentsMap.values()).sort((a, b) => a.studentName.localeCompare(b.studentName));
+  }, [globalScanClassId, attendanceDate, classes, registrationLogs, schoolUsers, attendanceRecords]);
+
+  // Handler to mark attendance by clicking a student's status
+  const handleMarkStudentByName = (
+    studentId: string,
+    studentName: string,
+    status: 'present' | 'late' | 'absent' | 'excused'
+  ) => {
+    const targetClass = classes.find((c) => c.id === globalScanClassId);
+    if (!targetClass) return;
+
+    const attId = `att-${targetClass.id}-${attendanceDate}-${studentId}`;
+    const timestamp = new Date().toISOString();
+
+    playAudioBeep();
+
+    onUpdateAttendance({
+      id: attId,
+      classId: targetClass.id,
+      className: targetClass.title,
+      date: attendanceDate,
+      studentId: studentId,
+      studentName: studentName,
+      status: status,
+      timestamp: timestamp,
+    });
+
+    // Track in Recent Scans session list
+    setRecentScans((prev) => [
+      {
+        id: attId,
+        studentName,
+        className: targetClass.title,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      },
+      ...prev.filter((s) => s.id !== attId)
+    ].slice(0, 5));
+
+    setGlobalScanFeedback(`Marked ${studentName} as ${status.toUpperCase()} in ${targetClass.title} (${getFormattedFullDate(attendanceDate)})!`);
+    setGlobalScanFeedbackType('success');
+  };
+
+  // Handler to mark all unmarked students as Present
+  const handleMarkAllUnmarkedPresent = () => {
+    const targetClass = classes.find((c) => c.id === globalScanClassId);
+    if (!targetClass) return;
+
+    const unmarked = activeCurrentStudentsInScanClass.filter((s) => s.status === 'unmarked');
+    if (unmarked.length === 0) {
+      alert(`All current students in this class already have attendance marked for ${getFormattedFullDate(attendanceDate)}!`);
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+
+    playAudioBeep();
+
+    unmarked.forEach((st) => {
+      const attId = `att-${targetClass.id}-${attendanceDate}-${st.studentId}`;
+      onUpdateAttendance({
+        id: attId,
+        classId: targetClass.id,
+        className: targetClass.title,
+        date: attendanceDate,
+        studentId: st.studentId,
+        studentName: st.studentName,
+        status: 'present',
+        timestamp: timestamp,
+      });
+    });
+
+    setGlobalScanFeedback(`Successfully marked ${unmarked.length} student(s) as PRESENT for ${getFormattedFullDate(attendanceDate)}!`);
+    setGlobalScanFeedbackType('success');
+  };
 
   const handleRetryScan = () => {
     setGlobalScanFeedback("Retrying scan... Align student QR code in the frame.");
@@ -588,12 +863,16 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
     if (formClasses.length > 0) {
       const ids = formClasses.map((c) => c.id);
       if (!globalScanClassId || !ids.includes(globalScanClassId)) {
-        setGlobalScanClassId(formClasses[0].id);
+        if (scheduledClassesOnSelectedDate.length > 0) {
+          setGlobalScanClassId(scheduledClassesOnSelectedDate[0].id);
+        } else {
+          setGlobalScanClassId(formClasses[0].id);
+        }
       }
     } else {
       setGlobalScanClassId('');
     }
-  }, [formClasses, globalScanClassId]);
+  }, [formClasses, globalScanClassId, scheduledClassesOnSelectedDate]);
 
   useEffect(() => {
     let activeStream: MediaStream | null = null;
@@ -691,11 +970,11 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
             
             if (studentMatch) {
               const studentName = studentMatch.studentInfo?.studentName || studentMatch.studentInfo?.firstName || 'Student';
-              const attId = `att-${targetClass.id}-${new Date().toISOString().split('T')[0]}-${studentMatch.studentInfo?.id || studentMatch.id}`;
-              const alreadyMarked = attendanceRecords?.some(a => a.id === attId);
+              const attId = `att-${targetClass.id}-${attendanceDate}-${studentMatch.studentInfo?.id || studentMatch.id}`;
+              const alreadyMarked = attendanceRecords?.some(a => a.id === attId || (a.classId === targetClass.id && a.date === attendanceDate && a.studentId === (studentMatch.studentInfo?.id || studentMatch.id)));
               
               if (alreadyMarked) {
-                setGlobalScanFeedback(`${studentName} is ALREADY marked present!`);
+                setGlobalScanFeedback(`${studentName} is ALREADY marked present for ${getFormattedFullDate(attendanceDate)}!`);
                 setGlobalScanFeedbackType('success');
                 playBeep();
                 
@@ -711,7 +990,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                   id: attId,
                   classId: targetClass.id,
                   className: targetClass.title,
-                  date: new Date().toISOString().split('T')[0],
+                  date: attendanceDate,
                   studentId: studentMatch.studentInfo?.id || studentMatch.id,
                   studentName: studentName,
                   status: 'present',
@@ -729,7 +1008,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                   ...prev.filter(s => s.id !== attId)
                 ].slice(0, 5));
 
-                setGlobalScanFeedback(`SUCCESS! Marked ${studentName} as PRESENT in ${targetClass.title}!`);
+                setGlobalScanFeedback(`SUCCESS! Marked ${studentName} as PRESENT in ${targetClass.title} (${getFormattedFullDate(attendanceDate)})!`);
                 setGlobalScanFeedbackType('success');
 
                 isLocked = true;
@@ -775,7 +1054,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isGlobalScannerOpen, globalScanClassId, classes, registrationLogs, attendanceRecords, scannerRestartKey]);
+  }, [isGlobalScannerOpen, globalScanClassId, attendanceDate, classes, registrationLogs, attendanceRecords, scannerRestartKey]);
 
   // Safety cleanup: Automatically close camera scanners if section tab changes or window loses focus
   useEffect(() => {
@@ -1586,10 +1865,64 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                 <div className="space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
                     <div>
-                      <h4 className="font-bold text-slate-900 text-lg">Today's Attendance ({todayStr})</h4>
-                      <p className="text-xs text-slate-500">Log attendance manually or use the QR scanner.</p>
+                      <h4 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                        <span>Attendance: {getFormattedFullDate(academicsAttendanceDate)}</span>
+                        {academicsAttendanceDate === todayStr && (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                            Today
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        {getDayNameFromDate(academicsAttendanceDate)} — Log attendance manually or use the QR scanner.
+                      </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
+                      {/* Date selection shortcuts */}
+                      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const parts = academicsAttendanceDate.split('-').map(Number);
+                            const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                            d.setDate(d.getDate() - 1);
+                            setAcademicsAttendanceDate(d.toISOString().split('T')[0]);
+                          }}
+                          className="p-1 hover:bg-slate-200 rounded text-slate-600 cursor-pointer"
+                          title="Previous Day"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAcademicsAttendanceDate(todayStr)}
+                          className={`px-2 py-0.5 text-xs font-bold rounded cursor-pointer ${
+                            academicsAttendanceDate === todayStr ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Today
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const parts = academicsAttendanceDate.split('-').map(Number);
+                            const d = new Date(parts[0], parts[1] - 1, parts[2]);
+                            d.setDate(d.getDate() + 1);
+                            setAcademicsAttendanceDate(d.toISOString().split('T')[0]);
+                          }}
+                          className="p-1 hover:bg-slate-200 rounded text-slate-600 cursor-pointer"
+                          title="Next Day"
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="date"
+                          value={academicsAttendanceDate}
+                          onChange={(e) => e.target.value && setAcademicsAttendanceDate(e.target.value)}
+                          className="text-xs font-bold px-1.5 py-0.5 bg-white border border-slate-300 rounded text-slate-800 cursor-pointer"
+                        />
+                      </div>
+
                       <button
                         onClick={() => {
                           setIsScanningQr(!isScanningQr);
@@ -1628,7 +1961,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                           const url = window.URL.createObjectURL(blob);
                           const a = document.createElement('a');
                           a.href = url;
-                          a.download = `attendance-${cls.id}-${todayStr}.csv`;
+                          a.download = `attendance-${cls.id}-${academicsAttendanceDate}.csv`;
                           a.click();
                           window.URL.revokeObjectURL(url);
                         }}
@@ -1759,8 +2092,8 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                       </div>
 
                       {(() => {
-                        const classAttendanceToday = attendanceRecords?.filter(a => a.classId === cls.id && a.date === todayStr) || [];
-                        const recentScans = [...classAttendanceToday].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
+                        const classAttendanceSelectedDate = attendanceRecords?.filter(a => a.classId === cls.id && a.date === academicsAttendanceDate) || [];
+                        const recentScans = [...classAttendanceSelectedDate].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
                         
                         if (recentScans.length === 0) return null;
                         
@@ -1815,62 +2148,137 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                         </thead>
                         <tbody>
                           {enrolledStudents.map(student => {
-                            const attId = `att-${cls.id}-${todayStr}-${student.studentInfo.id || student.id}`;
-                            const record = attendanceRecords?.find(a => a.id === attId);
+                            const attId = `att-${cls.id}-${academicsAttendanceDate}-${student.studentInfo.id || student.id}`;
+                            const record = attendanceRecords?.find(a => a.id === attId || (a.classId === cls.id && a.date === academicsAttendanceDate && (a.studentId === (student.studentInfo.id || student.id) || a.studentName.toLowerCase() === (student.studentInfo.studentName || '').toLowerCase())));
                             const isRecentlyScanned = Boolean(record && record.timestamp && (Date.now() - new Date(record.timestamp).getTime() < 30000));
+                            const isAbsent = record?.status === 'absent';
+                            const isLate = record?.status === 'late';
+                            const isExcused = record?.status === 'excused';
 
                             return (
                               <tr 
                                 key={student.id} 
-                                className={`border-b border-slate-100 transition-colors duration-500 ${
-                                  isRecentlyScanned ? 'bg-emerald-50/70 font-medium' : 'hover:bg-slate-50'
+                                className={`border-b transition-colors duration-300 ${
+                                  isAbsent 
+                                    ? 'bg-rose-50/90 hover:bg-rose-100/80 border-l-4 border-l-rose-500 border-rose-200 text-rose-950 font-medium'
+                                    : isRecentlyScanned 
+                                    ? 'bg-emerald-50/70 font-medium border-slate-100' 
+                                    : 'hover:bg-slate-50 border-slate-100'
                                 }`}
                               >
-                                <td className="py-3 px-3 text-sm font-semibold text-slate-800 flex items-center gap-2">
+                                <td className="py-3 px-3 text-sm font-semibold flex items-center gap-2">
                                   {isRecentlyScanned && (
                                     <span className="relative flex h-2 w-2 shrink-0">
                                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                     </span>
                                   )}
-                                  <span>{student.studentInfo.studentName || student.studentInfo.firstName}</span>
+                                  {isAbsent && (
+                                    <span className="inline-block w-2 h-2 rounded-full bg-rose-500 shrink-0" title="Absent for this session"></span>
+                                  )}
+                                  <span className={isAbsent ? 'text-rose-950 font-bold' : 'text-slate-800'}>
+                                    {student.studentInfo.studentName || student.studentInfo.firstName}
+                                  </span>
                                 </td>
-                                <td className="py-3 px-3 text-sm text-slate-500">{student.studentInfo.email || student.studentInfo.parentEmail}</td>
+                                <td className={`py-3 px-3 text-sm ${isAbsent ? 'text-rose-700/80' : 'text-slate-500'}`}>
+                                  {student.studentInfo.email || student.studentInfo.parentEmail}
+                                </td>
                                 <td className="py-3 px-3 text-right">
                                   {record ? (
-                                    <span
-                                      className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border transition-all duration-700 ease-in-out ${
-                                        isRecentlyScanned
-                                          ? 'text-emerald-800 bg-emerald-100 border-emerald-400 ring-2 ring-emerald-400/40 shadow-xs animate-pulse scale-105'
-                                          : 'text-emerald-600 bg-emerald-50 border-emerald-200'
-                                      }`}
-                                    >
-                                      <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${isRecentlyScanned ? 'text-emerald-600 animate-bounce' : ''}`} />
-                                      <span>Present</span>
-                                      {isRecentlyScanned && (
-                                        <span className="text-[10px] text-emerald-700 font-extrabold uppercase tracking-wide ml-0.5">
-                                          (Just Scanned)
+                                    <div className="inline-flex items-center gap-1.5 justify-end">
+                                      {record.status === 'present' && (
+                                        <span
+                                          className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border transition-all duration-700 ease-in-out ${
+                                            isRecentlyScanned
+                                              ? 'text-emerald-800 bg-emerald-100 border-emerald-400 ring-2 ring-emerald-400/40 shadow-xs animate-pulse scale-105'
+                                              : 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                                          }`}
+                                        >
+                                          <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${isRecentlyScanned ? 'text-emerald-600 animate-bounce' : ''}`} />
+                                          <span>Present</span>
+                                          {isRecentlyScanned && (
+                                            <span className="text-[10px] text-emerald-700 font-extrabold uppercase tracking-wide ml-0.5">
+                                              (Just Scanned)
+                                            </span>
+                                          )}
                                         </span>
                                       )}
-                                    </span>
+                                      {isAbsent && (
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border text-rose-700 bg-rose-100 border-rose-300 ring-1 ring-rose-400/30">
+                                          <XCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                                          <span>Absent</span>
+                                        </span>
+                                      )}
+                                      {isLate && (
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border text-amber-700 bg-amber-50 border-amber-300">
+                                          <span>Late</span>
+                                        </span>
+                                      )}
+                                      {isExcused && (
+                                        <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border text-blue-700 bg-blue-50 border-blue-300">
+                                          <span>Excused</span>
+                                        </span>
+                                      )}
+
+                                      {/* Quick toggle button */}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const nextStatus = isAbsent ? 'present' : 'absent';
+                                          onUpdateAttendance({
+                                            id: attId,
+                                            classId: cls.id,
+                                            className: cls.title,
+                                            date: academicsAttendanceDate,
+                                            studentId: student.studentInfo.id || student.id,
+                                            studentName: student.studentInfo.studentName || student.studentInfo.firstName,
+                                            status: nextStatus,
+                                            timestamp: new Date().toISOString()
+                                          });
+                                        }}
+                                        className="ml-1.5 px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
+                                        title={isAbsent ? 'Switch to Present' : 'Switch to Absent'}
+                                      >
+                                        {isAbsent ? 'Set Present' : 'Set Absent'}
+                                      </button>
+                                    </div>
                                   ) : (
-                                    <button
-                                      onClick={() => {
-                                        onUpdateAttendance({
-                                          id: attId,
-                                          classId: cls.id,
-                                          className: cls.title,
-                                          date: todayStr,
-                                          studentId: student.studentInfo.id || student.id,
-                                          studentName: student.studentInfo.studentName || student.studentInfo.firstName,
-                                          status: 'present',
-                                          timestamp: new Date().toISOString()
-                                        });
-                                      }}
-                                      className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
-                                    >
-                                      Mark Present
-                                    </button>
+                                    <div className="inline-flex items-center gap-1.5 justify-end">
+                                      <button
+                                        onClick={() => {
+                                          onUpdateAttendance({
+                                            id: attId,
+                                            classId: cls.id,
+                                            className: cls.title,
+                                            date: academicsAttendanceDate,
+                                            studentId: student.studentInfo.id || student.id,
+                                            studentName: student.studentInfo.studentName || student.studentInfo.firstName,
+                                            status: 'present',
+                                            timestamp: new Date().toISOString()
+                                          });
+                                        }}
+                                        className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                                      >
+                                        Mark Present
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          onUpdateAttendance({
+                                            id: attId,
+                                            classId: cls.id,
+                                            className: cls.title,
+                                            date: academicsAttendanceDate,
+                                            studentId: student.studentInfo.id || student.id,
+                                            studentName: student.studentInfo.studentName || student.studentInfo.firstName,
+                                            status: 'absent',
+                                            timestamp: new Date().toISOString()
+                                          });
+                                        }}
+                                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                                      >
+                                        Mark Absent
+                                      </button>
+                                    </div>
                                   )}
                                 </td>
                               </tr>
@@ -2489,23 +2897,23 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
       {/* DEDICATED GLOBAL QR ATTENDANCE SCANNER MODAL */}
       {isGlobalScannerOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 relative shadow-2xl text-white my-8">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 relative shadow-2xl text-white my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <button
               onClick={() => setIsGlobalScannerOpen(false)}
-              className="absolute right-4 top-4 w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center justify-center text-lg font-bold cursor-pointer"
+              className="absolute right-4 top-4 w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center justify-center text-lg font-bold cursor-pointer z-20"
             >
               ✕
             </button>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pr-10">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
                     <QrCode className="w-6 h-6 animate-pulse" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-black tracking-tight">Dedicated ID Scanner</h3>
-                    <p className="text-xs text-slate-400">Scan student QR codes for instant, automated attendance logging.</p>
+                    <h3 className="text-xl font-black tracking-tight">Dedicated ID Scanner & Attendance</h3>
+                    <p className="text-xs text-slate-400">Pick a calendar date, choose the class for that day, and record attendance.</p>
                   </div>
                 </div>
                 <button
@@ -2519,65 +2927,300 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
                 </button>
               </div>
 
-              {/* Class Selector Dropdown */}
-              <div className="bg-slate-950/50 p-4 border border-slate-800 rounded-2xl space-y-2">
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-emerald-400">
-                  Step 1: Select Active Course / Lecture:
-                </label>
-                <select
-                  value={globalScanClassId}
-                  onChange={(e) => {
-                    setGlobalScanClassId(e.target.value);
-                    setGlobalScanFeedback("Switched course. Align student QR code in the scanner box.");
-                    setGlobalScanFeedbackType('success');
-                  }}
-                  className="w-full bg-slate-900 text-slate-100 border border-slate-800 text-xs font-bold px-3 py-2.5 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-                >
-                  {formClasses.length === 0 ? (
-                    <option value="">No courses assigned</option>
-                  ) : (
-                    formClasses.map((cls) => (
-                      <option key={cls.id} value={cls.id}>
-                        {cls.title} ({cls.schedule})
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-
-              {/* Live Video Frame Container */}
-              <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner group">
-                <video
-                  ref={globalScanVideoRef}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  muted
-                  playsInline
-                />
-                <canvas ref={globalScanCanvasRef} className="hidden" />
-
-                {/* Aesthetic green targeting reticle for entrance/security scans */}
-                <div className="absolute inset-x-12 inset-y-8 border-2 border-emerald-500/30 rounded-2xl pointer-events-none flex flex-col justify-between">
-                  <div className="flex justify-between">
-                    <div className="w-5 h-5 border-t-4 border-l-4 border-emerald-400 -mt-1 -ml-1"></div>
-                    <div className="w-5 h-5 border-t-4 border-r-4 border-emerald-400 -mt-1 -mr-1"></div>
-                  </div>
-                  <div className="w-full h-0.5 bg-emerald-500 shadow-[0_0_12px_#10b981] animate-[pulse_1s_infinite]"></div>
-                  <div className="flex justify-between">
-                    <div className="w-5 h-5 border-b-4 border-l-4 border-emerald-400 -mb-1 -ml-1"></div>
-                    <div className="w-5 h-5 border-b-4 border-r-4 border-emerald-400 -mb-1 -mr-1"></div>
-                  </div>
-                </div>
-
-                {/* Live Retry Scan Button Overlay on Camera */}
+              {/* Mode Switcher: Camera QR Scanner vs. Mark Register by Student Name */}
+              <div className="flex items-center bg-slate-950 p-1.5 rounded-2xl border border-slate-800 gap-1">
                 <button
                   type="button"
-                  onClick={handleRetryScan}
-                  className="absolute bottom-3 right-3 px-3 py-1.5 bg-slate-900/85 hover:bg-slate-900 text-emerald-400 hover:text-emerald-300 font-bold text-xs rounded-xl border border-emerald-500/30 backdrop-blur-xs flex items-center gap-1.5 shadow-lg transition-all cursor-pointer z-10"
+                  onClick={() => setGlobalScannerViewMode('camera')}
+                  className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    globalScannerViewMode === 'camera'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                  }`}
                 >
-                  <RotateCw className="w-3.5 h-3.5" />
-                  <span>Retry Scan</span>
+                  <Camera className="w-4 h-4" />
+                  <span>Camera QR Scanner</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setGlobalScannerViewMode('name_register')}
+                  className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    globalScannerViewMode === 'name_register'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Mark by Student Name ({activeCurrentStudentsInScanClass.length} Current)</span>
                 </button>
               </div>
+
+              {/* CALENDAR & CLASS PICKER SECTION */}
+              <AttendanceCalendarPicker
+                selectedDate={attendanceDate}
+                onSelectDate={(newDate) => {
+                  setAttendanceDate(newDate);
+                  setGlobalScanFeedback(`Selected attendance date: ${getFormattedFullDate(newDate)}`);
+                  setGlobalScanFeedbackType('success');
+                }}
+                classes={formClasses}
+                selectedClassId={globalScanClassId}
+                onSelectClassId={(newClassId) => {
+                  setGlobalScanClassId(newClassId);
+                  const selectedClass = formClasses.find(c => c.id === newClassId);
+                  setGlobalScanFeedback(`Active class set to ${selectedClass ? selectedClass.title : 'selected course'}. Ready to mark attendance.`);
+                  setGlobalScanFeedbackType('success');
+                }}
+                attendanceRecords={attendanceRecords}
+                registrationLogs={registrationLogs}
+                schoolUsers={schoolUsers}
+                theme="dark"
+                title="Class Schedule Calendar"
+                subtitle={`Select a date to filter classes scheduled for that day, or pick any course below.`}
+              />
+
+              {globalScannerViewMode === 'camera' ? (
+                /* Live Video Frame Container */
+                <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner group">
+                  <video
+                    ref={globalScanVideoRef}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    muted
+                    playsInline
+                  />
+                  <canvas ref={globalScanCanvasRef} className="hidden" />
+
+                  {/* Aesthetic green targeting reticle for entrance/security scans */}
+                  <div className="absolute inset-x-12 inset-y-8 border-2 border-emerald-500/30 rounded-2xl pointer-events-none flex flex-col justify-between">
+                    <div className="flex justify-between">
+                      <div className="w-5 h-5 border-t-4 border-l-4 border-emerald-400 -mt-1 -ml-1"></div>
+                      <div className="w-5 h-5 border-t-4 border-r-4 border-emerald-400 -mt-1 -mr-1"></div>
+                    </div>
+                    <div className="w-full h-0.5 bg-emerald-500 shadow-[0_0_12px_#10b981] animate-[pulse_1s_infinite]"></div>
+                    <div className="flex justify-between">
+                      <div className="w-5 h-5 border-b-4 border-l-4 border-emerald-400 -mb-1 -ml-1"></div>
+                      <div className="w-5 h-5 border-b-4 border-r-4 border-emerald-400 -mb-1 -mr-1"></div>
+                    </div>
+                  </div>
+
+                  {/* Live Retry Scan Button Overlay on Camera */}
+                  <button
+                    type="button"
+                    onClick={handleRetryScan}
+                    className="absolute bottom-3 right-3 px-3 py-1.5 bg-slate-900/85 hover:bg-slate-900 text-emerald-400 hover:text-emerald-300 font-bold text-xs rounded-xl border border-emerald-500/30 backdrop-blur-xs flex items-center gap-1.5 shadow-lg transition-all cursor-pointer z-10"
+                  >
+                    <RotateCw className="w-3.5 h-3.5" />
+                    <span>Retry Scan</span>
+                  </button>
+                </div>
+              ) : (
+                /* MARK REGISTER BY STUDENT NAME VIEW */
+                <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-4 shadow-inner">
+                  {/* Search and Action Bar */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="relative flex-1 w-full">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search current enrolled students by name or email..."
+                        value={nameSearchQuery}
+                        onChange={(e) => setNameSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleMarkAllUnmarkedPresent}
+                      className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Mark All Unmarked as Present</span>
+                    </button>
+                  </div>
+
+                  {/* Filter chips */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                    {(
+                      [
+                        { id: 'all', label: `All (${activeCurrentStudentsInScanClass.length})` },
+                        {
+                          id: 'unmarked',
+                          label: `Unmarked (${activeCurrentStudentsInScanClass.filter((s) => s.status === 'unmarked').length})`,
+                        },
+                        {
+                          id: 'present',
+                          label: `Present (${activeCurrentStudentsInScanClass.filter((s) => s.status === 'present').length})`,
+                        },
+                        {
+                          id: 'late',
+                          label: `Late (${activeCurrentStudentsInScanClass.filter((s) => s.status === 'late').length})`,
+                        },
+                        {
+                          id: 'absent',
+                          label: `Absent (${activeCurrentStudentsInScanClass.filter((s) => s.status === 'absent').length})`,
+                        },
+                        {
+                          id: 'excused',
+                          label: `Excused (${activeCurrentStudentsInScanClass.filter((s) => s.status === 'excused').length})`,
+                        },
+                      ] as const
+                    ).map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setNameStatusFilter(f.id)}
+                        className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap cursor-pointer ${
+                          nameStatusFilter === f.id
+                            ? 'bg-slate-700 text-white shadow-xs'
+                            : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Student List for Selected Class */}
+                  <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                    {activeCurrentStudentsInScanClass
+                      .filter((st) => {
+                        if (nameStatusFilter !== 'all' && st.status !== nameStatusFilter) return false;
+                        if (nameSearchQuery.trim()) {
+                          const q = nameSearchQuery.toLowerCase();
+                          return (
+                            st.studentName.toLowerCase().includes(q) ||
+                            st.studentEmail.toLowerCase().includes(q) ||
+                            st.studentId.toLowerCase().includes(q)
+                          );
+                        }
+                        return true;
+                      })
+                      .map((st) => {
+                        return (
+                          <div
+                            key={st.studentId}
+                            className={`p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all duration-300 ${
+                              st.status === 'absent'
+                                ? 'bg-rose-950/40 border-2 border-rose-500/70 shadow-[0_0_16px_rgba(244,63,94,0.18)] ring-1 ring-rose-500/30'
+                                : st.status === 'present'
+                                ? 'bg-slate-900 border border-emerald-900/40 hover:border-slate-700'
+                                : 'bg-slate-900 border border-slate-800/90 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`w-8 h-8 rounded-full font-black text-xs flex items-center justify-center shrink-0 transition-colors ${
+                                  st.status === 'absent'
+                                    ? 'bg-rose-950 text-rose-300 border border-rose-500/60 shadow-inner'
+                                    : st.status === 'present'
+                                    ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30'
+                                    : 'bg-slate-800 text-slate-300'
+                                }`}
+                              >
+                                {st.studentName.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <h4 className="font-extrabold text-xs text-slate-100 flex items-center gap-2">
+                                  <span className={st.status === 'absent' ? 'text-rose-200 font-black' : ''}>{st.studentName}</span>
+                                  {st.status === 'present' && (
+                                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 text-[10px] font-black border border-emerald-500/30">
+                                      Present
+                                    </span>
+                                  )}
+                                  {st.status === 'late' && (
+                                    <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 text-[10px] font-black border border-amber-500/30">
+                                      Late
+                                    </span>
+                                  )}
+                                  {st.status === 'absent' && (
+                                    <span className="px-2 py-0.5 rounded-md bg-rose-500/25 text-rose-300 text-[10px] font-black border border-rose-500/50 flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+                                      Absent
+                                    </span>
+                                  )}
+                                  {st.status === 'excused' && (
+                                    <span className="px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-400 text-[10px] font-black border border-blue-500/30">
+                                      Excused
+                                    </span>
+                                  )}
+                                  {st.status === 'unmarked' && (
+                                    <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 text-[10px] font-bold">
+                                      Unmarked
+                                    </span>
+                                  )}
+                                </h4>
+                                <p className={`text-[11px] ${st.status === 'absent' ? 'text-rose-300/80' : 'text-slate-400'}`}>{st.studentEmail || 'No email recorded'}</p>
+                              </div>
+                            </div>
+
+                            {/* Quick Attendance Buttons */}
+                            <div className="flex items-center gap-1 self-end sm:self-auto">
+                              <button
+                                type="button"
+                                onClick={() => handleMarkStudentByName(st.studentId, st.studentName, 'present')}
+                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                                  st.status === 'present'
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'bg-slate-800 text-emerald-400 hover:bg-emerald-950/80 hover:border-emerald-500/40 border border-slate-700'
+                                }`}
+                                title="Mark Present"
+                              >
+                                Present
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleMarkStudentByName(st.studentId, st.studentName, 'late')}
+                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                                  st.status === 'late'
+                                    ? 'bg-amber-600 text-white shadow-xs'
+                                    : 'bg-slate-800 text-amber-400 hover:bg-amber-950/80 hover:border-amber-500/40 border border-slate-700'
+                                }`}
+                                title="Mark Late"
+                              >
+                                Late
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleMarkStudentByName(st.studentId, st.studentName, 'absent')}
+                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                                  st.status === 'absent'
+                                    ? 'bg-rose-600 text-white shadow-xs'
+                                    : 'bg-slate-800 text-rose-400 hover:bg-rose-950/80 hover:border-rose-500/40 border border-slate-700'
+                                }`}
+                                title="Mark Absent"
+                              >
+                                Absent
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleMarkStudentByName(st.studentId, st.studentName, 'excused')}
+                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                                  st.status === 'excused'
+                                    ? 'bg-blue-600 text-white shadow-xs'
+                                    : 'bg-slate-800 text-blue-400 hover:bg-blue-950/80 hover:border-blue-500/40 border border-slate-700'
+                                }`}
+                                title="Mark Excused"
+                              >
+                                Excused
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                    {activeCurrentStudentsInScanClass.length === 0 && (
+                      <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-2xl">
+                        No active enrolled students found in this course.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Status & Scan Feedback readouts */}
               {globalScanFeedback && (

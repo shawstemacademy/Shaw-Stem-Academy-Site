@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DiscountRule, DiscountType, ClassType } from '../types';
 import { X, Settings2, Plus, Trash2, CheckCircle2, ShieldAlert, Layers, Tag, Info, Edit2 } from 'lucide-react';
 
@@ -27,12 +27,21 @@ export const DiscountRulesModal: React.FC<DiscountRulesModalProps> = ({
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [newRuleName, setNewRuleName] = useState('');
   const [newRuleType, setNewRuleType] = useState<DiscountType>('percentage_multi_class');
-  const [newTargetClassType, setNewTargetClassType] = useState<string>('ALL');
+  const [newTargetClassType, setNewTargetClassType] = useState<string>('');
+  const [newAppliesToSbaHub, setNewAppliesToSbaHub] = useState<boolean | undefined>(undefined);
   const [newMinClasses, setNewMinClasses] = useState<number>(2);
   const [newMinAmount, setNewMinAmount] = useState<number>(200);
   const [newPercentOff, setNewPercentOff] = useState<number>(10);
   const [newFlatOff, setNewFlatOff] = useState<number>(20);
   const [newPromoCode, setNewPromoCode] = useState<string>('');
+
+  useEffect(() => {
+    if (isOpen && classTypes.length > 0) {
+      if (!newTargetClassType || !classTypes.some(ct => ct.code === newTargetClassType || ct.name === newTargetClassType)) {
+        setNewTargetClassType(classTypes[0].code || classTypes[0].name);
+      }
+    }
+  }, [isOpen, classTypes, newTargetClassType]);
 
   // Class Type Editor State
   const [editingClassTypeId, setEditingClassTypeId] = useState<string | null>(null);
@@ -56,7 +65,8 @@ export const DiscountRulesModal: React.FC<DiscountRulesModalProps> = ({
     setEditingRuleId(rule.id);
     setNewRuleName(rule.name);
     setNewRuleType(rule.type);
-    setNewTargetClassType(rule.targetClassType || 'ALL');
+    setNewTargetClassType(rule.targetClassType || (classTypes[0]?.code || ''));
+    setNewAppliesToSbaHub(rule.appliesToSbaHub);
     setNewMinClasses(rule.minClassesRequired || 2);
     setNewMinAmount(rule.minAmountRequired || 200);
     setNewPercentOff(rule.percentageOff || 10);
@@ -69,7 +79,8 @@ export const DiscountRulesModal: React.FC<DiscountRulesModalProps> = ({
     setNewRuleName('');
     setNewPromoCode('');
     setNewRuleType('percentage_multi_class');
-    setNewTargetClassType('ALL');
+    setNewTargetClassType(classTypes[0]?.code || '');
+    setNewAppliesToSbaHub(undefined);
   };
 
   const handleAddRule = (e: React.FormEvent) => {
@@ -77,18 +88,19 @@ export const DiscountRulesModal: React.FC<DiscountRulesModalProps> = ({
     if (!newRuleName.trim()) return;
 
     let desc = '';
-    const categoryLabel = newTargetClassType === 'ALL' ? 'eligible class' : `${newTargetClassType} class`;
+    const categoryLabel = `${newTargetClassType} class`;
+    const targetLabel = newAppliesToSbaHub === true ? 'SBA Hub' : newAppliesToSbaHub === false ? 'regular' : 'both regular & SBA Hub';
 
     if (newRuleType === 'percentage_multi_class') {
-      desc = `Enroll in ${newMinClasses} or more ${categoryLabel}es to save ${newPercentOff}% off ${newTargetClassType === 'ALL' ? 'tuition' : `${newTargetClassType} tuition`}. (Excludes SBA Hub)`;
+      desc = `Enroll in ${newMinClasses} or more ${categoryLabel}es to save ${newPercentOff}% off ${targetLabel} tuition.`;
     } else if (newRuleType === 'amount_threshold') {
-      desc = `Spend $${newMinAmount} or more on ${categoryLabel}es to get $${newFlatOff} off tuition. (Excludes SBA Hub)`;
+      desc = `Spend $${newMinAmount} or more to get $${newFlatOff} off total tuition.`;
     } else if (newRuleType === 'sibling') {
-      desc = `Enrolling a sibling unlocks $${newFlatOff} off tuition. (Excludes SBA Hub)`;
+      desc = `Enrolling a sibling unlocks $${newFlatOff} off tuition.`;
     } else if (newRuleType === 'promo_code') {
       desc = `Enter promo code ${newPromoCode.toUpperCase()} for ${
         newPercentOff ? `${newPercentOff}% off` : `$${newFlatOff} off`
-      } tuition. (Excludes SBA Hub)`;
+      } tuition.`;
     }
 
     if (editingRuleId) {
@@ -98,6 +110,7 @@ export const DiscountRulesModal: React.FC<DiscountRulesModalProps> = ({
         type: newRuleType,
         enabled: true,
         targetClassType: newTargetClassType,
+        appliesToSbaHub: newAppliesToSbaHub,
         minClassesRequired: newMinClasses,
         minAmountRequired: newMinAmount,
         percentageOff: newPercentOff,
@@ -114,6 +127,7 @@ export const DiscountRulesModal: React.FC<DiscountRulesModalProps> = ({
         type: newRuleType,
         enabled: true,
         targetClassType: newTargetClassType,
+        appliesToSbaHub: newAppliesToSbaHub,
         minClassesRequired: newMinClasses,
         minAmountRequired: newMinAmount,
         percentageOff: newPercentOff,
@@ -126,6 +140,7 @@ export const DiscountRulesModal: React.FC<DiscountRulesModalProps> = ({
 
     setNewRuleName('');
     setNewPromoCode('');
+    setNewAppliesToSbaHub(false);
   };
 
   const handleAddOrUpdateClassType = (e: React.FormEvent) => {
@@ -171,7 +186,7 @@ export const DiscountRulesModal: React.FC<DiscountRulesModalProps> = ({
             <div>
               <h2 className="text-base font-bold text-white">Discounts & Class Types Manager</h2>
               <p className="text-xs text-purple-200">
-                Categorize tuition discounts by class type (CSEC, CAPE, etc.) & exclude SBA Hub.
+                Categorize tuition discounts by class type (CSEC, CAPE, etc.) & include SBA Hub.
               </p>
             </div>
           </div>
@@ -211,10 +226,10 @@ export const DiscountRulesModal: React.FC<DiscountRulesModalProps> = ({
 
         <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
           {/* Important Policy Note */}
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
-            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-start gap-2">
+            <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <div>
-              <strong>Discount Policy Notice:</strong> SBA Hub offerings are strictly <u>excluded</u> from class quantity counts and tuition discount calculations. Discounts apply specifically based on the selected class types below.
+              <strong>Discount Policy Notice:</strong> SBA Hub offerings are fully <u>included</u> in tuition discount calculations. You can configure discounts based on SBA Hub as well as CSEC/CAPE grade levels.
             </div>
           </div>
 
@@ -252,6 +267,15 @@ export const DiscountRulesModal: React.FC<DiscountRulesModalProps> = ({
                             <span>{rule.name}</span>
                             <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-[10px] font-bold rounded-full border border-purple-200">
                               Target: {rule.targetClassType || 'ALL'}
+                            </span>
+                             <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                              rule.appliesToSbaHub === true
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                : rule.appliesToSbaHub === false
+                                ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                : 'bg-amber-100 text-amber-800 border-amber-200'
+                            }`}>
+                              Applies To: {rule.appliesToSbaHub === true ? 'SBA Hub' : rule.appliesToSbaHub === false ? 'Regular' : 'Both'}
                             </span>
                             {rule.code && (
                               <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-mono font-bold rounded">
@@ -302,7 +326,7 @@ export const DiscountRulesModal: React.FC<DiscountRulesModalProps> = ({
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">
                       Rule Name
@@ -326,12 +350,31 @@ export const DiscountRulesModal: React.FC<DiscountRulesModalProps> = ({
                       onChange={(e) => setNewTargetClassType(e.target.value)}
                       className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-hidden font-bold text-purple-900 bg-white"
                     >
-                      <option value="ALL">All Regular Classes (Excl. SBA Hub)</option>
                       {classTypes.map((ct) => (
                         <option key={ct.id} value={ct.code || ct.name}>
                           {ct.name} ({ct.code})
                         </option>
                       ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                      Applies To
+                    </label>
+                    <select
+                      value={newAppliesToSbaHub === true ? 'sba' : newAppliesToSbaHub === false ? 'regular' : 'both'}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'sba') setNewAppliesToSbaHub(true);
+                        else if (val === 'regular') setNewAppliesToSbaHub(false);
+                        else setNewAppliesToSbaHub(undefined);
+                      }}
+                      className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-hidden font-bold text-slate-700 bg-white"
+                    >
+                      <option value="both">Both Regular & SBA Hub</option>
+                      <option value="regular">Regular Academic Classes Only</option>
+                      <option value="sba">SBA Hub Classes Only</option>
                     </select>
                   </div>
                 </div>

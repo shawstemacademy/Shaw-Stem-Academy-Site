@@ -30,7 +30,6 @@ export const AdminFaqManagement: React.FC<AdminFaqManagementProps> = ({ faqs = [
   useEffect(() => {
     const unsub = subscribeToCollection<FaqCategory>('faqCategories', (items) => {
       if (items.length === 0) {
-        // Seed initial default categories to Firestore
         const defaults = [
           { id: 'cat-1', name: 'General Admissions' },
           { id: 'cat-2', name: 'Tuition & Payments' },
@@ -38,7 +37,6 @@ export const AdminFaqManagement: React.FC<AdminFaqManagementProps> = ({ faqs = [
           { id: 'cat-4', name: 'Google Classroom' },
           { id: 'cat-5', name: 'Schedules & Transportation' }
         ];
-        defaults.forEach(c => saveDocToFirestore('faqCategories', c.id, c));
         setCategories(defaults);
       } else {
         // Sort alphabetically
