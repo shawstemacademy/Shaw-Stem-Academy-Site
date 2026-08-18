@@ -51,7 +51,7 @@ export const SbaHubCatalog: React.FC<SbaHubCatalogProps> = ({
   const safeSbaHubOptions = sbaHubOptions || [];
   const safeEnrolledSbaHubIds = enrolledSbaHubIds || [];
   const offeredOptions = safeSbaHubOptions.filter(
-    (opt) => opt && opt.isOffered !== false && (!safeEnrolledSbaHubIds.includes(opt.id) || selectedSbaHubIds.includes(opt.id))
+    (opt) => opt && opt.isOffered !== false && !opt.isArchived && (!safeEnrolledSbaHubIds.includes(opt.id) || selectedSbaHubIds.includes(opt.id))
   );
 
   // Helper to categorize SBA Hub options based on department keywords

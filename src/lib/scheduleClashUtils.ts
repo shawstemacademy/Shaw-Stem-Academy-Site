@@ -1,4 +1,4 @@
-import { ClassItem, SbaHubOption, ScheduleClash, ClashType, ClashAdmissibility } from '../types';
+import { ClassItem, SbaHubOption, ScheduleClash, ClashType, ClashAdmissibility, DayScheduleItem } from '../types';
 
 // Convert time strings like "16:00", "4:00 PM", "04:00 PM", "9:30 AM" into minutes from midnight (0..1439)
 export function timeToMinutes(timeStr: string): number {
@@ -28,14 +28,33 @@ export function minutesToFormattedTime(totalMinutes: number): string {
   return `${hours}:${minsStr} ${ampm}`;
 }
 
+export interface DayTimeSlot {
+  day: string;
+  startMins: number;
+  endMins: number;
+  startTime: string;
+  endTime: string;
+}
+
 // Parse days from array or string like "Mondays & Wednesdays 4:00 PM - 5:30 PM"
 export function extractDaysAndTimes(item: {
   days?: string[];
   startTime?: string;
   endTime?: string;
   schedule?: string;
+  daySchedules?: DayScheduleItem[];
 }): { days: string[]; startMins: number; endMins: number } {
   let days: string[] = item.days || [];
+
+  if (item.daySchedules && item.daySchedules.length > 0) {
+    days = item.daySchedules.map((d) => d.day);
+    const first = item.daySchedules[0];
+    return {
+      days,
+      startMins: timeToMinutes(first.startTime),
+      endMins: timeToMinutes(first.endTime),
+    };
+  }
 
   if (!days || days.length === 0) {
     const text = (item.schedule || '').toLowerCase();
@@ -70,45 +89,91 @@ export function extractDaysAndTimes(item: {
   return { days, startMins, endMins };
 }
 
+// Extract all day-specific slots
+export function extractAllDaySlots(item: {
+  days?: string[];
+  startTime?: string;
+  endTime?: string;
+  schedule?: string;
+  daySchedules?: DayScheduleItem[];
+}): DayTimeSlot[] {
+  if (item.daySchedules && item.daySchedules.length > 0) {
+    return item.daySchedules.map((ds) => ({
+      day: ds.day,
+      startMins: timeToMinutes(ds.startTime),
+      endMins: timeToMinutes(ds.endTime),
+      startTime: ds.startTime,
+      endTime: ds.endTime,
+    }));
+  }
+
+  const base = extractDaysAndTimes(item);
+  return base.days.map((day) => ({
+    day,
+    startMins: base.startMins,
+    endMins: base.endMins,
+    startTime: item.startTime || minutesToFormattedTime(base.startMins),
+    endTime: item.endTime || minutesToFormattedTime(base.endMins),
+  }));
+}
+
 // Check if two schedule intervals overlap on any common day
 export function checkScheduleOverlap(
-  itemA: { id: string; title: string; days?: string[]; startTime?: string; endTime?: string; schedule?: string; location?: string; instructor?: string },
-  itemB: { id: string; title: string; days?: string[]; startTime?: string; endTime?: string; schedule?: string; location?: string; instructor?: string }
+  itemA: { id: string; title: string; days?: string[]; startTime?: string; endTime?: string; schedule?: string; location?: string; instructor?: string; daySchedules?: DayScheduleItem[] },
+  itemB: { id: string; title: string; days?: string[]; startTime?: string; endTime?: string; schedule?: string; location?: string; instructor?: string; daySchedules?: DayScheduleItem[] }
 ): { overlaps: boolean; commonDays: string[]; detail: string; clashType: ClashType } | null {
   if (itemA.id === itemB.id) return null;
 
-  const schedA = extractDaysAndTimes(itemA);
-  const schedB = extractDaysAndTimes(itemB);
+  const slotsA = extractAllDaySlots(itemA);
+  const slotsB = extractAllDaySlots(itemB);
 
-  // Find common days
-  const commonDays = schedA.days.filter((d) => schedB.days.includes(d));
-  if (commonDays.length === 0) return null;
+  const overlappingDays: string[] = [];
+  let conflictDetail = '';
+  let highestClashType: ClashType = 'time_overlap';
 
-  // Check time interval overlap: [A_start, A_end] & [B_start, B_end]
-  // Overlap condition: max(A_start, B_start) < min(A_end, B_end)
-  const maxStart = Math.max(schedA.startMins, schedB.startMins);
-  const minEnd = Math.min(schedA.endMins, schedB.endMins);
+  for (const slotA of slotsA) {
+    for (const slotB of slotsB) {
+      if (slotA.day === slotB.day) {
+        const maxStart = Math.max(slotA.startMins, slotB.startMins);
+        const minEnd = Math.min(slotA.endMins, slotB.endMins);
 
-  if (maxStart < minEnd) {
-    let clashType: ClashType = 'time_overlap';
-    let detailPrefix = `Time Overlap on ${commonDays.join(', ')}`;
+        if (maxStart < minEnd) {
+          overlappingDays.push(slotA.day);
+          let clashType: ClashType = 'time_overlap';
+          let detailPrefix = `Time Overlap on ${slotA.day}`;
 
-    if (itemA.location && itemB.location && itemA.location.toLowerCase() === itemB.location.toLowerCase()) {
-      clashType = 'room_conflict';
-      detailPrefix = `Room Conflict in ${itemA.location} on ${commonDays.join(', ')}`;
-    } else if (itemA.instructor && itemB.instructor && itemA.instructor.toLowerCase() === itemB.instructor.toLowerCase()) {
-      clashType = 'instructor_conflict';
-      detailPrefix = `Instructor Conflict (${itemA.instructor}) on ${commonDays.join(', ')}`;
+          if (itemA.location && itemB.location && itemA.location.toLowerCase() === itemB.location.toLowerCase()) {
+            clashType = 'room_conflict';
+            detailPrefix = `Room Conflict in ${itemA.location} on ${slotA.day}`;
+            highestClashType = 'room_conflict';
+          } else if (
+            itemA.instructor &&
+            itemB.instructor &&
+            itemA.instructor.toLowerCase() === itemB.instructor.toLowerCase() &&
+            !itemA.instructor.toLowerCase().includes('vacant') &&
+            !itemA.instructor.toLowerCase().includes('staff') &&
+            !itemA.instructor.toLowerCase().includes('tbd')
+          ) {
+            clashType = 'instructor_conflict';
+            detailPrefix = `Instructor Conflict (${itemA.instructor}) on ${slotA.day}`;
+            if (highestClashType !== 'room_conflict') highestClashType = 'instructor_conflict';
+          }
+
+          const timeRangeStr = `${minutesToFormattedTime(slotA.startMins)}-${minutesToFormattedTime(slotA.endMins)} vs ${minutesToFormattedTime(slotB.startMins)}-${minutesToFormattedTime(slotB.endMins)}`;
+          if (!conflictDetail) {
+            conflictDetail = `${detailPrefix} (${timeRangeStr})`;
+          }
+        }
+      }
     }
+  }
 
-    const timeRangeStr = `${minutesToFormattedTime(schedA.startMins)}-${minutesToFormattedTime(schedA.endMins)} vs ${minutesToFormattedTime(schedB.startMins)}-${minutesToFormattedTime(schedB.endMins)}`;
-    const detail = `${detailPrefix} (${timeRangeStr})`;
-
+  if (overlappingDays.length > 0) {
     return {
       overlaps: true,
-      commonDays,
-      detail,
-      clashType,
+      commonDays: Array.from(new Set(overlappingDays)),
+      detail: conflictDetail || `Overlap on ${overlappingDays.join(', ')}`,
+      clashType: highestClashType,
     };
   }
 

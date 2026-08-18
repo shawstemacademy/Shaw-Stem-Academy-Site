@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ClassItem, SbaHubOption, ClassType, Department, SchoolUser, LocationOption } from '../types';
 import { formatUSD } from '../lib/formatCurrency';
 import { formatPricePeriod } from '../lib/paymentUtils';
-import { alignClassesWithSummerSchedule } from '../lib/summerSchedule';
+import { BatchScheduleModal } from './BatchScheduleModal';
 import {
   Database,
   CheckCircle,
@@ -31,6 +31,11 @@ import {
   Sparkles,
   Copy,
   RefreshCw,
+  Archive,
+  ArchiveRestore,
+  FolderArchive,
+  AlertCircle,
+  Check,
 } from 'lucide-react';
 
 interface CourseBankManagerProps {
@@ -243,8 +248,115 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
     setSelectedIds([]);
   };
 
-  const [statusFilter, setStatusFilter] = useState<'all' | 'offered' | 'bank'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'offered' | 'bank' | 'archived'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [notificationMessage, setNotificationMessage] = useState<{ text: string; type: 'success' | 'info' } | null>(null);
+
+  // Batch Archive Selected Courses from Course Bank
+  const handleBatchArchive = () => {
+    if (selectedIds.length === 0) return;
+    const now = new Date().toISOString();
+    const count = selectedIds.length;
+
+    if (activeTab === 'classes') {
+      const updatedClassList = classList.map((c) =>
+        selectedIds.includes(c.id)
+          ? { ...c, isArchived: true, isOffered: false, archivedAt: now }
+          : c
+      );
+      onUpdateClassList(updatedClassList);
+    } else {
+      const updatedSbaHubOptions = sbaHubOptions.map((s) =>
+        selectedIds.includes(s.id)
+          ? { ...s, isArchived: true, isOffered: false, archivedAt: now }
+          : s
+      );
+      onUpdateSbaHubOptions(updatedSbaHubOptions);
+    }
+
+    setNotificationMessage({
+      text: `Successfully archived ${count} course${count > 1 ? 's' : ''} from the active Course Bank.`,
+      type: 'success',
+    });
+    setSelectedIds([]);
+  };
+
+  // Batch Unarchive / Restore Courses back to Course Bank
+  const handleBatchUnarchive = (restoreAsOffered = false) => {
+    if (selectedIds.length === 0) return;
+    const count = selectedIds.length;
+
+    if (activeTab === 'classes') {
+      const updatedClassList = classList.map((c) =>
+        selectedIds.includes(c.id)
+          ? { ...c, isArchived: false, isOffered: restoreAsOffered, archivedAt: undefined }
+          : c
+      );
+      onUpdateClassList(updatedClassList);
+    } else {
+      const updatedSbaHubOptions = sbaHubOptions.map((s) =>
+        selectedIds.includes(s.id)
+          ? { ...s, isArchived: false, isOffered: restoreAsOffered, archivedAt: undefined }
+          : s
+      );
+      onUpdateSbaHubOptions(updatedSbaHubOptions);
+    }
+
+    setNotificationMessage({
+      text: `Restored ${count} course${count > 1 ? 's' : ''} back to ${restoreAsOffered ? 'Active Offered Courses' : 'Course Bank'}.`,
+      type: 'success',
+    });
+    setSelectedIds([]);
+  };
+
+  // Single Course Archive / Unarchive Toggles
+  const handleToggleArchiveClass = (classId: string) => {
+    const target = classList.find((c) => c.id === classId);
+    if (!target) return;
+    const willArchive = !target.isArchived;
+
+    const updated = classList.map((c) =>
+      c.id === classId
+        ? {
+            ...c,
+            isArchived: willArchive,
+            isOffered: willArchive ? false : c.isOffered,
+            archivedAt: willArchive ? new Date().toISOString() : undefined,
+          }
+        : c
+    );
+    onUpdateClassList(updated);
+    setNotificationMessage({
+      text: willArchive
+        ? `Archived "${target.title}" from active Course Bank.`
+        : `Restored "${target.title}" to Course Bank.`,
+      type: 'info',
+    });
+  };
+
+  const handleToggleArchiveSba = (sbaId: string) => {
+    const target = sbaHubOptions.find((s) => s.id === sbaId);
+    if (!target) return;
+    const willArchive = !target.isArchived;
+
+    const updated = sbaHubOptions.map((s) =>
+      s.id === sbaId
+        ? {
+            ...s,
+            isArchived: willArchive,
+            isOffered: willArchive ? false : s.isOffered,
+            archivedAt: willArchive ? new Date().toISOString() : undefined,
+          }
+        : s
+    );
+    onUpdateSbaHubOptions(updated);
+    setNotificationMessage({
+      text: willArchive
+        ? `Archived "${target.name}" from active Course Bank.`
+        : `Restored "${target.name}" to Course Bank.`,
+      type: 'info',
+    });
+  };
   const [sortOrder, setSortOrder] = useState<'alpha-asc' | 'alpha-desc' | 'price-asc' | 'price-desc'>('alpha-asc');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [classTypeFilter, setClassTypeFilter] = useState<string>('all');
@@ -269,15 +381,8 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
     onUpdateClassList(updated);
   };
 
-  const handleAlignWithSummerSchedule = () => {
-    const { updatedClasses, changedCount } = alignClassesWithSummerSchedule(classList);
-    if (changedCount > 0) {
-      onUpdateClassList(updatedClasses);
-      alert(`Successfully aligned ${changedCount} classes with the official Summer School Schedule (pushed 3 hours ahead, earliest start 5:00 PM)!`);
-    } else {
-      alert(`All matching classes are already perfectly aligned with the official Summer School Schedule!`);
-    }
-  };
+  // Batch Schedule Modal State
+  const [isBatchScheduleModalOpen, setIsBatchScheduleModalOpen] = useState(false);
 
   // Form Modal for Adding/Editing Course
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -603,8 +708,19 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
     .filter((c) => {
       if (!c) return false;
       const isOff = c.isOffered !== false;
-      const matchesStatus =
-        statusFilter === 'all' || (statusFilter === 'offered' && isOff) || (statusFilter === 'bank' && !isOff);
+      const isArchived = Boolean(c.isArchived);
+
+      let matchesStatus = false;
+      if (statusFilter === 'all') {
+        matchesStatus = !isArchived;
+      } else if (statusFilter === 'offered') {
+        matchesStatus = !isArchived && isOff;
+      } else if (statusFilter === 'bank') {
+        matchesStatus = !isArchived && !isOff;
+      } else if (statusFilter === 'archived') {
+        matchesStatus = isArchived;
+      }
+
       const matchesSearch =
         (c.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (c.instructor || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -633,8 +749,19 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
     .filter((s) => {
       if (!s) return false;
       const isOff = s.isOffered !== false;
-      const matchesStatus =
-        statusFilter === 'all' || (statusFilter === 'offered' && isOff) || (statusFilter === 'bank' && !isOff);
+      const isArchived = Boolean(s.isArchived);
+
+      let matchesStatus = false;
+      if (statusFilter === 'all') {
+        matchesStatus = !isArchived;
+      } else if (statusFilter === 'offered') {
+        matchesStatus = !isArchived && isOff;
+      } else if (statusFilter === 'bank') {
+        matchesStatus = !isArchived && !isOff;
+      } else if (statusFilter === 'archived') {
+        matchesStatus = isArchived;
+      }
+
       const matchesSearch =
         (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (s.instructor || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -688,6 +815,14 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
 
         <div className="flex items-center gap-2 shrink-0">
           <button
+            onClick={() => setIsBatchScheduleModalOpen(true)}
+            className="px-3.5 py-2.5 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+            title="Batch Schedule Classes and Courses"
+          >
+            <Calendar className="w-4 h-4 text-purple-200" />
+            <span>Batch Schedule</span>
+          </button>
+          <button
             onClick={() => setIsLocationsModalOpen(true)}
             className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2"
           >
@@ -712,8 +847,35 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
       </div>
 
       <div className="p-6 space-y-6">
+        {/* Notification Banner */}
+        {notificationMessage && (
+          <div
+            className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 ${
+              notificationMessage.type === 'success'
+                ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                : 'bg-blue-50 text-blue-900 border-blue-200'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              {notificationMessage.type === 'success' ? (
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <Info className="w-4 h-4 text-blue-600 shrink-0" />
+              )}
+              <p className="text-xs font-bold">{notificationMessage.text}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNotificationMessage(null)}
+              className="text-xs font-semibold p-1 hover:bg-black/5 rounded-lg"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Navigation Tabs */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => {
@@ -727,7 +889,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              <span>Regular Classes Bank ({classList.length})</span>
+              <span>Regular Classes Bank ({classList.filter((c) => !c.isArchived).length})</span>
             </button>
             <button
               onClick={() => {
@@ -741,23 +903,53 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
               }`}
             >
               <Tag className="w-4 h-4" />
-              <span>SBA Hub Courses Bank ({sbaHubOptions.length})</span>
+              <span>SBA Hub Courses Bank ({sbaHubOptions.filter((s) => !s.isArchived).length})</span>
             </button>
           </div>
 
-          {/* Offering Status Filter */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-            {(['all', 'offered', 'bank'] as const).map((st) => (
-              <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all ${
-                  statusFilter === st ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {st === 'all' ? 'Show All' : st === 'offered' ? 'Offered Only' : 'Course Bank Only'}
-              </button>
-            ))}
+          {/* Offering & Archive Status Filter */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl flex-wrap">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                statusFilter === 'all'
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Active Courses ({activeTab === 'classes' ? classList.filter((c) => !c.isArchived).length : sbaHubOptions.filter((s) => !s.isArchived).length})
+            </button>
+            <button
+              onClick={() => setStatusFilter('offered')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                statusFilter === 'offered'
+                  ? 'bg-white text-emerald-800 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Offered in Form ({activeTab === 'classes' ? classList.filter((c) => !c.isArchived && c.isOffered !== false).length : sbaHubOptions.filter((s) => !s.isArchived && s.isOffered !== false).length})
+            </button>
+            <button
+              onClick={() => setStatusFilter('bank')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                statusFilter === 'bank'
+                  ? 'bg-white text-purple-800 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Bank Only ({activeTab === 'classes' ? classList.filter((c) => !c.isArchived && c.isOffered === false).length : sbaHubOptions.filter((s) => !s.isArchived && s.isOffered === false).length})
+            </button>
+            <button
+              onClick={() => setStatusFilter('archived')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                statusFilter === 'archived'
+                  ? 'bg-amber-100 text-amber-900 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-amber-800'
+              }`}
+            >
+              <Archive className="w-3 h-3 text-amber-600" />
+              <span>Archived ({activeTab === 'classes' ? classList.filter((c) => Boolean(c.isArchived)).length : sbaHubOptions.filter((s) => Boolean(s.isArchived)).length})</span>
+            </button>
           </div>
         </div>
 
@@ -896,54 +1088,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
           </div>
         )}
 
-        {/* Summer School Schedule Alignment Banner */}
-        {activeTab === 'classes' && (
-          (() => {
-            const { changedCount } = alignClassesWithSummerSchedule(classList);
-            if (changedCount > 0) {
-              return (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
-                  <div className="flex items-center gap-2.5">
-                    <Calendar className="w-5 h-5 text-emerald-600 shrink-0" />
-                    <div>
-                      <p className="text-xs font-bold text-emerald-900">
-                        Official Summer School Schedule Sync Available ({changedCount} course{changedCount > 1 ? 's' : ''} can be aligned)
-                      </p>
-                      <p className="text-[11px] text-emerald-700 mt-0.5">
-                        Aligns schedules with the official Shaw STEM Academy Summer Timetable (shifted 3 hours ahead; earliest start at 5:00 PM). Matches existing database classes (Chemistry, Physics, Math, Integrated Science, Biology).
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAlignWithSummerSchedule}
-                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Sync {changedCount} Classes</span>
-                  </button>
-                </div>
-              );
-            }
-            return (
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" />
-                  <span className="text-xs text-slate-600 font-medium">
-                    All matching classes are perfectly aligned with the official Summer School Schedule (shifted 3 hours ahead; earliest start at 5:00 PM).
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAlignWithSummerSchedule}
-                  className="px-2.5 py-1 text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg transition-all cursor-pointer"
-                >
-                  Force Re-Sync
-                </button>
-              </div>
-            );
-          })()
-        )}
+
 
         {/* Bulk Selection and Conversion Action Bar */}
         <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3 shadow-2xs">
@@ -967,8 +1112,51 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
 
           {selectedIds.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0 justify-end">
-              {activeTab === 'classes' ? (
+              {statusFilter === 'archived' ? (
                 <>
+                  <button
+                    type="button"
+                    onClick={() => handleBatchUnarchive(false)}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+                    title="Restore selected courses to active Course Bank"
+                  >
+                    <ArchiveRestore className="w-3.5 h-3.5" />
+                    <span>Restore to Bank ({selectedIds.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBatchUnarchive(true)}
+                    className="px-3.5 py-1.5 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+                    title="Restore selected courses and tag them as Offered in student registration forms"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Restore & Offer ({selectedIds.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to delete ${selectedIds.length} selected archived courses?`)) {
+                        handleDeleteSelected();
+                      }
+                    }}
+                    className="px-3.5 py-1.5 bg-white border border-red-300 text-red-600 hover:bg-red-50 text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+                    title="Delete selected courses permanently"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete ({selectedIds.length})</span>
+                  </button>
+                </>
+              ) : activeTab === 'classes' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsBatchScheduleModalOpen(true)}
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+                    title="Batch Schedule selected classes"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Batch Schedule ({selectedIds.length})</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleConvertClassesToSba}
@@ -989,6 +1177,15 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                   </button>
                   <button
                     type="button"
+                    onClick={handleBatchArchive}
+                    className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+                    title="Batch Archive selected classes from Course Bank"
+                  >
+                    <Archive className="w-3.5 h-3.5" />
+                    <span>Batch Archive ({selectedIds.length})</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => {
                       if (window.confirm(`Are you sure you want to delete ${selectedIds.length} selected classes?`)) {
                         handleDeleteSelected();
@@ -1003,6 +1200,15 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                 </>
               ) : (
                 <>
+                  <button
+                    type="button"
+                    onClick={() => setIsBatchScheduleModalOpen(true)}
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+                    title="Batch Schedule selected SBA Hub courses"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Batch Schedule ({selectedIds.length})</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleConvertSbaToClasses}
@@ -1020,6 +1226,15 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                   >
                     <Copy className="w-3.5 h-3.5" />
                     <span>Duplicate to Regular ({selectedIds.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBatchArchive}
+                    className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+                    title="Batch Archive selected SBA courses from Course Bank"
+                  >
+                    <Archive className="w-3.5 h-3.5" />
+                    <span>Batch Archive ({selectedIds.length})</span>
                   </button>
                   <button
                     type="button"
@@ -1053,17 +1268,29 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
             {filteredClasses.length === 0 ? (
               <div className="col-span-full p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-2">
                 <BookOpen className="w-8 h-8 text-slate-400 mx-auto" />
-                <p className="text-sm font-bold text-slate-700">No courses match your filter criteria</p>
-                <p className="text-xs text-slate-500">Try adjusting your department filter, class type filter, or search query.</p>
+                <p className="text-sm font-bold text-slate-700">
+                  {statusFilter === 'archived'
+                    ? 'No archived regular classes found'
+                    : 'No courses match your filter criteria'}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {statusFilter === 'archived'
+                    ? 'Courses archived from the course bank will appear here and can be restored at any time.'
+                    : 'Try adjusting your department filter, class type filter, or search query.'}
+                </p>
               </div>
             ) : (
               filteredClasses.map((cls) => {
                 const isOfferedNow = cls.isOffered !== false;
+                const isArchived = Boolean(cls.isArchived);
+
                 return (
                   <div
                     key={cls.id}
                     className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
-                      isOfferedNow
+                      isArchived
+                        ? 'bg-amber-50/40 border-amber-200/80 shadow-2xs'
+                        : isOfferedNow
                         ? 'bg-white border-slate-200 shadow-2xs hover:border-purple-300'
                         : 'bg-slate-50 border-slate-200 opacity-75'
                     }`}
@@ -1081,15 +1308,22 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                           />
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span
-                                className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
-                                  isOfferedNow
-                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                    : 'bg-slate-200 text-slate-700'
-                                }`}
-                              >
-                                {isOfferedNow ? 'Offered in Form' : 'In Course Bank'}
-                              </span>
+                              {isArchived ? (
+                                <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                                  <Archive className="w-2.5 h-2.5" />
+                                  <span>Archived in Bank</span>
+                                </span>
+                              ) : (
+                                <span
+                                  className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
+                                    isOfferedNow
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                      : 'bg-slate-200 text-slate-700'
+                                  }`}
+                                >
+                                  {isOfferedNow ? 'Offered in Form' : 'In Course Bank'}
+                                </span>
+                              )}
 
                               {cls.classType && (
                                 <span className="px-2 py-0.5 text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200 rounded-full">
@@ -1205,23 +1439,67 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                   </div>
 
                   {/* Actions Footer */}
-                  <div className="pt-4 mt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleClassOffered(cls.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
-                        isOfferedNow
-                          ? 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
-                          : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                      }`}
-                    >
-                      {isOfferedNow ? <ToggleRight className="w-4 h-4 text-amber-600" /> : <ToggleLeft className="w-4 h-4" />}
-                      <span>{isOfferedNow ? 'Untag (Archive to Bank)' : 'Tag as Offered'}</span>
-                    </button>
+                  <div className="pt-4 mt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                    {isArchived ? (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleArchiveClass(cls.id)}
+                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                          title="Restore this course to active Course Bank"
+                        >
+                          <ArchiveRestore className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Restore to Bank</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = classList.map((c) =>
+                              c.id === cls.id ? { ...c, isArchived: false, isOffered: true, archivedAt: undefined } : c
+                            );
+                            onUpdateClassList(updated);
+                            setNotificationMessage({
+                              text: `Restored "${cls.title}" and tagged as Offered.`,
+                              type: 'success',
+                            });
+                          }}
+                          className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                          title="Restore and immediately tag as Offered in registration forms"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          <span>Restore & Offer</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleClassOffered(cls.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                            isOfferedNow
+                              ? 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                              : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          }`}
+                        >
+                          {isOfferedNow ? <ToggleRight className="w-4 h-4 text-amber-600" /> : <ToggleLeft className="w-4 h-4" />}
+                          <span>{isOfferedNow ? 'Untag (In Bank Only)' : 'Tag as Offered'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleArchiveClass(cls.id)}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-800 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Archive this course from active Course Bank"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                          <span>Archive</span>
+                        </button>
+                      </div>
+                    )}
 
                     <button
                       onClick={() => handleOpenEditClass(cls)}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1"
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
                     >
                       <Edit className="w-3.5 h-3.5" />
                       <span>Edit</span>
@@ -1237,17 +1515,29 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
             {filteredSba.length === 0 ? (
               <div className="col-span-full p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-2">
                 <Tag className="w-8 h-8 text-slate-400 mx-auto" />
-                <p className="text-sm font-bold text-slate-700">No SBA Hub courses match your filter criteria</p>
-                <p className="text-xs text-slate-500">Try adjusting your class type filter or search query.</p>
+                <p className="text-sm font-bold text-slate-700">
+                  {statusFilter === 'archived'
+                    ? 'No archived SBA Hub courses found'
+                    : 'No SBA Hub courses match your filter criteria'}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {statusFilter === 'archived'
+                    ? 'SBA courses archived from the course bank will appear here and can be restored at any time.'
+                    : 'Try adjusting your class type filter or search query.'}
+                </p>
               </div>
             ) : (
               filteredSba.map((sba) => {
                 const isOfferedNow = sba.isOffered !== false;
+                const isArchived = Boolean(sba.isArchived);
+
                 return (
                   <div
                     key={sba.id}
                     className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
-                      isOfferedNow
+                      isArchived
+                        ? 'bg-amber-50/40 border-amber-200/80 shadow-2xs'
+                        : isOfferedNow
                         ? 'bg-white border-slate-200 shadow-2xs hover:border-purple-300'
                         : 'bg-slate-50 border-slate-200 opacity-75'
                     }`}
@@ -1264,15 +1554,22 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                             title="Select course for bulk actions"
                           />
                           <div>
-                            <span
-                              className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
-                                isOfferedNow
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                  : 'bg-slate-200 text-slate-700'
-                              }`}
-                            >
-                              {isOfferedNow ? 'Offered in Form' : 'In Course Bank'}
-                            </span>
+                            {isArchived ? (
+                              <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                                <Archive className="w-2.5 h-2.5" />
+                                <span>Archived in Bank</span>
+                              </span>
+                            ) : (
+                              <span
+                                className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
+                                  isOfferedNow
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    : 'bg-slate-200 text-slate-700'
+                                }`}
+                              >
+                                {isOfferedNow ? 'Offered in Form' : 'In Course Bank'}
+                              </span>
+                            )}
                             <h3 className="text-sm font-bold text-slate-900 mt-1">{sba.name}</h3>
                             <p className="text-xs font-semibold mt-0.5 inline-flex items-center gap-1.5 text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
                               <Tag className="w-3 h-3 text-purple-600" />
@@ -1338,23 +1635,67 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
                       </div>
                     </div>
 
-                    <div className="pt-4 mt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleSbaOffered(sba.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
-                          isOfferedNow
-                            ? 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
-                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                        }`}
-                      >
-                        {isOfferedNow ? <ToggleRight className="w-4 h-4 text-amber-600" /> : <ToggleLeft className="w-4 h-4" />}
-                        <span>{isOfferedNow ? 'Untag (Archive to Bank)' : 'Tag as Offered'}</span>
-                      </button>
+                    <div className="pt-4 mt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                      {isArchived ? (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleArchiveSba(sba.id)}
+                            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                            title="Restore this SBA course to active Course Bank"
+                          >
+                            <ArchiveRestore className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Restore to Bank</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = sbaHubOptions.map((s) =>
+                                s.id === sba.id ? { ...s, isArchived: false, isOffered: true, archivedAt: undefined } : s
+                              );
+                              onUpdateSbaHubOptions(updated);
+                              setNotificationMessage({
+                                text: `Restored "${sba.name}" and tagged as Offered.`,
+                                type: 'success',
+                              });
+                            }}
+                            className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                            title="Restore and immediately tag as Offered in registration forms"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            <span>Restore & Offer</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSbaOffered(sba.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                              isOfferedNow
+                                ? 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                            }`}
+                          >
+                            {isOfferedNow ? <ToggleRight className="w-4 h-4 text-amber-600" /> : <ToggleLeft className="w-4 h-4" />}
+                            <span>{isOfferedNow ? 'Untag (In Bank Only)' : 'Tag as Offered'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleArchiveSba(sba.id)}
+                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-800 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Archive this SBA course from active Course Bank"
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                            <span>Archive</span>
+                          </button>
+                        </div>
+                      )}
 
                       <button
                         onClick={() => handleOpenEditSba(sba)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1"
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
                       >
                         <Edit className="w-3.5 h-3.5" />
                         <span>Edit</span>
@@ -2016,6 +2357,25 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
           </div>
         </div>
       )}
+
+      {/* Batch Schedule Modal */}
+      <BatchScheduleModal
+        isOpen={isBatchScheduleModalOpen}
+        onClose={() => setIsBatchScheduleModalOpen(false)}
+        targetType={activeTab === 'classes' ? 'classes' : 'sba'}
+        selectedClasses={selectedIds.length > 0 ? classList.filter((c) => selectedIds.includes(c.id)) : classList}
+        selectedSbaOptions={selectedIds.length > 0 ? sbaHubOptions.filter((s) => selectedIds.includes(s.id)) : sbaHubOptions}
+        allClasses={classList}
+        allSbaOptions={sbaHubOptions}
+        locations={locations || []}
+        schoolUsers={users || []}
+        onApplyClasses={(updated) => {
+          onUpdateClassList(updated);
+        }}
+        onApplySbaOptions={(updated) => {
+          onUpdateSbaHubOptions(updated);
+        }}
+      />
     </div>
   );
 };

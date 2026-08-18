@@ -14,6 +14,12 @@ export interface ClassType {
   isVisibleToStudents?: boolean;
 }
 
+export interface DayScheduleItem {
+  day: string; // e.g. 'Monday', 'Tuesday', etc.
+  startTime: string; // e.g. '17:00' or '05:00 PM'
+  endTime: string; // e.g. '18:00' or '06:00 PM'
+}
+
 export interface ClassItem {
   id: string;
   title: string;
@@ -32,18 +38,23 @@ export interface ClassItem {
   syllabusUrl?: string;
   zoomLink?: string;
   
-  // Course Bank offering tag
+  // Course Bank offering & archive tags
   isOffered?: boolean; // true = Offered / Active; false = In Bank / Not Offered
+  isArchived?: boolean; // true = Archived in Course Bank (hidden from active listings/forms unless viewing archived)
+  archivedAt?: string; // ISO timestamp when archived in course bank
 
   // Structured Schedule for Clash Detection
   days?: string[]; // e.g., ['Monday', 'Wednesday']
   startTime?: string; // e.g., '16:00' or '04:00 PM'
   endTime?: string; // e.g., '17:30' or '05:30 PM'
+  daySchedules?: DayScheduleItem[]; // Optional per-day distinct start and end times
 
   // Google Classroom Integration
   googleClassroomUrl?: string;
   googleClassroomCode?: string;
   googleMeetUrl?: string;
+  instructorId?: string;
+  teacherId?: string;
 
   // Lateness Push Notification Trigger
   autoLatenessAlertEnabled?: boolean;
@@ -86,15 +97,20 @@ export interface SbaHubOption {
   pricePeriod?: 'yr' | 'week' | 'month' | 'one-time';
   capacity?: number;
 
-  // Course Bank offering tag
+  // Course Bank offering & archive tags
   isOffered?: boolean; // true = Offered / Active; false = In Bank / Not Offered
+  isArchived?: boolean; // true = Archived in Course Bank (hidden from active listings/forms unless viewing archived)
+  archivedAt?: string; // ISO timestamp when archived in course bank
 
   // Structured Schedule for Clash Detection
   days?: string[];
   startTime?: string;
   endTime?: string;
+  daySchedules?: DayScheduleItem[]; // Optional per-day distinct start and end times
   location?: string;
   instructor?: string;
+  instructorId?: string;
+  teacherId?: string;
 
   // Google Classroom Integration
   googleClassroomUrl?: string;

@@ -55,10 +55,10 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
   const [sortOrder, setSortOrder] = useState<'alpha-asc' | 'alpha-desc' | 'price-asc' | 'price-desc'>('alpha-asc');
   const [isCollapsed, setIsCollapsed] = useState(true);
 
-  // ONLY show courses where isOffered !== false and student is NOT currently registered for
+  // ONLY show courses where isOffered !== false, isArchived is not true, and student is NOT currently registered for
   const safeClassList = classList || [];
   const safeEnrolledIds = enrolledClassIds || [];
-  const offeredClasses = safeClassList.filter((cls) => cls && cls.isOffered !== false);
+  const offeredClasses = safeClassList.filter((cls) => cls && cls.isOffered !== false && !cls.isArchived);
   const unregisteredOfferedClasses = offeredClasses.filter(
     (cls) => !safeEnrolledIds.includes(cls.id) || selectedClassIds.includes(cls.id)
   );

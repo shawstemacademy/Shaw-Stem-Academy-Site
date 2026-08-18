@@ -27,10 +27,6 @@ export const AdminNewsManagement: React.FC<AdminNewsManagementProps> = ({
   const userDeptId = loggedInUser?.departmentId;
   const userDeptName = loggedInUser?.departmentName || loggedInUser?.department;
 
-  if (!isAuthorized) {
-    return null;
-  }
-
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -255,6 +251,10 @@ export const AdminNewsManagement: React.FC<AdminNewsManagementProps> = ({
       setMessage({ type: 'error', text: 'Failed to delete news article.' });
     }
   };
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">

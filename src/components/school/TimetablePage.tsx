@@ -29,7 +29,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { ClassItem, SbaHubOption, ClassType, SchoolUser, TeacherProfile, PortalTab } from '../../types';
-import { extractDaysAndTimes, minutesToFormattedTime } from '../../lib/scheduleClashUtils';
+import { extractDaysAndTimes, minutesToFormattedTime, timeToMinutes } from '../../lib/scheduleClashUtils';
 import { formatUSD } from '../../lib/formatCurrency';
 import { formatPricePeriod } from '../../lib/paymentUtils';
 
@@ -360,7 +360,21 @@ export const TimetablePage: React.FC<TimetablePageProps> = ({
     filteredItems.forEach((item) => {
       item.days.forEach((day) => {
         if (map[day]) {
-          map[day].push(item);
+          const rawItem = item.rawClassItem || item.rawSbaOption;
+          const daySched = rawItem?.daySchedules?.find((ds) => ds.day === day);
+          if (daySched) {
+            const startMins = timeToMinutes(daySched.startTime);
+            const endMins = timeToMinutes(daySched.endTime);
+            map[day].push({
+              ...item,
+              startMins,
+              endMins,
+              startTimeFormatted: minutesToFormattedTime(startMins),
+              endTimeFormatted: minutesToFormattedTime(endMins),
+            });
+          } else {
+            map[day].push(item);
+          }
         }
       });
     });
