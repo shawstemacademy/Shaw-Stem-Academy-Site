@@ -22,6 +22,7 @@ import {
   deleteAllSiteData,
   testFirestoreConnection,
   subscribeToCollection, subscribeToCollectionWhere,
+  subscribeToDocument,
   saveDocToFirestore,
   deleteDocFromFirestore,
   saveUserToFirestore,
@@ -69,6 +70,7 @@ import {
   SectionOrderItem,
   DEFAULT_STUDENT_SECTION_ORDER,
   DEFAULT_TEACHER_SECTION_ORDER,
+  OurSchoolPageData,
 } from './types';
 import { detectScheduleClashes } from './lib/scheduleClashUtils';
 import {
@@ -89,11 +91,13 @@ import {
   DEMO_ROLE_PERMISSIONS,
   DEMO_SYSTEM_LOGS,
   DEFAULT_ACADEMY_INFO,
-  DEFAULT_FEATURE_CARDS
+  DEFAULT_FEATURE_CARDS,
+  DEFAULT_OUR_SCHOOL_DATA
 } from './data/schoolDemoData';
 
 import { SchoolHeaderNav } from './components/school/SchoolHeaderNav';
 import { SchoolHomePage } from './components/school/SchoolHomePage';
+import { OurSchoolPage } from './components/school/OurSchoolPage';
 import { AcademicsPage } from './components/school/AcademicsPage';
 import { StudentPortalPage } from './components/school/StudentPortalPage';
 import { TeacherDashboardPage } from './components/school/TeacherDashboardPage';
@@ -273,7 +277,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
     if (tabParam) {
-      const allowedTabs: PortalTab[] = ['home', 'privacy', 'terms', 'login', 'academics', 'student-portal', 'teacher-dashboard', 'admin-dashboard', 'admissions', 'registration', 'user-manual'];
+      const allowedTabs: PortalTab[] = ['home', 'our-school', 'privacy', 'terms', 'login', 'academics', 'student-portal', 'teacher-dashboard', 'admin-dashboard', 'admissions', 'registration', 'user-manual'];
       if (allowedTabs.includes(tabParam as PortalTab)) {
         setActiveTab(tabParam as PortalTab);
       }
@@ -287,6 +291,7 @@ export default function App() {
   });
 
   // School Demo State
+  const [ourSchoolData, setOurSchoolData] = useState<OurSchoolPageData>(DEFAULT_OUR_SCHOOL_DATA);
   const [teacherProfiles, setTeacherProfiles] = useState<TeacherProfile[]>([]);
   const [resources, setResources] = useState<TeacherResource[]>([]);
   const [announcements, setAnnouncements] = useState<ClassAnnouncement[]>([]);
@@ -998,6 +1003,11 @@ export default function App() {
       subscribeToCollection<AddDropRequest>('addDropRequests', (data) => setAddDropRequests(data || [])),
       subscribeToCollection<FaqItem>('faqs', (data) => setFaqs(data || [])),
       subscribeToCollection<AcademyInfo>('academyInfo', (data) => setAcademyInfo((data && data[0]) || DEFAULT_ACADEMY_INFO)),
+      subscribeToDocument<OurSchoolPageData>('ourSchool', 'pageData', (data) => {
+        if (data) {
+          setOurSchoolData(data);
+        }
+      }),
       subscribeToCollection<ClassClaimItem>('classClaims', (data) => setClaims(data || [])),
       subscribeToCollection<TeacherHourlyRate>('hourlyRates', (data) => setHourlyRates(data || [])),
       subscribeToCollection<LandingPageSettings>('landingPageSettings', (data) => {
@@ -3502,6 +3512,24 @@ export default function App() {
               onUpdateLandingPageSettings={async (newSettings) => {
                 setLandingPageSettings(newSettings);
                 await saveDocToFirestore('landingPageSettings', 'general', newSettings);
+              }}
+              onUpdateFeatureCards={async (updatedCards) => {
+                setFeatureCards(updatedCards);
+                for (const card of updatedCards) {
+                  await saveDocToFirestore('featureCards', card.id, card);
+                }
+              }}
+            />
+          )}
+
+          {activeTab === 'our-school' && (
+            <OurSchoolPage
+              data={ourSchoolData}
+              schoolUsers={schoolUsers}
+              isAdmin={loggedInUser?.role === 'admin' || user?.role === 'admin'}
+              onUpdateData={async (newData) => {
+                setOurSchoolData(newData);
+                await saveDocToFirestore('ourSchool', 'pageData', newData);
               }}
             />
           )}

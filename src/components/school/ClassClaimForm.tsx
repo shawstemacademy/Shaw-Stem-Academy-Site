@@ -115,13 +115,58 @@ export const ClassClaimForm: React.FC<ClassClaimFormProps> = ({
   const resolvedTeacherUser = users.find((u) => u.id === resolvedTeacherId) || currentUser;
   const resolvedTeacherName = resolvedTeacherUser?.name || activeUserName;
 
+  // Resolve Default Pay Rate
+  const getDefaultPayRate = (): number => {
+    const defaultRecord = (hourlyRates || []).find(
+      (r) => r.userId === '__DEFAULT_PAY_RATE__' || r.userId === 'DEFAULT_RATE'
+    );
+    return defaultRecord ? defaultRecord.hourlyRate : 40.0;
+  };
+
+  const defaultPayRate = getDefaultPayRate();
+
   // Resolve Hourly Rate for Teacher
   const getTeacherHourlyRate = (tId: string): number => {
-    const foundRate = hourlyRates.find((r) => r.userId === tId);
-    return foundRate ? foundRate.hourlyRate : 40.0; // Default $40/hr
+    const foundRate = (hourlyRates || []).find(
+      (r) => r.userId === tId && r.userId !== '__DEFAULT_PAY_RATE__' && r.userId !== 'DEFAULT_RATE'
+    );
+    return foundRate ? foundRate.hourlyRate : defaultPayRate;
   };
 
   const currentTeacherRate = getTeacherHourlyRate(resolvedTeacherId);
+
+  // Default Pay Rate Editing State
+  const [isEditingDefaultRate, setIsEditingDefaultRate] = useState(false);
+  const [defaultRateInput, setDefaultRateInput] = useState<string>(defaultPayRate.toString());
+
+  const handleSaveDefaultPayRate = () => {
+    const val = parseFloat(defaultRateInput);
+    if (isNaN(val) || val < 0) {
+      alert('Please enter a valid non-negative hourly rate (e.g. 45.00).');
+      return;
+    }
+    const updatedRates = [...(hourlyRates || [])];
+    const idx = updatedRates.findIndex(
+      (r) => r.userId === '__DEFAULT_PAY_RATE__' || r.userId === 'DEFAULT_RATE'
+    );
+    if (idx >= 0) {
+      updatedRates[idx] = {
+        userId: '__DEFAULT_PAY_RATE__',
+        userName: 'Default Faculty Hourly Rate',
+        hourlyRate: val,
+      };
+    } else {
+      updatedRates.push({
+        userId: '__DEFAULT_PAY_RATE__',
+        userName: 'Default Faculty Hourly Rate',
+        hourlyRate: val,
+      });
+    }
+    if (onUpdateHourlyRates) {
+      onUpdateHourlyRates(updatedRates);
+    }
+    setIsEditingDefaultRate(false);
+  };
 
   // Combine Regular Classes and SBA Hub Options into unified claimable schedule
   const allClaimableClasses = useMemo(() => {
@@ -1330,19 +1375,74 @@ export const ClassClaimForm: React.FC<ClassClaimFormProps> = ({
               </table>
             </div>
           </div>
-          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-emerald-600" />
-                <span>Faculty Hourly Rate Configuration</span>
-              </h3>
-              <span className="text-xs text-slate-500">Default rate: $40.00/hr</span>
+          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-600" />
+                  <span>Faculty Hourly Rate Configuration</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Set individual rates for staff or customize the default hourly rate applied to all faculty.
+                </p>
+              </div>
+
+              {/* Editable Default Rate Badge & Input */}
+              <div className="flex items-center gap-2 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-xs font-semibold text-slate-600">Default Rate:</span>
+                {isEditingDefaultRate ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-emerald-600">$</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      value={defaultRateInput}
+                      onChange={(e) => setDefaultRateInput(e.target.value)}
+                      className="w-20 px-2 py-0.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <span className="text-xs font-medium text-slate-500">/hr</span>
+                    <button
+                      type="button"
+                      onClick={handleSaveDefaultPayRate}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingDefaultRate(false)}
+                      className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-sm text-emerald-700">${defaultPayRate.toFixed(2)}/hr</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDefaultRateInput(defaultPayRate.toString());
+                        setIsEditingDefaultRate(true);
+                      }}
+                      className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-[11px] font-bold border border-emerald-200 transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Edit Default Hourly Rate"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Edit Default</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {users.filter((u) => u.role !== 'student').map((u) => {
-                const currentRate = getTeacherHourlyRate(u.id);
-                const isEditing = editingRateUserId === u.id;
+              {users
+                .filter((u) => u.role !== 'student' && u.id !== '__DEFAULT_PAY_RATE__' && u.id !== 'DEFAULT_RATE')
+                .map((u) => {
+                  const currentRate = getTeacherHourlyRate(u.id);
+                  const isEditing = editingRateUserId === u.id;
 
                 return (
                   <div key={u.id} className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between gap-3">

@@ -10,8 +10,69 @@ import {
   SystemActionLog,
   FaqItem,
   AcademyInfo,
-  FeatureCard
+  FeatureCard,
+  OurSchoolPageData
 } from '../types';
+
+export const DEFAULT_OUR_SCHOOL_DATA: OurSchoolPageData = {
+  principalName: 'S. Shaw',
+  principalTitle: 'CEO & Founder / Principal',
+  principalPhotoUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=800&auto=format&fit=crop&q=80',
+  principalMessage: `It is with great pride and excitement that I write this letter of introduction to you as the Principal and founder of  Shaw S.T.E.M Academy.  I am honored to have the opportunity to lead a school with such a rich tradition of education!  I have been dedicated to the field of education for many years. I have worked with a variety of students' ranging in age from secondary grade 9  through and including college. I am excited and eager to bring my skills as an educational leader and work with you as a partner in education to ensure your child's success.
+
+Along with the teachers and staff, I will work hard to continue the legacy of success established here as we build strong relationships with parents, students, and community partners.  roughout the school year.
+
+I look forward to working with you as a team to help each student at Shaw S.T.E.M Academy meet their goals and have a successful school year!
+
+S. Shaw, CEO & Founder.`,
+  isPrincipalPublished: true,
+  staffMembers: [
+    {
+      id: 'staff-1',
+      name: 'Dr. Eleanor Vance',
+      title: 'Head of Department - Computer Science & AI',
+      position: 'Senior STEM Educator',
+      pictureUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+      department: 'Computer Science',
+      bio: 'Ph.D. in Artificial Intelligence from MIT with over 12 years of research experience in autonomous systems.',
+      email: 'evance@shawstemacademy.edu',
+      isPublished: false,
+    },
+    {
+      id: 'staff-2',
+      name: 'Prof. Marcus Sterling',
+      title: 'HOD Robotics & Embedded Systems',
+      position: 'Lead Mechatronics Specialist',
+      pictureUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+      department: 'Robotics Engineering',
+      bio: 'Former NASA Jet Propulsion Laboratory robotics contractor and microcontroller hardware architect.',
+      email: 'msterling@shawstemacademy.edu',
+      isPublished: false,
+    },
+    {
+      id: 'staff-3',
+      name: 'Sarah Jenkins',
+      title: 'Senior Web Development Instructor',
+      position: 'Full-Stack Software Educator',
+      pictureUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&auto=format&fit=crop&q=80',
+      department: 'Software Development',
+      bio: 'Experienced full-stack engineer leading hands-on modern web application and API design workshops.',
+      email: 'sjenkins@shawstemacademy.edu',
+      isPublished: false,
+    },
+    {
+      id: 'staff-4',
+      name: 'David Chen',
+      title: 'Cybersecurity & Networks Instructor',
+      position: 'Information Security Specialist',
+      pictureUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+      department: 'Cybersecurity',
+      bio: 'Certified Ethical Hacker and Network Systems Architect with extensive industrial defense consulting background.',
+      email: 'dchen@shawstemacademy.edu',
+      isPublished: false,
+    },
+  ],
+};
 
 export const DEMO_TEACHERS: TeacherProfile[] = [];
 

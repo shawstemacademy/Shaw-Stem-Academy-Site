@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ApplicationTransparencyNotice } from './ApplicationTransparencyNotice';
 import { 
   Award, 
@@ -20,7 +20,8 @@ import {
   X,
   FileText,
   Download,
-  ExternalLink
+  ExternalLink,
+  Save
 } from 'lucide-react';
 import { 
   SchoolNewsItem, 
@@ -54,6 +55,7 @@ interface SchoolHomePageProps {
   onOpenRegistration: () => void;
   loggedInUser?: SchoolUser | null;
   onUpdateLandingPageSettings?: (newSettings: LandingPageSettings) => Promise<void> | void;
+  onUpdateFeatureCards?: (cards: FeatureCard[]) => Promise<void> | void;
 }
 
 export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
@@ -71,14 +73,32 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
   onOpenRegistration,
   loggedInUser = null,
   onUpdateLandingPageSettings,
+  onUpdateFeatureCards,
 }) => {
   const info = academyInfo || DEFAULT_ACADEMY_INFO;
-  const cards = featureCards.length >= 4 ? featureCards.slice(0, 4) : DEFAULT_FEATURE_CARDS;
+  
+  // Construct 4 merged feature cards cleanly from saved Firestore data or default fallbacks
+  const cards = DEFAULT_FEATURE_CARDS.map((defCard, idx) => {
+    const match = (featureCards || []).find(
+      (c) => c.id === defCard.id || c.id === `card-${idx + 1}`
+    );
+    return match ? { ...defCard, ...match } : (featureCards || [])[idx] || defCard;
+  });
+
   const isStudent = loggedInUser?.role === 'student';
   
   const [isEditingLogo, setIsEditingLogo] = useState(false);
   const [tempLogoUrl, setTempLogoUrl] = useState('');
   const [selectedArticle, setSelectedArticle] = useState<SchoolNewsItem | null>(null);
+
+  // Front Page Metrics Editing Modal State
+  const [isEditingMetrics, setIsEditingMetrics] = useState(false);
+  const [editableCards, setEditableCards] = useState<FeatureCard[]>(cards);
+  const [savingMetrics, setSavingMetrics] = useState(false);
+
+  useEffect(() => {
+    setEditableCards(cards);
+  }, [featureCards]);
 
   const isAdmin = loggedInUser?.role === 'admin';
 
@@ -96,22 +116,44 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
   };
 
   const renderCardMetricValue = (card: FeatureCard) => {
+    if (card.metricType === 'static' || !card.metricType) {
+      return card.value ?? '0';
+    }
+
     switch (card.metricType) {
       case 'live_classes':
-        return classList.length > 0 ? `${classList.length}` : card.value;
+        return classList.length > 0 ? `${classList.length}` : (card.value || '0');
       case 'live_students':
-        return registrationLogs.length > 0 ? `${registrationLogs.length}` : card.value;
+        return registrationLogs.length > 0 ? `${registrationLogs.length}` : (card.value || '0');
       case 'live_departments':
-        return departments.length > 0 ? `${departments.length}` : card.value;
+        return departments.length > 0 ? `${departments.length}` : (card.value || '0');
       case 'live_teachers':
         const teacherCount = schoolUsers.filter((u) => u.role === 'teacher' || u.role === 'hod').length;
-        return teacherCount > 0 ? `${teacherCount}` : card.value;
+        return teacherCount > 0 ? `${teacherCount}` : (card.value || '0');
       case 'live_revenue':
         const rev = registrationLogs.reduce((s, r) => s + (r.totalPrice || 0), 0);
         return `$${rev}`;
       default:
-        return card.value;
+        return card.value || '0';
     }
+  };
+
+  const handleCardFieldChange = (index: number, field: keyof FeatureCard, val: any) => {
+    setEditableCards((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: val };
+      return next;
+    });
+  };
+
+  const handleSaveFrontPageMetrics = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingMetrics(true);
+    if (onUpdateFeatureCards) {
+      await onUpdateFeatureCards(editableCards);
+    }
+    setSavingMetrics(false);
+    setIsEditingMetrics(false);
   };
 
   const logoSource = (settings.logoUrl && !settings.logoUrl.includes('favicon')) ? settings.logoUrl : '/logo.png';
@@ -207,6 +249,33 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
         </div>
       </div>
 
+      {/* Admin Quick Control Banner for Front Page Metrics */}
+      {isAdmin && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-slate-900 to-blue-950 text-white p-4 px-6 rounded-2xl border border-blue-900/50 shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-bold text-sm text-white flex items-center gap-2">
+                <span>Front Page Highlight Metrics</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-blue-500/20 text-blue-300 border border-blue-400/30">Admin Authorized</span>
+              </div>
+              <p className="text-xs text-slate-300">
+                Customize titles, metric values (custom text or auto live counts), and descriptions displayed to visitors.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsEditingMetrics(true)}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer shrink-0"
+          >
+            <Edit3 className="w-4 h-4" />
+            <span>Customize Metrics & Values</span>
+          </button>
+        </div>
+      )}
+
       {/* 4 Customizable Feature Cards above General Information */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {cards.map((card, idx) => {
@@ -218,9 +287,20 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
           }[card.color || 'blue'] || 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400';
 
           return (
-            <div key={card.id || `fcard-${idx}`} className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorClasses}`}>
-                {renderCardIcon(card.icon)}
+            <div key={card.id || `fcard-${idx}`} className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-2 relative group hover:border-blue-300 dark:hover:border-blue-700 transition-all">
+              <div className="flex items-center justify-between">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorClasses}`}>
+                  {renderCardIcon(card.icon)}
+                </div>
+                {isAdmin && (
+                  <button
+                    onClick={() => setIsEditingMetrics(true)}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 bg-slate-100 hover:bg-blue-50 text-slate-500 hover:text-blue-600 rounded-lg text-xs transition-opacity cursor-pointer"
+                    title="Edit metric card"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               <div className="text-3xl font-extrabold text-slate-900 dark:text-slate-100">{renderCardMetricValue(card)}</div>
               <div className="font-bold text-slate-900 dark:text-slate-100 text-xs">{card.title}</div>
@@ -229,6 +309,181 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
           );
         })}
       </div>
+
+      {/* Front Page Metrics Customizer Modal */}
+      {isEditingMetrics && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600/30 text-blue-400 flex items-center justify-center font-bold">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Customize Front Page Metric Cards</h3>
+                  <p className="text-xs text-slate-300">Edit titles, custom metric values or live counters, and descriptions.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingMetrics(false)}
+                className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSaveFrontPageMetrics} className="p-6 overflow-y-auto space-y-6 flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {editableCards.map((card, idx) => (
+                  <div key={card.id || `card-${idx}`} className="p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                        Metric Card #{idx + 1}
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        {card.metricType === 'static' || !card.metricType ? 'Custom Text' : 'Auto Live Metric'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Card Title *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={card.title}
+                          onChange={(e) => handleCardFieldChange(idx, 'title', e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Metric Value Mode
+                          </label>
+                          <select
+                            value={card.metricType || 'static'}
+                            onChange={(e) => handleCardFieldChange(idx, 'metricType', e.target.value)}
+                            className="w-full px-2.5 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                          >
+                            <option value="static">Custom Static Text / Value</option>
+                            <option value="live_classes">Live Active Classes Count</option>
+                            <option value="live_students">Live Enrolled Students Count</option>
+                            <option value="live_departments">Live Departments Count</option>
+                            <option value="live_teachers">Live Teachers Count</option>
+                            <option value="live_revenue">Live Revenue Total ($)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Custom Value / Text *
+                          </label>
+                          <input
+                            type="text"
+                            value={card.value}
+                            onChange={(e) => handleCardFieldChange(idx, 'value', e.target.value)}
+                            placeholder="e.g. 18, 150+, or 24/7"
+                            className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Short Description *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={card.description}
+                          onChange={(e) => handleCardFieldChange(idx, 'description', e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Icon Symbol
+                          </label>
+                          <select
+                            value={card.icon}
+                            onChange={(e) => handleCardFieldChange(idx, 'icon', e.target.value)}
+                            className="w-full px-2.5 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                          >
+                            <option value="Cpu">Cpu (Microchip / Robotics)</option>
+                            <option value="Award">Award (Trophy / Ribbon)</option>
+                            <option value="Users">Users (Faculty / Community)</option>
+                            <option value="Compass">Compass (Navigation / STEM)</option>
+                            <option value="GraduationCap">Graduation Cap</option>
+                            <option value="BookOpen">Book Open</option>
+                            <option value="Sparkles">Sparkles</option>
+                            <option value="Building2">Building</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Theme Color
+                          </label>
+                          <select
+                            value={card.color}
+                            onChange={(e) => handleCardFieldChange(idx, 'color', e.target.value)}
+                            className="w-full px-2.5 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                          >
+                            <option value="blue">Blue</option>
+                            <option value="purple">Purple</option>
+                            <option value="emerald">Emerald</option>
+                            <option value="amber">Amber</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Live Card Preview Box */}
+                      <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Preview Card Display</span>
+                        <div className="flex items-center gap-2">
+                          <div className="text-xl font-extrabold text-slate-900 dark:text-slate-100">
+                            {renderCardMetricValue(card)}
+                          </div>
+                          <div className="font-bold text-xs text-slate-700 dark:text-slate-300">— {card.title}</div>
+                        </div>
+                        <p className="text-[11px] text-slate-500">{card.description}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Modal Footer Controls */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingMetrics(false)}
+                  className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingMetrics}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{savingMetrics ? 'Saving Changes...' : 'Save Front Page Metrics'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* General Information Section */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 sm:p-10 shadow-xs space-y-8">

@@ -18,9 +18,17 @@ export const AdminAcademyInfoManagement: React.FC<AdminAcademyInfoManagementProp
   // Academy Info State
   const [infoForm, setInfoForm] = useState<AcademyInfo>(academyInfo || DEFAULT_ACADEMY_INFO);
 
-  // 4 Feature Cards State
-  const initialCards = featureCards.length >= 4 ? featureCards.slice(0, 4) : DEFAULT_FEATURE_CARDS;
-  const [cardsForm, setCardsForm] = useState<FeatureCard[]>(initialCards);
+  // 4 Feature Cards Merged State
+  const getMergedCards = (saved: FeatureCard[]) => {
+    return DEFAULT_FEATURE_CARDS.map((defCard, idx) => {
+      const match = (saved || []).find(
+        (c) => c.id === defCard.id || c.id === `card-${idx + 1}`
+      );
+      return match ? { ...defCard, ...match } : (saved || [])[idx] || defCard;
+    });
+  };
+
+  const [cardsForm, setCardsForm] = useState<FeatureCard[]>(getMergedCards(featureCards));
 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -32,9 +40,7 @@ export const AdminAcademyInfoManagement: React.FC<AdminAcademyInfoManagementProp
   }, [academyInfo]);
 
   useEffect(() => {
-    if (featureCards.length > 0) {
-      setCardsForm(featureCards.length >= 4 ? featureCards.slice(0, 4) : featureCards);
-    }
+    setCardsForm(getMergedCards(featureCards));
   }, [featureCards]);
 
   const handleInfoChange = (field: keyof AcademyInfo, value: string) => {

@@ -2,6 +2,7 @@ import React from 'react';
 import { User } from 'firebase/auth';
 import { 
   GraduationCap, 
+  Building2,
   Cpu, 
   BookOpen, 
   FileText, 
@@ -144,6 +145,7 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
 
   const allTabs: { id: PortalTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'home', label: 'Home', icon: <GraduationCap className="w-4 h-4" /> },
+    { id: 'our-school', label: 'Our School', icon: <Building2 className="w-4 h-4" /> },
     { id: 'academics', label: 'Academics & Labs', icon: <Cpu className="w-4 h-4" /> },
     { id: 'admissions', label: 'School Registration', icon: <FileText className="w-4 h-4" /> },
     { 
@@ -190,8 +192,8 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
       }
       return currentRole !== 'teacher' && currentRole !== 'hod';
     }
-    // Everyone sees Home, Academics
-    if (tab.id === 'home' || tab.id === 'academics') {
+    // Everyone sees Home, Our School, Academics
+    if (tab.id === 'home' || tab.id === 'our-school' || tab.id === 'academics') {
       return true;
     }
     // Student Portal is visible to all logged-in users
