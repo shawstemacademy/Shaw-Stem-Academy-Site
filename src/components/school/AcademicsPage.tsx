@@ -18,6 +18,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { TeacherProfile, ClassItem, Department, isDepartmentVisibleToStudents, PortalTab } from '../../types';
+import { formatUSD } from '../../lib/formatCurrency';
 
 interface AcademicsPageProps {
   teachers: TeacherProfile[];
@@ -339,7 +340,7 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
                   <div className="text-right">
                     <span className="text-slate-400 dark:text-slate-500 font-bold uppercase text-[9px] tracking-wider block">Tuition Fee</span>
                     <span className="text-base font-extrabold text-blue-600 dark:text-blue-400">
-                      ${cls.price}
+                      {formatUSD(cls.price)}
                     </span>
                   </div>
                 </div>
@@ -408,9 +409,12 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
               className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs flex flex-col sm:flex-row gap-5"
             >
               <img
-                src={teacher.avatar}
+                src={teacher.avatar || '/logo.png'}
                 alt={teacher.name}
-                className="w-20 h-20 rounded-2xl object-cover border border-slate-200 dark:border-slate-800 shrink-0"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/logo.png';
+                }}
+                className="w-20 h-20 rounded-2xl object-cover border border-slate-200 dark:border-slate-800 shrink-0 bg-slate-100 dark:bg-slate-800 p-1"
               />
               <div className="space-y-2 flex-1">
                 <div className="flex flex-wrap items-center gap-2 justify-between">

@@ -98,6 +98,7 @@ import {
 import { SchoolHeaderNav } from './components/school/SchoolHeaderNav';
 import { SchoolHomePage } from './components/school/SchoolHomePage';
 import { OurSchoolPage } from './components/school/OurSchoolPage';
+import { TimetablePage } from './components/school/TimetablePage';
 import { AcademicsPage } from './components/school/AcademicsPage';
 import { StudentPortalPage } from './components/school/StudentPortalPage';
 import { TeacherDashboardPage } from './components/school/TeacherDashboardPage';
@@ -277,7 +278,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
     if (tabParam) {
-      const allowedTabs: PortalTab[] = ['home', 'our-school', 'privacy', 'terms', 'login', 'academics', 'student-portal', 'teacher-dashboard', 'admin-dashboard', 'admissions', 'registration', 'user-manual'];
+      const allowedTabs: PortalTab[] = ['home', 'our-school', 'timetable', 'privacy', 'terms', 'login', 'academics', 'student-portal', 'teacher-dashboard', 'admin-dashboard', 'admissions', 'registration', 'user-manual'];
       if (allowedTabs.includes(tabParam as PortalTab)) {
         setActiveTab(tabParam as PortalTab);
       }
@@ -724,12 +725,12 @@ export default function App() {
     }
   }, [registrationLogs, schoolUsers, classList]);
 
-  // Enforce capacity of 10 for all current classes in the database
+  // Enforce capacity of 15 for all current classes in the database
   useEffect(() => {
     if (classList.length > 0) {
-      const needsUpdate = classList.some((c) => c.capacity !== 10);
+      const needsUpdate = classList.some((c) => c.capacity !== 15);
       if (needsUpdate) {
-        const updated = classList.map((c) => ({ ...c, capacity: 10 }));
+        const updated = classList.map((c) => ({ ...c, capacity: 15 }));
         handleUpdateClassList(updated);
       }
     }
@@ -1005,7 +1006,15 @@ export default function App() {
       subscribeToCollection<AcademyInfo>('academyInfo', (data) => setAcademyInfo((data && data[0]) || DEFAULT_ACADEMY_INFO)),
       subscribeToDocument<OurSchoolPageData>('ourSchool', 'pageData', (data) => {
         if (data) {
-          setOurSchoolData(data);
+          const mockIds = new Set(['staff-1', 'staff-2', 'staff-3', 'staff-4']);
+          const cleanedStaff = (data.staffMembers || []).filter((m) => !mockIds.has(m.id));
+          if (cleanedStaff.length !== (data.staffMembers || []).length) {
+            const updated = { ...data, staffMembers: cleanedStaff };
+            setOurSchoolData(updated);
+            saveDocToFirestore('ourSchool', 'pageData', updated);
+          } else {
+            setOurSchoolData(data);
+          }
         }
       }),
       subscribeToCollection<ClassClaimItem>('classClaims', (data) => setClaims(data || [])),
@@ -3531,6 +3540,24 @@ export default function App() {
                 setOurSchoolData(newData);
                 await saveDocToFirestore('ourSchool', 'pageData', newData);
               }}
+            />
+          )}
+
+          {activeTab === 'timetable' && (
+            <TimetablePage
+              classes={classList}
+              sbaHubOptions={sbaHubOptions}
+              classTypes={classTypes}
+              schoolUsers={schoolUsers}
+              teachers={teacherProfiles}
+              locations={locations}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onToggleClass={handleToggleClass}
+              selectedClassIds={selectedClassIds}
+              loggedInUser={loggedInUser}
+              logoUrl="/logo.png"
+              onUpdateClassList={handleUpdateClassList}
+              onUpdateSbaHubOptions={handleUpdateSbaHubOptions}
             />
           )}
 

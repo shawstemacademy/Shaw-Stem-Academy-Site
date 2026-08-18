@@ -376,7 +376,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
   const [gcUrl, setGcUrl] = useState('');
   const [gcCode, setGcCode] = useState('');
   const [gMeetUrl, setGMeetUrl] = useState('');
-  const [capacity, setCapacity] = useState<number>(10);
+  const [capacity, setCapacity] = useState<number>(15);
 
   const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -415,7 +415,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
     setGcUrl(c.googleClassroomUrl || '');
     setGcCode(c.googleClassroomCode || '');
     setGMeetUrl(c.googleMeetUrl || '');
-    setCapacity(c.capacity || 10);
+    setCapacity(c.capacity || 15);
     setIsModalOpen(true);
   };
 
@@ -436,7 +436,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
     setGcUrl(s.googleClassroomUrl || '');
     setGcCode(s.googleClassroomCode || '');
     setGMeetUrl(s.googleMeetUrl || '');
-    setCapacity(s.capacity || 10);
+    setCapacity(s.capacity || 15);
     setIsModalOpen(true);
   };
 
@@ -460,7 +460,7 @@ export const CourseBankManager: React.FC<CourseBankManagerProps> = ({
     setGcUrl('');
     setGcCode('');
     setGMeetUrl('');
-    setCapacity(10);
+    setCapacity(15);
     setIsModalOpen(true);
   };
 

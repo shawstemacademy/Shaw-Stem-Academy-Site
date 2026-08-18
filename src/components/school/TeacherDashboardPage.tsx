@@ -152,7 +152,7 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
     email: loggedInUser?.email || 'admin@shawstemacademy.edu',
     bio: (loggedInUser as SchoolUser)?.bio || 'Academic administrator and overseer of Shaw STEM Academy faculty operations.',
     officeHours: (loggedInUser as SchoolUser)?.officeHours || 'Monday - Friday, 8:00 AM - 4:00 PM',
-    avatar: loggedInUser?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+    avatar: loggedInUser?.avatar || logoUrl || '/logo.png',
     assignedClassIds: classes.map((c) => c.id),
   };
 
@@ -846,10 +846,10 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
             <img
-              src={currentTeacher?.avatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150"}
+              src={currentTeacher?.avatar || logoUrl || "/logo.png"}
               alt={currentTeacher?.name || "Instructor Profile"}
               onError={(e) => {
-                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150";
+                (e.target as HTMLImageElement).src = logoUrl || "/logo.png";
               }}
               className="w-20 h-20 rounded-2xl object-cover border border-slate-700 shrink-0 bg-slate-800"
             />

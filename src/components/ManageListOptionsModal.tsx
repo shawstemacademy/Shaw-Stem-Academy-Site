@@ -94,7 +94,7 @@ export const ManageListOptionsModal: React.FC<ManageListOptionsModalProps> = ({
         schedule: newClassSchedule.trim() || 'Flexible Schedule',
         ageGroup: 'Secondary / High School',
         price: Number(newClassPrice) || 120,
-        capacity: 10,
+        capacity: 15,
         enrolled: 0,
         location: newClassLocation.trim() || 'STEM Lab A',
         description: `Course module for ${newClassTitle.trim()}`,

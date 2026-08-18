@@ -161,7 +161,7 @@ export const OurSchoolPage: React.FC<OurSchoolPageProps> = ({
         name: staffForm.name || 'Faculty Member',
         title: staffForm.title || 'STEM Educator',
         position: staffForm.position || 'Teacher',
-        pictureUrl: staffForm.pictureUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+        pictureUrl: staffForm.pictureUrl || '/logo.png',
         department: staffForm.department || 'General Science',
         email: staffForm.email || '',
         bio: staffForm.bio || '',
@@ -194,7 +194,7 @@ export const OurSchoolPage: React.FC<OurSchoolPageProps> = ({
           name: u.name,
           title: u.role === 'hod' ? 'Head of Department' : 'STEM Educator',
           position: u.department ? `${u.department} Faculty` : 'Instructional Faculty',
-          pictureUrl: u.picture || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+          pictureUrl: u.picture || u.avatar || '/logo.png',
           department: u.department || 'STEM Department',
           email: u.email,
           bio: `Dedicated faculty member in ${u.department || 'Shaw STEM Academy'}.`,
@@ -294,7 +294,7 @@ export const OurSchoolPage: React.FC<OurSchoolPageProps> = ({
                   name: '',
                   title: 'STEM Educator',
                   position: 'Instructional Faculty',
-                  pictureUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+                  pictureUrl: '/logo.png',
                   department: 'STEM Department',
                   email: '',
                   bio: '',
@@ -475,11 +475,11 @@ export const OurSchoolPage: React.FC<OurSchoolPageProps> = ({
                   {/* Image container & Badges */}
                   <div className="relative aspect-[4/3] bg-slate-100 dark:bg-slate-800 overflow-hidden">
                     <img
-                      src={staff.pictureUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80'}
+                      src={staff.pictureUrl || '/logo.png'}
                       alt={staff.name}
                       className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80';
+                        (e.target as HTMLImageElement).src = '/logo.png';
                       }}
                     />
 

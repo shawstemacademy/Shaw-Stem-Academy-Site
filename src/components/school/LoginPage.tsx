@@ -228,6 +228,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         </p>
       </div>
 
+      {/* School Registration Notice Banner */}
+      <div className="bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-2xl p-4 text-xs space-y-2 shadow-xs">
+        <div className="flex items-center gap-2 text-blue-900 dark:text-blue-200 font-extrabold">
+          <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+          <span>Registering for Classes or Need an Account?</span>
+        </div>
+        <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+          Please sign in to register for classes and manage your student portal. <strong>If you do not have an account yet, please go to{' '}
+          <button
+            type="button"
+            onClick={() => onNavigate('registration')}
+            className="text-blue-600 dark:text-blue-400 font-extrabold underline hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer inline-flex items-center gap-0.5"
+          >
+            <span>School Registration</span>
+            <ArrowRight className="w-3 h-3" />
+          </button>
+          {' '}to complete your registration first.</strong>
+        </p>
+      </div>
+
       {/* Confirmation Toast / Message Banner */}
       {loginMessage && (
         <div className={`p-4 font-medium text-xs rounded-2xl shadow-md flex items-start gap-2 border animate-fade-in ${
@@ -353,6 +373,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <span>{authLoading ? 'Signing In...' : 'Sign In'}</span>
               </button>
             </form>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
+              Don't have an account?{' '}
+              <button
+                type="button"
+                onClick={() => onNavigate('registration')}
+                className="font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+              >
+                <span>Go to School Registration</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </>
         ) : (
           <div className="space-y-5">

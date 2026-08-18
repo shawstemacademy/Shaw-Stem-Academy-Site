@@ -239,7 +239,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
     'Custom Reason',
   ];
 
-  const DEFAULT_AVATAR = logoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+  const DEFAULT_AVATAR = logoUrl || '/logo.png';
 
   const getTitleForRole = (r: UserRole) => {
     const map: Record<string, string> = {

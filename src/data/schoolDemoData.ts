@@ -26,52 +26,7 @@ I look forward to working with you as a team to help each student at Shaw S.T.E.
 
 S. Shaw, CEO & Founder.`,
   isPrincipalPublished: true,
-  staffMembers: [
-    {
-      id: 'staff-1',
-      name: 'Dr. Eleanor Vance',
-      title: 'Head of Department - Computer Science & AI',
-      position: 'Senior STEM Educator',
-      pictureUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
-      department: 'Computer Science',
-      bio: 'Ph.D. in Artificial Intelligence from MIT with over 12 years of research experience in autonomous systems.',
-      email: 'evance@shawstemacademy.edu',
-      isPublished: false,
-    },
-    {
-      id: 'staff-2',
-      name: 'Prof. Marcus Sterling',
-      title: 'HOD Robotics & Embedded Systems',
-      position: 'Lead Mechatronics Specialist',
-      pictureUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-      department: 'Robotics Engineering',
-      bio: 'Former NASA Jet Propulsion Laboratory robotics contractor and microcontroller hardware architect.',
-      email: 'msterling@shawstemacademy.edu',
-      isPublished: false,
-    },
-    {
-      id: 'staff-3',
-      name: 'Sarah Jenkins',
-      title: 'Senior Web Development Instructor',
-      position: 'Full-Stack Software Educator',
-      pictureUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&auto=format&fit=crop&q=80',
-      department: 'Software Development',
-      bio: 'Experienced full-stack engineer leading hands-on modern web application and API design workshops.',
-      email: 'sjenkins@shawstemacademy.edu',
-      isPublished: false,
-    },
-    {
-      id: 'staff-4',
-      name: 'David Chen',
-      title: 'Cybersecurity & Networks Instructor',
-      position: 'Information Security Specialist',
-      pictureUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-      department: 'Cybersecurity',
-      bio: 'Certified Ethical Hacker and Network Systems Architect with extensive industrial defense consulting background.',
-      email: 'dchen@shawstemacademy.edu',
-      isPublished: false,
-    },
-  ],
+  staffMembers: [],
 };
 
 export const DEMO_TEACHERS: TeacherProfile[] = [];
