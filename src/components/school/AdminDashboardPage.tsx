@@ -1032,7 +1032,32 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   };
 
   const activeRulesCount = (discountRules || []).filter((r) => r && r.enabled).length;
-  const totalStudentsEnrolled = (registrationLogs || []).length;
+  
+  // Calculate unique students across all registration records and student users
+  const totalUniqueStudentsCount = React.useMemo(() => {
+    const keys = new Set<string>();
+    (registrationLogs || []).forEach((r) => {
+      const key = (
+        r.studentId ||
+        r.userId ||
+        r.studentInfo?.email ||
+        r.studentInfo?.parentEmail ||
+        r.studentInfo?.studentName ||
+        r.id ||
+        ''
+      ).toLowerCase().trim();
+      if (key) keys.add(key);
+    });
+    (users || [])
+      .filter((u) => u && u.role === 'student')
+      .forEach((u) => {
+        const key = (u.id || u.email || u.name || '').toLowerCase().trim();
+        if (key) keys.add(key);
+      });
+    return keys.size;
+  }, [registrationLogs, users]);
+
+  const totalStudentsEnrolled = totalUniqueStudentsCount;
   const totalRevenueLogged = (registrationLogs || []).reduce((sum, r) => sum + (r?.totalPrice ?? 0), 0);
 
   const activeUsers = (users || []).filter((u) => u && u.status !== 'disabled' && u.role !== 'student');
@@ -1048,13 +1073,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       id: 'overview' as const,
       label: 'Registrar & Tuition Overview',
       icon: <ShieldCheck className="w-4 h-4" />,
-      badge: `${totalStudentsEnrolled} Enrolled`,
+      badge: `${totalUniqueStudentsCount} Students`,
     },
     {
       id: 'student_search' as const,
       label: 'Student Directory & Review',
       icon: <Users className="w-4 h-4 text-blue-400" />,
-      badge: `${(users || []).filter(u => u.role === 'student').length} Students`,
+      badge: `${totalUniqueStudentsCount} Students`,
     },
     {
       id: 'users' as const,
@@ -1334,7 +1359,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 <Users className="w-5 h-5" />
               </div>
               <div className="text-3xl font-extrabold text-slate-900">{totalStudentsEnrolled}</div>
-              <div className="text-xs font-semibold text-slate-500">Total Student Registrations</div>
+              <div className="text-xs font-semibold text-slate-500">Unique Active Students</div>
             </div>
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-2">

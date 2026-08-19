@@ -97,7 +97,11 @@ export const SEOOptimizer: React.FC<SEOOptimizerProps> = ({
       element.setAttribute('href', href);
     };
 
+    const isPrivateTab = activeTab === 'admin' || activeTab === 'teacher';
+    const robotsDirective = isPrivateTab ? 'noindex, nofollow' : 'index, follow';
+
     // Set meta tags
+    updateMetaTag('meta[name="robots"]', 'name', 'robots', robotsDirective);
     updateMetaTag('meta[name="description"]', 'name', 'description', finalDescription);
     updateMetaTag('meta[name="keywords"]', 'name', 'keywords', finalKeywords);
     updateMetaTag('meta[name="application-name"]', 'name', 'application-name', 'Shaw STEM Academy');
@@ -106,11 +110,11 @@ export const SEOOptimizer: React.FC<SEOOptimizerProps> = ({
     updateMetaTag('meta[property="og:description"]', 'property', 'og:description', finalOgDescription);
     updateMetaTag('meta[property="og:type"]', 'property', 'og:type', 'website');
     updateMetaTag('meta[property="og:url"]', 'property', 'og:url', finalCanonical);
-    updateMetaTag('meta[property="og:image"]', 'property', 'og:image', 'https://www.shawstemacademy.com/logo.png');
+    updateMetaTag('meta[property="og:image"]', 'property', 'og:image', 'https://www.shawstemacademy.com/og-image.png');
     updateMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
     updateMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', finalOgTitle);
     updateMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', finalOgDescription);
-    updateMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', 'https://www.shawstemacademy.com/logo.png');
+    updateMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', 'https://www.shawstemacademy.com/og-image.png');
 
     // Set canonical link
     updateLinkTag('canonical', finalCanonical);

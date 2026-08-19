@@ -21,7 +21,8 @@ import {
   UserCheck,
   UserX,
   History,
-  Tag
+  Tag,
+  Lock
 } from 'lucide-react';
 import { ClassItem, SbaHubOption, RegistrationRecord, SchoolUser, UserRole, ArchivedClassRecord } from '../../types';
 import { saveDocToFirestore, saveUserToFirestore } from '../../lib/firebase';
@@ -261,22 +262,92 @@ export const ClassBatchArchivingManager: React.FC<ClassBatchArchivingManagerProp
     });
   }, [unifiedClasses, categoryFilter, searchQuery]);
 
-  // Total metrics
-  const totalActiveStudentsEnrolled = useMemo(() => {
-    let count = 0;
+  // Total metrics with strict UNIQUE student deduplication
+  const uniqueActiveStudentsMap = useMemo(() => {
+    const map = new Map<string, {
+      studentKey: string;
+      studentName: string;
+      studentEmail: string;
+      enrolledClassesCount: number;
+      classTitles: string[];
+    }>();
+
     unifiedClasses.forEach((cls) => {
-      count += getActiveStudentsForClass(cls.id).length;
+      const classStudents = getActiveStudentsForClass(cls.id);
+      classStudents.forEach((st) => {
+        const existing = map.get(st.studentKey);
+        if (existing) {
+          existing.enrolledClassesCount += 1;
+          if (!existing.classTitles.includes(cls.title)) {
+            existing.classTitles.push(cls.title);
+          }
+        } else {
+          map.set(st.studentKey, {
+            studentKey: st.studentKey,
+            studentName: st.studentName,
+            studentEmail: st.studentEmail,
+            enrolledClassesCount: 1,
+            classTitles: [cls.title],
+          });
+        }
+      });
+    });
+
+    return map;
+  }, [unifiedClasses, registrationLogs, schoolUsers]);
+
+  const uniqueActiveStudentsCount = uniqueActiveStudentsMap.size;
+
+  const totalCourseEnrollments = useMemo(() => {
+    let count = 0;
+    uniqueActiveStudentsMap.forEach((s) => {
+      count += s.enrolledClassesCount;
     });
     return count;
+  }, [uniqueActiveStudentsMap]);
+
+  const uniqueArchivedStudentsMap = useMemo(() => {
+    const map = new Map<string, {
+      studentKey: string;
+      studentName: string;
+      studentEmail: string;
+      completedClassesCount: number;
+      classTitles: string[];
+    }>();
+
+    unifiedClasses.forEach((cls) => {
+      const classArchived = getArchivedStudentsForClass(cls.id);
+      classArchived.forEach((st) => {
+        const existing = map.get(st.studentKey);
+        if (existing) {
+          existing.completedClassesCount += 1;
+          if (!existing.classTitles.includes(cls.title)) {
+            existing.classTitles.push(cls.title);
+          }
+        } else {
+          map.set(st.studentKey, {
+            studentKey: st.studentKey,
+            studentName: st.studentName,
+            studentEmail: st.studentEmail,
+            completedClassesCount: 1,
+            classTitles: [cls.title],
+          });
+        }
+      });
+    });
+
+    return map;
   }, [unifiedClasses, registrationLogs, schoolUsers]);
+
+  const uniqueArchivedStudentsCount = uniqueArchivedStudentsMap.size;
 
   const totalArchivedStudentCourseRecords = useMemo(() => {
     let count = 0;
-    unifiedClasses.forEach((cls) => {
-      count += getArchivedStudentsForClass(cls.id).length;
+    uniqueArchivedStudentsMap.forEach((s) => {
+      count += s.completedClassesCount;
     });
     return count;
-  }, [unifiedClasses, registrationLogs, schoolUsers]);
+  }, [uniqueArchivedStudentsMap]);
 
   // Open the batch archive modal for a specific class
   const handleOpenBatchArchiveModal = (cls: ClassItem) => {
@@ -475,8 +546,11 @@ export const ClassBatchArchivingManager: React.FC<ClassBatchArchivingManagerProp
                 <Users className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-xl font-black text-white">{totalActiveStudentsEnrolled}</div>
+                <div className="text-xl font-black text-white">{uniqueActiveStudentsCount}</div>
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Students</div>
+                <div className="text-[9px] font-medium text-indigo-300">
+                  {uniqueActiveStudentsCount === 1 ? '1 unique student' : `${uniqueActiveStudentsCount} unique students`} ({totalCourseEnrollments} course seat{totalCourseEnrollments === 1 ? '' : 's'})
+                </div>
               </div>
             </div>
 
@@ -487,6 +561,9 @@ export const ClassBatchArchivingManager: React.FC<ClassBatchArchivingManagerProp
               <div>
                 <div className="text-xl font-black text-emerald-400">{totalArchivedStudentCourseRecords}</div>
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Completed Records</div>
+                <div className="text-[9px] font-medium text-emerald-300">
+                  {uniqueArchivedStudentsCount === 1 ? '1 student' : `${uniqueArchivedStudentsCount} students`} finished
+                </div>
               </div>
             </div>
           </div>
@@ -703,52 +780,56 @@ export const ClassBatchArchivingManager: React.FC<ClassBatchArchivingManagerProp
                         )}
                       </div>
                     ) : (
-                      <div>
-                        {archivedStudents.length === 0 ? (
-                          <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-500 space-y-2">
-                            <History className="w-8 h-8 text-slate-400 mx-auto" />
-                            <p>No past archived student cohorts for this class yet.</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {archivedStudents.map((st) => (
-                              <div
-                                key={st.studentKey}
-                                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-2xl flex items-center justify-between gap-4 shadow-xs"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-black text-xs flex items-center justify-center">
-                                    ✓
-                                  </div>
-                                  <div>
-                                    <h4 className="font-extrabold text-xs text-slate-900 dark:text-slate-100">{st.studentName}</h4>
-                                    <p className="text-[11px] text-slate-500">{st.studentEmail}</p>
-                                  </div>
-                                </div>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl flex items-center gap-2.5 text-xs text-emerald-900 dark:text-emerald-200">
+                          <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          <span className="font-medium">
+                            <strong>Static Permanent Records:</strong> Course data, final coursework grades, attendance logs, and financial ledgers are frozen and preserved for official student transcripts.
+                          </span>
+                        </div>
 
-                                <div className="flex items-center gap-3">
-                                  <div className="text-right text-[11px]">
-                                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-[10px] font-black border border-emerald-300 dark:border-emerald-800 block">
-                                      {st.archivedRecord?.term || 'Completed'}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400 block mt-0.5">
-                                      {st.archivedRecord?.archivedAt ? formatSafeDate(st.archivedRecord.archivedAt) : ''}
-                                    </span>
-                                  </div>
-
-                                  <button
-                                    onClick={() => handleRestoreStudent(cls.id, cls.title, st.studentKey, st.studentName)}
-                                    className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs font-bold rounded-lg border border-indigo-200 dark:border-indigo-800 transition-colors cursor-pointer flex items-center gap-1"
-                                    title="Unarchive and re-enroll into active roster"
-                                  >
-                                    <RotateCcw className="w-3 h-3" />
-                                    <span>Restore</span>
-                                  </button>
-                                </div>
+                        {archivedStudents.map((st) => (
+                          <div
+                            key={st.studentKey}
+                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-black text-xs flex items-center justify-center border border-emerald-500/20">
+                                <Lock className="w-4 h-4" />
                               </div>
-                            ))}
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-black text-xs text-slate-900 dark:text-slate-100">{st.studentName}</h4>
+                                  <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700 flex items-center gap-1">
+                                    <Lock className="w-2.5 h-2.5" /> Static Record
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500">{st.studentEmail}</p>
+                                {st.archivedRecord?.notes && (
+                                  <p className="text-[10px] text-slate-400 italic mt-0.5 max-w-md line-clamp-1">
+                                    "{st.archivedRecord.notes}"
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 self-end sm:self-auto">
+                              <div className="text-right text-[11px]">
+                                <span className="px-2.5 py-1 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-200 text-[10px] font-black border border-emerald-300 dark:border-emerald-800 inline-block">
+                                  {st.archivedRecord?.term || 'Completed Cohort'}
+                                </span>
+                                <span className="text-[10px] text-slate-400 block mt-1">
+                                  Archived {st.archivedRecord?.archivedAt ? formatSafeDate(st.archivedRecord.archivedAt) : 'Permanent'}
+                                </span>
+                                {st.archivedRecord?.archivedBy && (
+                                  <span className="text-[9px] text-slate-400 block">
+                                    By {st.archivedRecord.archivedBy}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        )}
+                        ))}
                       </div>
                     )}
                   </div>

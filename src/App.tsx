@@ -274,11 +274,32 @@ export default function App() {
     return () => window.removeEventListener('firestore-error', handleFirestoreErrorEvent);
   }, []);
 
-  // Handle URL query parameter-based routing for Google Search Console crawlers and Verification bots
+  // Handle URL pathname and query parameter-based routing for Google Search Console crawlers and visitors
   useEffect(() => {
+    const pathname = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
-    if (tabParam) {
+
+    const pathToTabMap: Record<string, PortalTab> = {
+      'about': 'our-school',
+      'privacy': 'privacy',
+      'terms': 'terms',
+      'academics': 'academics',
+      'student': 'student-portal',
+      'student-portal': 'student-portal',
+      'login': 'login',
+      'timetable': 'timetable',
+      'our-school': 'our-school',
+      'admissions': 'admissions',
+      'registration': 'registration',
+      'admin': 'admin-dashboard',
+      'teacher': 'teacher-dashboard',
+      'user-manual': 'user-manual'
+    };
+
+    if (pathname && pathToTabMap[pathname]) {
+      setActiveTab(pathToTabMap[pathname]);
+    } else if (tabParam) {
       const allowedTabs: PortalTab[] = ['home', 'our-school', 'timetable', 'privacy', 'terms', 'login', 'academics', 'student-portal', 'teacher-dashboard', 'admin-dashboard', 'admissions', 'registration', 'user-manual'];
       if (allowedTabs.includes(tabParam as PortalTab)) {
         setActiveTab(tabParam as PortalTab);

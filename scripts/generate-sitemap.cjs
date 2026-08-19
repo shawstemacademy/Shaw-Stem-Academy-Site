@@ -5,13 +5,12 @@ const DOMAIN = 'https://www.shawstemacademy.com';
 const TODAY = new Date().toISOString().split('T')[0];
 
 const ROUTES = [
-  { path: '/', priority: '1.0', changefreq: 'daily', comment: 'Interactive Homepage & Main Portal' },
-  { path: '/about/', priority: '0.9', changefreq: 'weekly', comment: 'Server-rendered About & Google Disclosure Page' },
-  { path: '/?tab=academics', priority: '0.9', changefreq: 'daily', comment: 'STEM Course Catalog & Department Curricula' },
-  { path: '/?tab=student', priority: '0.9', changefreq: 'daily', comment: 'Student Portal & Class Registration Hub' },
-  { path: '/?tab=login', priority: '0.7', changefreq: 'monthly', comment: 'Portal Authentication & Google Sign-In' },
-  { path: '/?tab=privacy', priority: '0.8', changefreq: 'monthly', comment: 'Privacy Policy & Data Protection Governance' },
-  { path: '/?tab=terms', priority: '0.8', changefreq: 'monthly', comment: 'Terms of Service & Portal Usage Agreements' },
+  { path: '/', priority: '1.0', changefreq: 'daily', comment: 'Interactive Homepage & Main STEM Portal' },
+  { path: '/about/', priority: '0.9', changefreq: 'weekly', comment: 'About Us, Accreditations & Google Verification' },
+  { path: '/academics', priority: '0.9', changefreq: 'daily', comment: 'STEM Course Catalog & Syllabi' },
+  { path: '/student', priority: '0.9', changefreq: 'daily', comment: 'Student Registration & Portal Hub' },
+  { path: '/privacy', priority: '0.8', changefreq: 'monthly', comment: 'Privacy Policy & Data Protection' },
+  { path: '/terms', priority: '0.8', changefreq: 'monthly', comment: 'Terms of Service & Portal Policies' },
 ];
 
 function generateSitemap() {

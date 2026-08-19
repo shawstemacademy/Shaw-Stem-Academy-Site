@@ -38,10 +38,8 @@ export interface ClassItem {
   syllabusUrl?: string;
   zoomLink?: string;
   
-  // Course Bank offering & archive tags
+  // Course Bank offering tag
   isOffered?: boolean; // true = Offered / Active; false = In Bank / Not Offered
-  isArchived?: boolean; // true = Archived in Course Bank (hidden from active listings/forms unless viewing archived)
-  archivedAt?: string; // ISO timestamp when archived in course bank
 
   // Structured Schedule for Clash Detection
   days?: string[]; // e.g., ['Monday', 'Wednesday']
@@ -97,10 +95,8 @@ export interface SbaHubOption {
   pricePeriod?: 'yr' | 'week' | 'month' | 'one-time';
   capacity?: number;
 
-  // Course Bank offering & archive tags
+  // Course Bank offering tag
   isOffered?: boolean; // true = Offered / Active; false = In Bank / Not Offered
-  isArchived?: boolean; // true = Archived in Course Bank (hidden from active listings/forms unless viewing archived)
-  archivedAt?: string; // ISO timestamp when archived in course bank
 
   // Structured Schedule for Clash Detection
   days?: string[];

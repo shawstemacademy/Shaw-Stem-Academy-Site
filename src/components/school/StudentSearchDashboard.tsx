@@ -1463,34 +1463,55 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
 
                         <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
                           {appliedClasses.map((cls) => {
+                            const isCompleted = Boolean(
+                              (currentRegistration?.completedClassIds && currentRegistration.completedClassIds.includes(cls.id)) ||
+                              (selectedStudent?.completedClassIds && selectedStudent.completedClassIds.includes(cls.id)) ||
+                              currentRegistration?.archivedClasses?.some((a) => a.classId === cls.id) ||
+                              selectedStudent?.archivedClasses?.some((a) => a.classId === cls.id)
+                            );
                             const isReleased = verifiedClassIds.includes(cls.id);
                             return (
                               <div
                                 key={cls.id}
                                 className={`p-2.5 rounded-xl border flex items-center justify-between transition-all ${
-                                  isReleased 
+                                  isCompleted
+                                    ? 'bg-slate-100/80 border-slate-300 opacity-90'
+                                    : isReleased 
                                     ? 'bg-emerald-50/50 border-emerald-200' 
                                     : 'bg-slate-50 border-slate-100'
                                 }`}
                               >
                                 <div className="min-w-0 pr-2">
-                                  <h4 className="text-xs font-bold text-slate-800 truncate">{cls.title}</h4>
+                                  <div className="flex items-center gap-1.5">
+                                    <h4 className="text-xs font-bold text-slate-800 truncate">{cls.title}</h4>
+                                    {isCompleted && (
+                                      <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[9px] font-extrabold flex items-center gap-0.5">
+                                        <Lock className="w-2.5 h-2.5" /> Archived
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="text-[10px] text-slate-400 truncate">
                                     {cls.classType || 'CSEC'} • ${cls.price} (Subtotal)
                                   </p>
                                 </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleCourseVerification(cls.id)}
-                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wide uppercase transition-all shrink-0 cursor-pointer ${
-                                    isReleased
-                                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                                  }`}
-                                >
-                                  {isReleased ? 'Released' : 'Release'}
-                                </button>
+                                {isCompleted ? (
+                                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wide uppercase bg-slate-200 text-slate-600 shrink-0 flex items-center gap-1">
+                                    <Lock className="w-2.5 h-2.5" /> Static Record
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleCourseVerification(cls.id)}
+                                    className={`px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wide uppercase transition-all shrink-0 cursor-pointer ${
+                                      isReleased
+                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    {isReleased ? 'Released' : 'Release'}
+                                  </button>
+                                )}
                               </div>
                             );
                           })}

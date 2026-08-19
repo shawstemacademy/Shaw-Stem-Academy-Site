@@ -21,14 +21,20 @@
     <meta property="og:site_name" content="Shaw STEM Academy" />
     <meta property="og:title" content="Shaw STEM Academy - Premium Online CSEC & CAPE classes" />
     <meta property="og:description" content="Discover advanced learning, curriculum schedules, and interactive portals at Shaw STEM Academy." />
-    <meta property="og:image" content="https://www.shawstemacademy.com/logo.png" />
+    <meta property="og:image" content="https://www.shawstemacademy.com/og-image.png" />
+    <meta property="og:image:secure_url" content="https://www.shawstemacademy.com/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Shaw STEM Academy Logo and Academic Portal" />
 
     <!-- Twitter Card -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://www.shawstemacademy.com" />
-    <meta property="twitter:title" content="Shaw STEM Academy - Premium Online CSEC & CAPE classes" />
-    <meta property="twitter:description" content="Explore advanced course catalogs, classroom assignments, and hands-on laboratory scheduling." />
-    <meta property="twitter:image" content="https://www.shawstemacademy.com/logo.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://www.shawstemacademy.com" />
+    <meta name="twitter:title" content="Shaw STEM Academy - Premium Online CSEC & CAPE classes" />
+    <meta name="twitter:description" content="Explore advanced course catalogs, classroom assignments, and hands-on laboratory scheduling." />
+    <meta name="twitter:image" content="https://www.shawstemacademy.com/og-image.png" />
+    <meta name="twitter:image:alt" content="Shaw STEM Academy Logo and Academic Portal" />
 
     <!-- Google / Schema.org Structured Data (JSON-LD for Google Search Site Name & Snippets) -->
     <script type="application/ld+json">
@@ -38,7 +44,12 @@
           "@type": "WebSite",
           "name": "Shaw STEM Academy",
           "alternateName": ["Shaw STEM", "SSA Portal"],
-          "url": "https://www.shawstemacademy.com/"
+          "url": "https://www.shawstemacademy.com/",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.shawstemacademy.com/?tab=academics&q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
         },
         {
           "@context": "https://schema.org",
@@ -46,7 +57,9 @@
           "name": "Shaw STEM Academy",
           "url": "https://www.shawstemacademy.com",
           "logo": "https://www.shawstemacademy.com/logo.png",
-          "description": "Shaw STEM Academy is a premium education portal for advanced science, technology, engineering, and coding schedules.",
+          "image": "https://www.shawstemacademy.com/og-image.png",
+          "description": "Shaw STEM Academy provides premier online CSEC & CAPE classes, advanced science, technology, engineering, and coding education.",
+          "email": "shawstemacademy@gmail.com",
           "sameAs": [
             "https://www.shawstemacademy.com"
           ]
@@ -54,19 +67,89 @@
       ]
     </script>
 
-    <link rel="shortcut icon" href="/logo.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/logo.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png" />
+    <!-- Favicon and App Icons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#002b36" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <script src="https://www.google.com/recaptcha/enterprise.js" async defer></script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Semantic crawlable snapshot for search engines and instant initial paint -->
+      <header class="bg-slate-900 text-white p-6 border-b border-slate-800">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+          <div class="flex items-center space-x-3">
+            <img src="/logo.png" alt="Shaw STEM Academy logo" width="48" height="48" class="rounded-full object-contain" />
+            <div>
+              <h1 class="text-2xl font-bold">Shaw STEM Academy</h1>
+              <p class="text-xs text-teal-400">Innovate • Explore • Lead | Premier Online CSEC & CAPE Classes</p>
+            </div>
+          </div>
+          <nav class="space-x-4 text-sm font-medium">
+            <a href="/?tab=academics" class="hover:text-teal-300">Academics & Courses</a>
+            <a href="/?tab=student" class="hover:text-teal-300">Student Portal</a>
+            <a href="/about/" class="hover:text-teal-300">About Us</a>
+            <a href="/?tab=login" class="hover:text-teal-300">Sign In</a>
+          </nav>
+        </div>
+      </header>
+
+      <main class="max-w-6xl mx-auto p-6 space-y-8">
+        <section class="bg-gradient-to-r from-teal-900 to-slate-900 text-white p-8 rounded-2xl">
+          <h2 class="text-3xl font-extrabold mb-4">Empowering Future STEM Leaders with Interactive Virtual Classrooms</h2>
+          <p class="text-slate-200 text-base leading-relaxed max-w-3xl mb-6">
+            Shaw STEM Academy provides accredited, interactive CSEC and CAPE online classes, hands-on science and engineering curricula, live tutoring, SBA guidance, and term-based laboratory registrations.
+          </p>
+          <div class="flex flex-wrap gap-3">
+            <a href="/?tab=academics" class="bg-teal-500 hover:bg-teal-600 text-slate-950 font-bold px-6 py-2.5 rounded-xl transition">Explore Course Catalog</a>
+            <a href="/?tab=student" class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-6 py-2.5 rounded-xl border border-slate-700 transition">Register for Classes</a>
+          </div>
+        </section>
+
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <article class="p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <h3 class="text-xl font-bold text-slate-900 mb-2">CSEC & CAPE Academics</h3>
+            <p class="text-slate-600 text-sm leading-relaxed">
+              Comprehensive syllabi for Mathematics, Additional Mathematics, Physics, Chemistry, Biology, Information Technology, and Computer Science with expert faculty.
+            </p>
+          </article>
+          <article class="p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <h3 class="text-xl font-bold text-slate-900 mb-2">Interactive Student Portal</h3>
+            <p class="text-slate-600 text-sm leading-relaxed">
+              Access real-time schedules, submit assignments, track tuition balances with automated multi-subject discount calculators, and join virtual classes.
+            </p>
+          </article>
+          <article class="p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <h3 class="text-xl font-bold text-slate-900 mb-2">SBA & Laboratory Hub</h3>
+            <p class="text-slate-600 text-sm leading-relaxed">
+              Step-by-step School-Based Assessment (SBA) workshops, experimental lab protocols, and individualized feedback for regional examinations.
+            </p>
+          </article>
+        </section>
+      </main>
+
+      <footer class="border-t border-slate-200 mt-12 p-6 text-center text-xs text-slate-500">
+        <p>© 2026 Shaw STEM Academy. Official Online Academic Portal. All rights reserved.</p>
+        <div class="mt-2 space-x-4">
+          <a href="/?tab=privacy" class="hover:underline">Privacy Policy</a>
+          <span>•</span>
+          <a href="/?tab=terms" class="hover:underline">Terms of Service</a>
+          <span>•</span>
+          <a href="/about/" class="hover:underline">About & Accreditations</a>
+        </div>
+      </footer>
+    </div>
+    <noscript>
+      <div class="p-4 bg-amber-100 border border-amber-400 text-amber-800 text-center text-sm">
+        Please enable JavaScript in your browser to experience all dynamic features of the Shaw STEM Academy Portal.
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

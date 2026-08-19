@@ -1810,8 +1810,14 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
           const cls = teacherClasses.find(c => c.id === managingAcademicsClassId);
           if (!cls) return null;
           
-          // Get enrolled students for this class from live Firebase registrations
-          const enrolledStudents = registrationLogs.filter(log => {
+          // Get enrolled active unique students for this class from live Firebase registrations (excluding completed/archived)
+          const enrolledStudentsMap = new Map<string, typeof registrationLogs[0]>();
+          registrationLogs.forEach((log) => {
+            // Exclude students who completed / archived this class
+            if (log.completedClassIds && log.completedClassIds.includes(cls.id)) {
+              return;
+            }
+
             const isVerifiedForClass = Boolean(log.verifiedClassIds && log.verifiedClassIds.includes(cls.id));
             const isSelectedForClass = Boolean(
               log.selectedClasses?.some((c) => c.id === cls.id) || 
@@ -1823,8 +1829,15 @@ export const TeacherDashboardPage: React.FC<TeacherDashboardPageProps> = ({
               log.status === 'completed' || 
               (log.payments && log.payments.length > 0)
             );
-            return isVerifiedForClass || (isSelectedForClass && isPaidOrVerified);
+
+            if (isVerifiedForClass || (isSelectedForClass && isPaidOrVerified)) {
+              const studentKey = (log.studentId || log.userId || log.studentInfo?.email || log.studentInfo?.parentEmail || log.id).toLowerCase();
+              if (!enrolledStudentsMap.has(studentKey)) {
+                enrolledStudentsMap.set(studentKey, log);
+              }
+            }
           });
+          const enrolledStudents = Array.from(enrolledStudentsMap.values());
           const todayStr = new Date().toISOString().split('T')[0];
           
           return (

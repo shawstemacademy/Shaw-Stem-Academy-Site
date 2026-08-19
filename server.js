@@ -186,11 +186,31 @@ app.get(['/about', '/about/'], (req, res) => {
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://www.shawstemacademy.com/about/">
 
+  <!-- Favicon and App Icons -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#002b36">
+
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.shawstemacademy.com/about/">
+  <meta property="og:site_name" content="Shaw STEM Academy">
   <meta property="og:title" content="Shaw STEM Academy - Premium Online CSEC & CAPE classes">
   <meta property="og:description" content="Discover advanced learning, curriculum schedules, and interactive portals at Shaw STEM Academy.">
+  <meta property="og:image" content="https://www.shawstemacademy.com/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Shaw STEM Academy Logo and Academic Portal">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Shaw STEM Academy - Premium Online CSEC & CAPE classes">
+  <meta name="twitter:description" content="Discover advanced learning, curriculum schedules, and interactive portals at Shaw STEM Academy.">
+  <meta name="twitter:image" content="https://www.shawstemacademy.com/og-image.png">
 
   <!-- Tailwind CSS CDN for instant styling with zero JS overhead -->
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -203,10 +223,10 @@ app.get(['/about', '/about/'], (req, res) => {
 <body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
 
   <!-- Header / Navigation Bar -->
-  <header class="bg-white border-b border-gray-200 py-5 shadow-sm">
+  <header class="bg-white border-b border-gray-200 py-4 shadow-sm">
     <div class="max-w-5xl mx-auto px-6 flex justify-between items-center">
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-extrabold text-xl">S</div>
+        <img src="/logo.png" alt="Shaw STEM Academy logo" class="w-10 h-10 object-contain rounded-full border border-teal-600/30" />
         <span class="text-xl font-bold text-gray-900 tracking-tight">Shaw STEM Academy</span>
       </div>
       <a href="/" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition duration-150">
@@ -326,13 +346,275 @@ app.get(['/about', '/about/'], (req, res) => {
         © ${new Date().getFullYear()} Shaw STEM Academy. All rights reserved.
       </p>
       <div class="flex justify-center space-x-4 text-xs font-semibold text-gray-400">
-        <a href="/?tab=privacy" class="hover:text-blue-600 transition">Privacy Policy</a>
+        <a href="/privacy" class="hover:text-blue-600 transition">Privacy Policy</a>
         <span>•</span>
-        <a href="/?tab=terms" class="hover:text-blue-600 transition">Terms of Service</a>
+        <a href="/terms" class="hover:text-blue-600 transition">Terms of Service</a>
       </div>
     </div>
   </footer>
 
+</body>
+</html>`);
+});
+
+// Server-rendered /privacy and /privacy/ page with self-referencing canonical
+app.get(['/privacy', '/privacy/'], (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - Shaw STEM Academy</title>
+  <meta name="description" content="Official Privacy Policy and Data Protection standards for Shaw STEM Academy student records, Google Sign-In authentication, and portal communications.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://www.shawstemacademy.com/privacy">
+
+  <!-- Favicon and App Icons -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#002b36">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.shawstemacademy.com/privacy">
+  <meta property="og:site_name" content="Shaw STEM Academy">
+  <meta property="og:title" content="Privacy Policy - Shaw STEM Academy">
+  <meta property="og:description" content="Official Privacy Policy and Data Protection standards for Shaw STEM Academy student records.">
+  <meta property="og:image" content="https://www.shawstemacademy.com/og-image.png">
+
+  <!-- Tailwind CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
+  <header class="bg-white border-b border-gray-200 py-4 shadow-sm">
+    <div class="max-w-5xl mx-auto px-6 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <img src="/logo.png" alt="Shaw STEM Academy logo" class="w-10 h-10 object-contain rounded-full border border-teal-600/30" />
+        <span class="text-xl font-bold text-gray-900 tracking-tight">Shaw STEM Academy</span>
+      </div>
+      <a href="/" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition duration-150">
+        Launch Portal
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-4xl mx-auto px-6 py-12 space-y-8">
+    <div class="border-b border-gray-200 pb-6">
+      <span class="text-xs font-bold uppercase tracking-wider text-blue-600">Legal Governance</span>
+      <h1 class="text-3xl font-extrabold text-gray-900 mt-1">Privacy Policy &amp; Data Protection</h1>
+      <p class="text-sm text-gray-500 mt-2">Effective Date: August 2026 | Governing Domain: shawstemacademy.com</p>
+    </div>
+
+    <div class="space-y-6 text-gray-700 leading-relaxed text-sm sm:text-base">
+      <section class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-lg font-bold text-gray-900">1. Information We Collect</h2>
+        <p>Shaw STEM Academy collects student academic registration records, guardian contact details, and basic profile data (name, email address, avatar photo) supplied through Google Sign-In OAuth authentication.</p>
+      </section>
+
+      <section class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-lg font-bold text-gray-900">2. How We Use Information</h2>
+        <p>Collected information is used exclusively to facilitate class enrollments, syllabus delivery, attendance tracking, tuition management, and academic communications.</p>
+      </section>
+
+      <section class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-lg font-bold text-gray-900">3. Google OAuth Scopes &amp; Third Parties</h2>
+        <p>We only request the minimum required profile information (email, profile info). We never sell, rent, or trade student or parent information to third parties.</p>
+      </section>
+
+      <section class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-lg font-bold text-gray-900">4. Contact &amp; Data Requests</h2>
+        <p>For any privacy questions or data deletion requests, contact our administration at <a href="mailto:shawstemacademy@gmail.com" class="text-blue-600 underline font-semibold">shawstemacademy@gmail.com</a>.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="bg-white border-t border-gray-200 py-8 text-center text-xs text-gray-500">
+    <p>© ${new Date().getFullYear()} Shaw STEM Academy. All rights reserved.</p>
+    <div class="mt-2 space-x-4">
+      <a href="/" class="hover:text-blue-600">Home</a>
+      <span>•</span>
+      <a href="/terms" class="hover:text-blue-600">Terms of Service</a>
+      <span>•</span>
+      <a href="/about/" class="hover:text-blue-600">About</a>
+    </div>
+  </footer>
+</body>
+</html>`);
+});
+
+// Server-rendered /terms and /terms/ page with self-referencing canonical
+app.get(['/terms', '/terms/'], (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service - Shaw STEM Academy</title>
+  <meta name="description" content="Terms of Service, academic enrollment conditions, and student portal conduct policies for Shaw STEM Academy.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://www.shawstemacademy.com/terms">
+
+  <!-- Favicon and App Icons -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#002b36">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.shawstemacademy.com/terms">
+  <meta property="og:site_name" content="Shaw STEM Academy">
+  <meta property="og:title" content="Terms of Service - Shaw STEM Academy">
+  <meta property="og:description" content="Terms of Service, academic enrollment conditions, and student portal conduct policies.">
+  <meta property="og:image" content="https://www.shawstemacademy.com/og-image.png">
+
+  <!-- Tailwind CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
+  <header class="bg-white border-b border-gray-200 py-4 shadow-sm">
+    <div class="max-w-5xl mx-auto px-6 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <img src="/logo.png" alt="Shaw STEM Academy logo" class="w-10 h-10 object-contain rounded-full border border-teal-600/30" />
+        <span class="text-xl font-bold text-gray-900 tracking-tight">Shaw STEM Academy</span>
+      </div>
+      <a href="/" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition duration-150">
+        Launch Portal
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-4xl mx-auto px-6 py-12 space-y-8">
+    <div class="border-b border-gray-200 pb-6">
+      <span class="text-xs font-bold uppercase tracking-wider text-blue-600">Institutional Terms</span>
+      <h1 class="text-3xl font-extrabold text-gray-900 mt-1">Terms of Service &amp; Enrollment Policies</h1>
+      <p class="text-sm text-gray-500 mt-2">Effective Date: August 2026 | Governing Domain: shawstemacademy.com</p>
+    </div>
+
+    <div class="space-y-6 text-gray-700 leading-relaxed text-sm sm:text-base">
+      <section class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-lg font-bold text-gray-900">1. Acceptance of Terms</h2>
+        <p>By accessing the Shaw STEM Academy portal or enrolling in CSEC/CAPE courses, students, parents, and faculty agree to adhere to these terms and academic standards.</p>
+      </section>
+
+      <section class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-lg font-bold text-gray-900">2. Academic Integrity &amp; Conduct</h2>
+        <p>All virtual classroom participants are expected to maintain academic honesty, respect instructors and peers, and protect their login credentials.</p>
+      </section>
+
+      <section class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-lg font-bold text-gray-900">3. Class Registrations &amp; Tuition</h2>
+        <p>Tuition fees, multi-subject discount schedules, and term registration schedules are set by the administration and must be fulfilled according to institutional timelines.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="bg-white border-t border-gray-200 py-8 text-center text-xs text-gray-500">
+    <p>© ${new Date().getFullYear()} Shaw STEM Academy. All rights reserved.</p>
+    <div class="mt-2 space-x-4">
+      <a href="/" class="hover:text-blue-600">Home</a>
+      <span>•</span>
+      <a href="/privacy" class="hover:text-blue-600">Privacy Policy</a>
+      <span>•</span>
+      <a href="/about/" class="hover:text-blue-600">About</a>
+    </div>
+  </footer>
+</body>
+</html>`);
+});
+
+// Server-rendered /academics and /academics/ page with self-referencing canonical
+app.get(['/academics', '/academics/'], (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Academics & Courses - Shaw STEM Academy</title>
+  <meta name="description" content="Explore online CSEC and CAPE STEM courses, science laboratories, computer programming, mathematics, and physics at Shaw STEM Academy.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://www.shawstemacademy.com/academics">
+
+  <!-- Favicon and App Icons -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#002b36">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.shawstemacademy.com/academics">
+  <meta property="og:site_name" content="Shaw STEM Academy">
+  <meta property="og:title" content="Academics & Courses - Shaw STEM Academy">
+  <meta property="og:description" content="Explore online CSEC and CAPE STEM courses, science laboratories, computer programming, mathematics, and physics.">
+  <meta property="og:image" content="https://www.shawstemacademy.com/og-image.png">
+
+  <!-- Tailwind CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
+  <header class="bg-white border-b border-gray-200 py-4 shadow-sm">
+    <div class="max-w-5xl mx-auto px-6 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <img src="/logo.png" alt="Shaw STEM Academy logo" class="w-10 h-10 object-contain rounded-full border border-teal-600/30" />
+        <span class="text-xl font-bold text-gray-900 tracking-tight">Shaw STEM Academy</span>
+      </div>
+      <a href="/" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition duration-150">
+        Launch Interactive Portal
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-5xl mx-auto px-6 py-12 space-y-8">
+    <div class="border-b border-gray-200 pb-6">
+      <span class="text-xs font-bold uppercase tracking-wider text-blue-600">Curriculum &amp; Department Catalogs</span>
+      <h1 class="text-3xl font-extrabold text-gray-900 mt-1">CSEC &amp; CAPE STEM Programs</h1>
+      <p class="text-base text-gray-600 mt-2">Accredited, interactive secondary and advanced level STEM education designed for high achievement in Caribbean examination standards.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-xl font-bold text-gray-900">Mathematics &amp; Add Math</h2>
+        <p class="text-gray-600 text-sm leading-relaxed">Algebra, geometry, trigonometry, calculus foundations, mathematical reasoning, and SBA portfolio guidance.</p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-xl font-bold text-gray-900">Physics &amp; Engineering</h2>
+        <p class="text-gray-600 text-sm leading-relaxed">Mechanics, thermodynamics, wave theory, electromagnetism, and virtual laboratory experimentation protocols.</p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-xl font-bold text-gray-900">Chemistry &amp; Biology</h2>
+        <p class="text-gray-600 text-sm leading-relaxed">Organic chemistry, stoichiometry, cell biology, genetics, ecology, and standardized SBA lab reports.</p>
+      </div>
+      <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <h2 class="text-xl font-bold text-gray-900">Computer Science &amp; IT</h2>
+        <p class="text-gray-600 text-sm leading-relaxed">Data structures, Python/C programming, database design, computer networks, and practical software engineering.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="bg-white border-t border-gray-200 py-8 text-center text-xs text-gray-500">
+    <p>© ${new Date().getFullYear()} Shaw STEM Academy. All rights reserved.</p>
+    <div class="mt-2 space-x-4">
+      <a href="/" class="hover:text-blue-600">Home</a>
+      <span>•</span>
+      <a href="/privacy" class="hover:text-blue-600">Privacy Policy</a>
+      <span>•</span>
+      <a href="/terms" class="hover:text-blue-600">Terms of Service</a>
+    </div>
+  </footer>
 </body>
 </html>`);
 });
