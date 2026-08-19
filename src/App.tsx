@@ -33,6 +33,7 @@ import {
   logSecurityEvent,
   subscribeToSectionOrders,
   saveSectionOrdersToFirestore,
+  registerWithEmailPassword,
 } from './lib/firebase';
 import { captureClientMetadata, fetchClientIp } from './lib/clientMetadata';
 import { getRecaptchaToken, createRecaptchaAssessment, verifyRecaptcha } from './lib/recaptcha';
@@ -327,7 +328,7 @@ export default function App() {
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
   const [systemActionLogs, setSystemActionLogs] = useState<SystemActionLog[]>([]);
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
-  const [academyInfo, setAcademyInfo] = useState<AcademyInfo | null>(DEFAULT_ACADEMY_INFO);
+  const [academyInfo, setAcademyInfo] = useState<AcademyInfo | null>(null);
   const [featureCards, setFeatureCards] = useState<FeatureCard[]>(DEFAULT_FEATURE_CARDS);
   const [fieldSettings, setFieldSettings] = useState<FormFieldSetting[]>(INITIAL_FORM_FIELD_SETTINGS);
 
@@ -467,6 +468,7 @@ export default function App() {
   // Registration Auth States
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalType, setAuthModalType] = useState<'google' | 'password'>('password');
+  const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -964,7 +966,7 @@ export default function App() {
       }),
       subscribeToCollection<AddDropRequest>('addDropRequests', (data) => setAddDropRequests(data || [])),
       subscribeToCollection<FaqItem>('faqs', (data) => setFaqs(data || [])),
-      subscribeToCollection<AcademyInfo>('academyInfo', (data) => setAcademyInfo((data && data[0]) || DEFAULT_ACADEMY_INFO)),
+      subscribeToCollection<AcademyInfo>('academyInfo', (data) => setAcademyInfo((data && data[0]) || null)),
       subscribeToDocument<OurSchoolPageData>('ourSchool', 'pageData', (data) => {
         if (data) {
           const mockIds = new Set(['staff-1', 'staff-2', 'staff-3', 'staff-4']);
@@ -1678,12 +1680,17 @@ export default function App() {
   };
 
   const handlePasswordAuthRegistration = async () => {
-    const enteredEmail = (studentInfo.email || '').trim().toLowerCase();
+    const finalEmail = (regEmail || '').trim().toLowerCase();
+    if (!finalEmail) {
+      setAuthError('Please enter a valid email address.');
+      return;
+    }
+
     const existingUser = schoolUsers.find(
-      (u) => (u?.email || '').toLowerCase() === enteredEmail
+      (u) => (u?.email || '').toLowerCase() === finalEmail
     );
     if (existingUser) {
-      alert(`An account with the email address "${studentInfo.email}" already exists. Please log in using that existing email address.`);
+      alert(`An account with the email address "${finalEmail}" already exists. Please log in using that existing email address.`);
       setIsAuthModalOpen(false);
       setActiveTab('login');
       return;
@@ -1707,12 +1714,16 @@ export default function App() {
         await logSecurityEvent({
           eventType: 'password_auth_registration',
           status: 'failure',
-          email: studentInfo.email,
+          email: finalEmail,
           details: `reCAPTCHA failed: ${recaptchaResult.message}`,
         });
         setAuthLoading(false);
         return;
       }
+
+      // Create Firebase Auth Account
+      const userCredential = await registerWithEmailPassword(finalEmail, regPassword);
+      const firebaseUid = userCredential.user.uid;
 
       const sName = studentInfo.studentName || `${studentInfo.firstName || ''} ${studentInfo.lastName || ''}`.trim() || 'Student';
       const pName = studentInfo.motherFirstName || studentInfo.fatherFirstName || studentInfo.guardianFirstName || studentInfo.parentName || '';
@@ -1720,6 +1731,7 @@ export default function App() {
       
       const completeInfo = {
         ...studentInfo,
+        email: finalEmail,
         studentName: sName,
         parentEmail: studentInfo.parentEmail || studentInfo.motherEmail || studentInfo.fatherEmail || studentInfo.guardianEmail || '',
         parentName: pName,
@@ -1730,9 +1742,9 @@ export default function App() {
       setStudentInfo(completeInfo);
 
       const newUser: SchoolUser = {
-        id: `usr-${Date.now()}`,
+        id: firebaseUid,
         name: sName,
-        email: studentInfo.email || '',
+        email: finalEmail,
         password: regPassword,
         role: 'student',
         status: 'prospective',
@@ -1746,7 +1758,7 @@ export default function App() {
         status: 'success',
         email: newUser.email,
         userId: newUser.id,
-        details: `Password registration account created for ${newUser.name}`,
+        details: `Password registration account created for ${newUser.name} (Firebase standard auth)`,
       });
 
       setSchoolUsers((prev) => [...prev.filter((u) => u.id !== newUser.id), newUser]);
@@ -1759,12 +1771,19 @@ export default function App() {
       setNewAccountSuccess({ name: newUser.name, email: newUser.email });
     } catch (err: any) {
       console.error('Password registration error:', err);
-      const errMsg = err?.message || 'Failed to create password account.';
+      let errMsg = err?.message || 'Failed to create password account.';
+      if (err?.code === 'auth/email-already-in-use') {
+        errMsg = 'This email address is already in use by another account.';
+      } else if (err?.code === 'auth/invalid-email') {
+        errMsg = 'The email address is invalid.';
+      } else if (err?.code === 'auth/weak-password') {
+        errMsg = 'The password must be at least 6 characters.';
+      }
       setAuthError(errMsg);
       await logSecurityEvent({
         eventType: 'password_auth_registration',
         status: 'failure',
-        email: studentInfo.email,
+        email: finalEmail,
         details: `Password registration error: ${errMsg}`,
       });
     } finally {
@@ -4032,6 +4051,10 @@ export default function App() {
                         if (isGoogle) {
                           handleGoogleAuthRegistration();
                         } else {
+                          setRegEmail(studentInfo.email || '');
+                          setRegPassword('');
+                          setRegConfirmPassword('');
+                          setAuthError('');
                           setAuthModalType('password');
                           setIsAuthModalOpen(true);
                         }
@@ -4285,10 +4308,10 @@ export default function App() {
 
           <div className="space-y-2">
             <h4 className="font-bold text-white text-sm">Campus & Contact</h4>
-            <p className="text-slate-400">
-              1000 Innovation Pkwy, Tech Center<br />
-              admissions@shawstemacademy.edu<br />
-              (555) 742-9000
+            <p className="text-slate-400 leading-relaxed">
+              {academyInfo?.address || ''}<br />
+              {academyInfo?.contactEmail || ''}<br />
+              {academyInfo?.contactPhone || ''}
             </p>
             <div className="text-[11px] text-slate-500 pt-2 flex flex-col gap-1">
               <span>© {new Date().getFullYear()} Shaw STEM Academy. All rights reserved.</span>
@@ -4358,7 +4381,7 @@ export default function App() {
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {authModalType === 'google'
                   ? `Please verify your identity for ${studentInfo.email} to secure your student portal account.`
-                  : `Please set a password to secure your account for email ${studentInfo.email}.`}
+                  : `Please set a password to secure your account for email ${regEmail || studentInfo.email}.`}
               </p>
             </div>
 
@@ -4427,6 +4450,16 @@ export default function App() {
               </div>
             ) : (
               <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-gray-700 dark:text-slate-300">Email Address (Editable)</label>
+                  <input
+                    type="email"
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    placeholder="Enter email address"
+                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden text-slate-900 dark:text-slate-100 font-medium"
+                  />
+                </div>
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-gray-700 dark:text-slate-300">Choose Password</label>
                   <input

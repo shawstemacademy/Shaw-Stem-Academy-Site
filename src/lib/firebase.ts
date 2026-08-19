@@ -11,7 +11,9 @@ import {
   signOut,
   sendPasswordResetEmail,
   setPersistence,
-  browserSessionPersistence
+  browserSessionPersistence,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
 } from 'firebase/auth';
 import { 
   initializeFirestore,
@@ -694,3 +696,12 @@ export const logSecurityEvent = async (event: SecurityLogEvent) => {
     return false;
   }
 };
+
+export const registerWithEmailPassword = async (email: string, password: string) => {
+  return await createUserWithEmailAndPassword(auth, email, password);
+};
+
+export const loginWithEmailPassword = async (email: string, password: string) => {
+  return await signInWithEmailAndPassword(auth, email, password);
+};
+

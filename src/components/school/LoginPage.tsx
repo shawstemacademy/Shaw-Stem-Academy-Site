@@ -10,7 +10,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { UserRole, StudentStatus, PortalTab, SchoolUser } from '../../types';
-import { googleSignIn, sendUserPasswordResetEmail, logSecurityEvent } from '../../lib/firebase';
+import { googleSignIn, sendUserPasswordResetEmail, logSecurityEvent, loginWithEmailPassword } from '../../lib/firebase';
 import { getRecaptchaToken, createRecaptchaAssessment } from '../../lib/recaptcha';
 import { requestNotificationPermission } from '../../lib/notifications';
 
@@ -128,10 +128,46 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
       const cleanEmail = email.trim().toLowerCase();
 
+      // Attempt standard Firebase Auth first
+      let firebaseAuthSuccess = false;
+      try {
+        const userCredential = await loginWithEmailPassword(cleanEmail, password);
+        if (userCredential && userCredential.user) {
+          firebaseAuthSuccess = true;
+        }
+      } catch (authErr: any) {
+        console.warn('Firebase standard login failed or not registered:', authErr?.message || authErr);
+      }
+
       // Attempt to match custom user from the database
       const matchedUser = schoolUsers.find(
         (u) => (u?.email || '').toLowerCase() === cleanEmail
       );
+
+      if (firebaseAuthSuccess && matchedUser) {
+        const resolvedRole = matchedUser.role;
+        let roleTitle = resolvedRole.toUpperCase();
+        if (resolvedRole === 'admin') roleTitle = 'ADMIN';
+        if (resolvedRole === 'registrar') roleTitle = 'REGISTRAR';
+        if (resolvedRole === 'teacher' || resolvedRole === 'hod') roleTitle = 'FACULTY';
+        if (resolvedRole === 'student') roleTitle = 'STUDENT';
+
+        setLoginMessage(`✅ Authenticated successfully! Logging into ${roleTitle} portal...`);
+        setIsSuccessMessage(true);
+
+        await logSecurityEvent({
+          eventType: 'successful_login',
+          status: 'success',
+          email: cleanEmail,
+          userId: matchedUser.id,
+          details: `Logged in successfully via Firebase Auth as ${matchedUser.role}`,
+        });
+
+        setTimeout(() => {
+          onLoginProfile(resolvedRole, matchedUser.status || 'unverified', matchedUser);
+        }, 600);
+        return;
+      }
 
       if (matchedUser) {
         // Check password
