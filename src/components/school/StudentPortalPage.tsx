@@ -149,6 +149,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showQrFullscreen, setShowQrFullscreen] = useState(false);
+  const [showClassroomQrNotice, setShowClassroomQrNotice] = useState(false);
+  const [classroomNoticeUrl, setClassroomNoticeUrl] = useState('');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editingStudentInfo, setEditingStudentInfo] = useState<StudentInfo | null>(null);
   const [selectedReceiptRecord, setSelectedReceiptRecord] = useState<RegistrationRecord | null>(null);
@@ -1302,6 +1304,58 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               </div>
             </div>
           )}
+
+          {/* Google Classroom QR Access Requirement Modal */}
+          {showClassroomQrNotice && (
+            <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 transition-all backdrop-blur-md">
+              <div className="max-w-md w-full bg-slate-900 border border-slate-800 text-white rounded-3xl p-6 text-center space-y-6 relative shadow-2xl">
+                <button
+                  onClick={() => setShowClassroomQrNotice(false)}
+                  className="absolute right-4 top-4 w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center justify-center text-lg font-bold"
+                >
+                  ✕
+                </button>
+                
+                <div className="mx-auto w-16 h-16 bg-emerald-500/10 border border-emerald-500/30 rounded-full flex items-center justify-center text-emerald-400">
+                  <QrCode className="w-8 h-8 animate-pulse" />
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-xl font-black text-white">QR Code Attendance Required</h4>
+                  <p className="text-xs text-indigo-400 font-extrabold tracking-widest uppercase">SHAW STEM ACADEMY SECURITY CHECK</p>
+                </div>
+
+                <p className="text-sm text-slate-300 max-w-sm mx-auto leading-relaxed">
+                  Before accessing your <strong>Google Classroom</strong>, please ensure you present your student <strong>QR Pass</strong> to the instructor or campus scanners to verify attendance.
+                </p>
+
+                <div className="space-y-2.5 pt-2">
+                  <button
+                    onClick={() => {
+                      setShowClassroomQrNotice(false);
+                      setShowQrFullscreen(true);
+                      window.open(classroomNoticeUrl, '_blank', 'noopener,noreferrer');
+                    }}
+                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    <span>Show My QR Code & Open Classroom</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowClassroomQrNotice(false);
+                      window.open(classroomNoticeUrl, '_blank', 'noopener,noreferrer');
+                    }}
+                    className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Just Open Google Classroom</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
             </>
           )}
 
@@ -1396,15 +1450,16 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                       </p>
                     </div>
 
-                    <a
-                      href="https://classroom.google.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow-sm transition-all flex items-center gap-2 shrink-0"
+                    <button
+                      onClick={() => {
+                        setClassroomNoticeUrl("https://classroom.google.com");
+                        setShowClassroomQrNotice(true);
+                      }}
+                      className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow-sm transition-all flex items-center gap-2 shrink-0 cursor-pointer"
                     >
                       <span>Open Google Classroom Dashboard</span>
                       <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
+                    </button>
                   </div>
                 </div>
 
@@ -1439,19 +1494,21 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                         </div>
 
                         <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                          <a
-                            href={gcUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`px-3 py-1.5 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 ${
+                          <button
+                            onClick={() => {
+                              setClassroomNoticeUrl(gcUrl);
+                              setShowClassroomQrNotice(true);
+                            }}
+                            disabled={status === 'pending_verification' || status === 'unverified'}
+                            className={`px-3 py-1.5 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                               status === 'pending_verification' || status === 'unverified'
-                                ? 'bg-slate-100 text-slate-400 pointer-events-none'
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-50'
                                 : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
                             }`}
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                             <span>Google Classroom</span>
-                          </a>
+                          </button>
 
                           <a
                             href={gMeet}

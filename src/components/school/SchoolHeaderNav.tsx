@@ -1,5 +1,6 @@
 import React from 'react';
 import { User } from 'firebase/auth';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   GraduationCap, 
   Building2,
@@ -16,7 +17,9 @@ import {
   Bell,
   BellOff,
   Sun,
-  Moon
+  Moon,
+  Menu,
+  X
 } from 'lucide-react';
 import { PortalTab, UserRole, StudentStatus, SchoolUser } from '../../types';
 
@@ -65,6 +68,7 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
   isPaidRegistrationReopened = false,
   isStudentPaid = false,
 }) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [notifPerm, setNotifPerm] = React.useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
@@ -214,7 +218,7 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
   });
 
   return (
-    <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-white shadow-lg">
+    <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-white shadow-lg w-full min-w-fit">
       {/* Top Banner: Branding & Current Logged-In User Header Info */}
       <div className="border-b border-slate-800/80 bg-slate-950/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -332,15 +336,16 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
       </div>
 
       {/* Main Navigation Tabs Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4 overflow-x-auto">
-        <nav className="flex items-center gap-1">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+        {/* Desktop View: Full horizontal navigation row */}
+        <nav className="hidden lg:flex items-center gap-1">
           {visibleTabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => onSelectTab(tab.id)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
                   isActive
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-900/40'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -358,22 +363,95 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
           })}
         </nav>
 
+        {/* Mobile View: Hamburger menu toggle button & Active tab label */}
+        <div className="flex lg:hidden items-center justify-between w-full">
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800 transition-all cursor-pointer active:scale-95"
+            aria-label="Toggle navigation menu"
+          >
+            {isMobileMenuOpen ? (
+              <X className="w-4 h-4 text-rose-400" />
+            ) : (
+              <Menu className="w-4 h-4 text-blue-400 animate-pulse" />
+            )}
+            <span className="text-[11px] font-bold uppercase tracking-wider">
+              {isMobileMenuOpen ? 'Close' : 'Menu'}
+            </span>
+          </button>
+
+          {/* Current Screen Title Display */}
+          <div className="flex items-center gap-2 text-xs font-bold bg-slate-950/60 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-800/80">
+            {visibleTabs.find((t) => t.id === activeTab)?.icon}
+            <span className="truncate max-w-[120px] sm:max-w-none">
+              {visibleTabs.find((t) => t.id === activeTab)?.label || 'Overview'}
+            </span>
+          </div>
+        </div>
+
         {/* Right Nav Utilities */}
         <div className="flex items-center gap-2 shrink-0">
           {/* Live Running Total Indicator (visible for non-teachers) */}
           {((!!user || !!loggedInUser) && (loggedInUser?.role || currentRole) === 'student') && (
             <button
               onClick={() => onSelectTab('registration')}
-              className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded-full text-xs transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded-full text-xs transition-colors"
             >
               <Calculator className="w-3.5 h-3.5 text-blue-400" />
-              <span className="text-slate-400">Total:</span>
-              <span className="font-extrabold text-white">${runningTotal.toFixed(2)}</span>
+              <span className="hidden sm:inline text-slate-400">Total:</span>
+              <span className="font-extrabold text-white">${runningTotal.toFixed(0)}</span>
               <span className="text-[11px] text-slate-500">({classCount})</span>
             </button>
           )}
         </div>
       </div>
+
+      {/* Mobile Animated Dropdown Overlay Drawer */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="lg:hidden overflow-hidden border-t border-slate-800 bg-slate-900/98 backdrop-blur-lg"
+          >
+            <div className="p-4 space-y-2 max-h-[75vh] overflow-y-auto">
+              {visibleTabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      onSelectTab(tab.id);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                      isActive
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-900/40'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={isActive ? 'text-white' : 'text-slate-400'}>
+                        {tab.icon}
+                      </span>
+                      <span>{tab.label}</span>
+                    </div>
+                    {tab.badge ? (
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-extrabold">
+                        {tab.badge}
+                      </span>
+                    ) : isActive ? (
+                      <span className="w-1.5 h-1.5 bg-white rounded-full" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 };

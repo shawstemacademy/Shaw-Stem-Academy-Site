@@ -4252,7 +4252,7 @@ export default function App() {
       </div>
 
       {/* School Footer */}
-      <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 py-10 mt-16">
+      <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 py-10 mt-16 w-full min-w-fit">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8 text-xs">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
