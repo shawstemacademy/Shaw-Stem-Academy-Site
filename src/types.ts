@@ -187,6 +187,7 @@ export interface StudentInfo {
 
   // SBA Hub Selection
   selectedSbaHubIds?: string[];
+  sbaHubSelection?: string[];
   enrolledSbaHub?: boolean;
   selectedClassIds?: string[];
 

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StudentInfo, FormTheme } from '../types';
-import { User, Mail, Phone, GraduationCap, Upload, MapPin, Calendar, Heart, Shield, HelpCircle, Users, Eye, EyeOff, CheckCircle2, Sliders, Copy } from 'lucide-react';
+import { User, Mail, Phone, GraduationCap, Upload, MapPin, Calendar, Heart, Shield, HelpCircle, Users, Eye, EyeOff, CheckCircle2, Sliders, Copy, Save, Check, Trash2, Clock } from 'lucide-react';
 import { ImageUploadInput } from './common/ImageUploadInput';
 import { FormFieldSetting, getFieldSetting } from '../lib/formFieldsConfig';
 import { getPhoneValidationError, sanitizePhoneDigits } from '../lib/phoneValidation';
@@ -17,6 +17,7 @@ interface StudentInfoFormProps {
   fieldSettings?: FormFieldSetting[];
   isAdminLoggedIn?: boolean;
   onToggleFieldSetting?: (formId: string, fieldId: string, property: 'enabled' | 'required') => void;
+  onClearDraft?: () => void;
 }
 
 export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
@@ -30,8 +31,84 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
   fieldSettings = [],
   isAdminLoggedIn = false,
   onToggleFieldSetting,
+  onClearDraft,
 }) => {
   const [photoPreview, setPhotoPreview] = useState<string>(studentInfo.photoUrl || '');
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle');
+  const [lastSavedTime, setLastSavedTime] = useState<string>('');
+  const [hasSavedDraft, setHasSavedDraft] = useState<boolean>(false);
+
+  // Check on mount for existing saved draft
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('student_info_form_draft') || localStorage.getItem('pending_registration_info');
+      if (saved) {
+        setHasSavedDraft(true);
+      }
+    } catch (e) {
+      console.warn('Error reading saved draft from localStorage:', e);
+    }
+  }, []);
+
+  // Real-time automatic localStorage saving whenever studentInfo changes
+  useEffect(() => {
+    const hasMeaningfulContent = Object.entries(studentInfo || {}).some(([k, v]) => {
+      if (k === 'sbaHubSelection' || k === 'selectedClassIds') {
+        return Array.isArray(v) && v.length > 0;
+      }
+      return typeof v === 'string' && v.trim().length > 0;
+    });
+
+    if (hasMeaningfulContent) {
+      setSaveStatus('saving');
+      const debounceTimer = setTimeout(() => {
+        try {
+          localStorage.setItem('student_info_form_draft', JSON.stringify(studentInfo));
+          setSaveStatus('saved');
+          setHasSavedDraft(true);
+          const now = new Date();
+          setLastSavedTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        } catch (e) {
+          console.warn('Could not auto-save registration draft to localStorage:', e);
+        }
+      }, 250);
+
+      return () => clearTimeout(debounceTimer);
+    }
+  }, [studentInfo]);
+
+  const handleClearDraftClick = () => {
+    if (window.confirm('Are you sure you want to clear your saved registration progress and start over?')) {
+      try {
+        localStorage.removeItem('student_info_form_draft');
+        localStorage.removeItem('pending_registration_info');
+        setHasSavedDraft(false);
+        setSaveStatus('idle');
+        setLastSavedTime('');
+
+        if (onClearDraft) {
+          onClearDraft();
+        } else {
+          // Reset all student fields through onChange
+          const defaultFields: (keyof StudentInfo)[] = [
+            'email', 'firstName', 'middleName', 'lastName', 'formGrade',
+            'currentSchool', 'age', 'dateOfBirth', 'cellPhone', 'homePhone',
+            'photoUrl', 'address', 'gmailAddress', 'gender', 'livesWith',
+            'motherFirstName', 'motherMiddleName', 'motherLastName', 'motherAge', 'motherDob', 'motherEmail', 'motherCellPhone', 'motherHomePhone', 'motherAddress',
+            'fatherFirstName', 'fatherMiddleName', 'fatherLastName', 'fatherAge', 'fatherDob', 'fatherEmail', 'fatherCellPhone', 'fatherHomePhone', 'fatherAddress',
+            'guardianFirstName', 'guardianMiddleName', 'guardianLastName', 'guardianAge', 'guardianDob', 'guardianEmail', 'guardianCellPhone', 'guardianHomePhone', 'guardianAddress', 'guardianGender', 'guardianRelation',
+            'parentName', 'parentEmail', 'parentPhone', 'studentName', 'studentAge', 'gradeLevel', 'emergencyContact'
+          ];
+          defaultFields.forEach((field) => {
+            onChange(field, field === 'livesWith' ? 'Parent' : '');
+          });
+          setPhotoPreview('');
+        }
+      } catch (err) {
+        console.warn('Error clearing draft:', err);
+      }
+    }
+  };
 
   const FORM_ID = 'student_registration';
 
@@ -88,6 +165,47 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
 
   return (
     <div className="space-y-6 mb-6">
+      {/* Auto-Save & Progress Recovery Banner */}
+      <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs shadow-xs">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+            <Save className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 font-bold text-emerald-950 dark:text-emerald-200">
+              <span>Automatic Local Storage Protection</span>
+              {saveStatus === 'saving' && (
+                <span className="inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  Saving draft...
+                </span>
+              )}
+              {saveStatus === 'saved' && (
+                <span className="inline-flex items-center gap-1 text-2xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300">
+                  <Check className="w-3 h-3 text-emerald-600" />
+                  Saved {lastSavedTime ? `at ${lastSavedTime}` : 'locally'}
+                </span>
+              )}
+            </div>
+            <p className="text-emerald-800/80 dark:text-emerald-400 text-2xs mt-0.5">
+              Your inputs are continuously preserved on this device. If the page is refreshed or accidentally closed, your registration progress will remain intact.
+            </p>
+          </div>
+        </div>
+
+        {hasSavedDraft && (
+          <button
+            type="button"
+            onClick={handleClearDraftClick}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-2xs font-semibold text-rose-700 dark:text-rose-300 hover:text-rose-900 dark:hover:text-rose-100 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 border border-rose-200 dark:border-rose-800/60 rounded-lg transition-colors cursor-pointer ml-auto sm:ml-0"
+            title="Clear all saved progress and reset the form"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+            <span>Reset / Clear Draft</span>
+          </button>
+        )}
+      </div>
+
       {isAdminLoggedIn && (
         <div className="bg-purple-900 text-white p-3.5 rounded-xl text-xs font-medium flex items-center justify-between border border-purple-700 shadow-sm">
           <div className="flex items-center gap-2">

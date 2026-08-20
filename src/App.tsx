@@ -778,18 +778,47 @@ export default function App() {
     setClashes(detected);
   };
 
-  // Registrant Info
-  const [studentInfo, setStudentInfo] = useState<StudentInfo>({
-    parentName: '',
-    parentEmail: '',
-    parentPhone: '',
-    studentName: '',
-    studentAge: '',
-    gradeLevel: '',
-    emergencyContact: '',
-    sbaHubSelection: [],
-    livesWith: '',
+  // Registrant Info - restored from local storage draft if available so students do not lose progress on refresh
+  const [studentInfo, setStudentInfo] = useState<StudentInfo>(() => {
+    const defaultInfo: StudentInfo = {
+      parentName: '',
+      parentEmail: '',
+      parentPhone: '',
+      studentName: '',
+      studentAge: '',
+      gradeLevel: '',
+      emergencyContact: '',
+      sbaHubSelection: [],
+      livesWith: '',
+    };
+    try {
+      const savedDraft = typeof window !== 'undefined' 
+        ? (localStorage.getItem('student_info_form_draft') || localStorage.getItem('pending_registration_info'))
+        : null;
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        return { ...defaultInfo, ...parsed };
+      }
+    } catch (e) {
+      console.warn('Could not restore studentInfo draft from localStorage:', e);
+    }
+    return defaultInfo;
   });
+
+  // Auto-save studentInfo to local storage on changes so students never lose registration progress on refresh
+  useEffect(() => {
+    try {
+      const hasMeaningfulData = Object.entries(studentInfo).some(([k, v]) => {
+        if (k === 'sbaHubSelection' && Array.isArray(v)) return v.length > 0;
+        return typeof v === 'string' && v.trim().length > 0;
+      });
+      if (hasMeaningfulData) {
+        localStorage.setItem('student_info_form_draft', JSON.stringify(studentInfo));
+      }
+    } catch (e) {
+      console.warn('Failed to auto-save student registration draft:', e);
+    }
+  }, [studentInfo]);
 
   // Keep studentInfo synced with logged-in user details
   useEffect(() => {
@@ -2242,9 +2271,11 @@ export default function App() {
       { subtotal, totalPrice, studentEmail: effectiveStudentInfo.parentEmail }
     );
 
-    // Clear selected options for editing form
+    // Clear selected options for editing form & draft storage
     setSelectedClassIds([]);
     setSelectedSbaHubIds([]);
+    localStorage.removeItem('student_info_form_draft');
+    localStorage.removeItem('pending_registration_info');
 
     // Switch status to awaiting_acceptance & navigate to Student Portal (if not already accepted or enrolled)
     const currentStatus = loggedInUser?.status || studentStatus;
@@ -3322,6 +3353,7 @@ export default function App() {
     setActiveTab('login');
     sessionStorage.clear();
     localStorage.removeItem('pending_registration_info');
+    localStorage.removeItem('student_info_form_draft');
     localStorage.removeItem('saved_user_id');
     setEnrolledClassIds([]);
     setStudentInfo({
@@ -3889,6 +3921,34 @@ export default function App() {
                   fieldSettings={fieldSettings}
                   isAdminLoggedIn={currentRole === 'admin'}
                   onToggleFieldSetting={handleToggleFieldSetting}
+                  onClearDraft={() => {
+                    setStudentInfo({
+                      email: '',
+                      studentName: '',
+                      firstName: '',
+                      lastName: '',
+                      middleName: '',
+                      formGrade: '',
+                      currentSchool: '',
+                      age: '',
+                      dateOfBirth: '',
+                      cellPhone: '',
+                      homePhone: '',
+                      address: '',
+                      gmailAddress: '',
+                      gender: '',
+                      livesWith: 'Parent',
+                      parentName: '',
+                      parentEmail: '',
+                      parentPhone: '',
+                      studentAge: '',
+                      gradeLevel: '',
+                      emergencyContact: '',
+                    });
+                    setSelectedClassIds([]);
+                    setSelectedSbaHubIds([]);
+                    setIsSiblingSelected(false);
+                  }}
                 />
                 <div className="flex justify-end pt-4">
                   {(loggedInUser || user) ? (
