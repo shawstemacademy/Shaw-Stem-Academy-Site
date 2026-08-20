@@ -167,7 +167,10 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
         <div className="p-8 sm:p-12 md:p-16 flex flex-col md:flex-row items-center gap-12">
           <div className="flex-1 max-w-2xl space-y-6">
             <div className="space-y-2">
-              <span className="text-blue-400 font-extrabold tracking-wider text-sm uppercase">Welcome to Shaw STEM Academy</span>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Official STEM Learning &amp; Registration Portal</span>
+              </div>
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
                 {info.schoolName || 'Shaw STEM Academy'}
               </h1>
@@ -176,11 +179,16 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
               </p>
             </div>
 
-            <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-2xl">
-              <strong>Shaw STEM Academy</strong> provides a state-of-the-art educational facility combining rigorous science and engineering theory with real-world lab experimentation. {info.aboutText}
-            </p>
+            <div className="space-y-3 text-slate-300 text-base leading-relaxed">
+              <p>
+                <strong>Application Purpose:</strong> The <strong>Shaw STEM Academy Portal</strong> is a comprehensive academic management platform designed for students, parents, faculty, and administrative staff. It enables online registration for STEM courses, real-time timetable tracking, attendance management, and direct integration with Google Classroom and Google Meet for virtual learning.
+              </p>
+              <p className="text-xs text-slate-400">
+                {info.aboutText}
+              </p>
+            </div>
 
-            <div className="pt-4 flex flex-wrap items-center gap-4">
+            <div className="pt-2 flex flex-wrap items-center gap-3">
               {isLoggedIn ? (
                 <button
                   onClick={onOpenRegistration}
@@ -194,18 +202,27 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
                   onClick={() => onNavigate('login')}
                   className="px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-2xl shadow-xl shadow-blue-600/30 transition-all flex items-center gap-2 cursor-pointer border border-blue-400/30"
                 >
-                  <span>Log in to Enroll in Classes</span>
+                  <LogIn className="w-4 h-4" />
+                  <span>Log in to Portal</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               )}
 
               <button
                 onClick={() => onNavigate('academics')}
-                className="px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm rounded-2xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer"
+                className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm rounded-2xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer"
               >
                 <BookOpen className="w-4 h-4" />
-                <span>Browse Course Catalog</span>
+                <span>Course Catalog</span>
               </button>
+
+              <a
+                href="#application-purpose"
+                className="px-4 py-3.5 bg-slate-800/80 hover:bg-slate-700/80 text-blue-300 font-semibold text-xs rounded-2xl border border-blue-500/30 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4 text-blue-400" />
+                <span>App Purpose &amp; Verification</span>
+              </a>
             </div>
           </div>
 
@@ -276,7 +293,7 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
         </div>
       )}
 
-      {/* 4 Customizable Feature Cards above General Information */}
+      {/* 4 Customizable Feature Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {cards.map((card, idx) => {
           const colorClasses = {
@@ -656,6 +673,9 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
         )}
       </div>
 
+      {/* Official Google OAuth Verification & Application Purpose Section (Above Footer) */}
+      <ApplicationTransparencyNotice onNavigate={onNavigate} />
+
       {/* Full Article Reader Modal */}
       {selectedArticle && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
@@ -758,9 +778,6 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
           </div>
         </div>
       )}
-
-      {/* Google Verification & Application Transparency Notice (Above Footer) */}
-      <ApplicationTransparencyNotice onNavigate={onNavigate} />
 
       {/* Edit Logo Modal */}
       {isEditingLogo && (

@@ -275,12 +275,8 @@ export default function App() {
     return () => window.removeEventListener('firestore-error', handleFirestoreErrorEvent);
   }, []);
 
-  // Handle URL pathname and query parameter-based routing for Google Search Console crawlers and visitors
+  // Handle URL pathname, hash, and query parameter-based routing for Google Verification reviewers and visitors
   useEffect(() => {
-    const pathname = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get('tab');
-
     const pathToTabMap: Record<string, PortalTab> = {
       'about': 'our-school',
       'privacy': 'privacy',
@@ -295,17 +291,40 @@ export default function App() {
       'registration': 'registration',
       'admin': 'admin-dashboard',
       'teacher': 'teacher-dashboard',
-      'user-manual': 'user-manual'
+      'user-manual': 'user-manual',
+      'home': 'home'
     };
 
-    if (pathname && pathToTabMap[pathname]) {
-      setActiveTab(pathToTabMap[pathname]);
-    } else if (tabParam) {
-      const allowedTabs: PortalTab[] = ['home', 'our-school', 'timetable', 'privacy', 'terms', 'login', 'academics', 'student-portal', 'teacher-dashboard', 'admin-dashboard', 'admissions', 'registration', 'user-manual'];
-      if (allowedTabs.includes(tabParam as PortalTab)) {
-        setActiveTab(tabParam as PortalTab);
+    const parseCurrentRoute = () => {
+      const pathname = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
+      const hash = window.location.hash.toLowerCase().replace(/^#\/?/, '').split('?')[0];
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab')?.toLowerCase();
+
+      if (hash && pathToTabMap[hash]) {
+        setActiveTab(pathToTabMap[hash]);
+        return;
       }
-    }
+
+      if (pathname && pathToTabMap[pathname]) {
+        setActiveTab(pathToTabMap[pathname]);
+        return;
+      }
+
+      if (tabParam && pathToTabMap[tabParam]) {
+        setActiveTab(pathToTabMap[tabParam]);
+        return;
+      }
+    };
+
+    parseCurrentRoute();
+
+    window.addEventListener('hashchange', parseCurrentRoute);
+    window.addEventListener('popstate', parseCurrentRoute);
+    return () => {
+      window.removeEventListener('hashchange', parseCurrentRoute);
+      window.removeEventListener('popstate', parseCurrentRoute);
+    };
   }, []);
 
   const [landingPageSettings, setLandingPageSettings] = useState<LandingPageSettings>({
@@ -4367,22 +4386,54 @@ export default function App() {
           </div>
 
           <div className="space-y-2">
-            <h4 className="font-bold text-white text-sm">Campus & Contact</h4>
+            <h4 className="font-bold text-white text-sm">Campus &amp; Location</h4>
             <p className="text-slate-400 leading-relaxed">
-              {academyInfo?.address || ''}<br />
-              {academyInfo?.contactEmail || ''}<br />
-              {academyInfo?.contactPhone || ''}
+              {academyInfo?.address || '123 STEM Innovation Way'}<br />
+              Tel: {academyInfo?.contactPhone || '(555) 019-2834'}<br />
+              Email: {academyInfo?.contactEmail || 'shawstemacademy@gmail.com'}
             </p>
-            <div className="text-[11px] text-slate-500 pt-2 flex flex-col gap-1">
+            <div className="text-[11px] text-slate-500 pt-1">
               <span>© {new Date().getFullYear()} Shaw STEM Academy. All rights reserved.</span>
-              <div className="flex items-center gap-3 pt-1">
-                <a href="?tab=privacy" onClick={(e) => { e.preventDefault(); setActiveTab('privacy'); }} className="text-left hover:text-blue-400 transition-colors">Privacy Policy</a>
-                <span>•</span>
-                <a href="?tab=terms" onClick={(e) => { e.preventDefault(); setActiveTab('terms'); }} className="text-left hover:text-blue-400 transition-colors">Terms of Service</a>
-                <span>•</span>
-                <a href="?tab=user-manual" onClick={(e) => { e.preventDefault(); setActiveTab('user-manual'); }} className="text-left hover:text-blue-400 transition-colors">User Manual</a>
-              </div>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="font-bold text-white text-sm">Google OAuth &amp; Compliance</h4>
+            <p className="text-slate-400 text-2xs leading-relaxed">
+              Google Sign-In is used exclusively for secure authentication of students and staff.
+            </p>
+            <ul className="space-y-1 text-slate-300">
+              <li>
+                <a 
+                  href="#application-purpose" 
+                  onClick={(e) => { 
+                    e.preventDefault(); 
+                    setActiveTab('home'); 
+                    setTimeout(() => {
+                      document.getElementById('application-purpose')?.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+                  }} 
+                  className="hover:text-blue-400 transition-colors flex items-center gap-1"
+                >
+                  <span>App Purpose Notice</span>
+                </a>
+              </li>
+              <li>
+                <a href="#privacy" onClick={(e) => { e.preventDefault(); setActiveTab('privacy'); }} className="hover:text-blue-400 transition-colors">
+                  Privacy Policy
+                </a>
+              </li>
+              <li>
+                <a href="#terms" onClick={(e) => { e.preventDefault(); setActiveTab('terms'); }} className="hover:text-blue-400 transition-colors">
+                  Terms of Service
+                </a>
+              </li>
+              <li>
+                <a href="mailto:shawstemacademy@gmail.com" className="hover:text-blue-400 transition-colors">
+                  Developer Contact (Email)
+                </a>
+              </li>
+            </ul>
           </div>
         </div>
       </footer>
