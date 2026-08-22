@@ -1262,7 +1262,7 @@ export default function App() {
       }
       
       const matched = schoolUsers.find(
-        (u) => (u?.email || '').toLowerCase() === user.email!.toLowerCase()
+        (u) => (u?.email || '').toLowerCase() === user.email!.toLowerCase() || u?.id === user.uid
       );
       if (matched) {
         setLoggedInUser(matched);
@@ -1304,7 +1304,7 @@ export default function App() {
           const newGUser: SchoolUser = {
             id: user.uid,
             name: user.displayName || (user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1)),
-            email: user.email,
+            email: user.email.toLowerCase(),
             role: 'admin',
             status: 'enrolled_paid',
             avatar: user.photoURL || undefined,
@@ -1321,24 +1321,10 @@ export default function App() {
             return;
           }
 
-          // Check if we are currently in a registration flow
-          const isPendingReg = !!localStorage.getItem('pending_registration_info');
-          if (isPendingReg) {
-            handleNewUserCreation(user).catch((err) => {
-              console.error('Error auto-creating user profile during auth state change:', err);
-            });
-            return;
-          }
-          
-          // Prevent auto-creation of prospective student accounts for Google sign-in.
-          console.log(`No existing user profile for ${user.email}. Prompting registration.`);
-          googleSignOut();
-          setLoggedInUser(null);
-          setCurrentRole(null);
-          setStudentStatus(null);
-          setActiveTab('admissions');
-          alert(`No student profile found for ${user.email}. Please create an account by filling out the school registration form.`);
-          return;
+          // Auto-create or complete student account profile for new Google sign-in
+          handleNewUserCreation(user).catch((err) => {
+            console.error('Error auto-creating student user profile during auth state change:', err);
+          });
         }
       }
     } else {
@@ -1511,67 +1497,103 @@ export default function App() {
       const savedInfo = localStorage.getItem('pending_registration_info');
       localStorage.removeItem('pending_registration_info');
 
-      if (savedInfo) {
-        // Safety check: verify if a user with this email is already registered in schoolUsers to prevent accidental profile overwrites (like the admin/staff account)
-        const existingUser = schoolUsers.find(
-          (u) => (u?.email || '').toLowerCase() === gUser.email!.toLowerCase()
-        );
-        if (existingUser) {
-          setLoggedInUser(existingUser);
-          setCurrentRole(existingUser.role);
-          if (existingUser.role === 'student') {
-            setStudentStatus(existingUser.status || 'unverified');
+      // Safety check: verify if a user with this email or uid is already registered in schoolUsers
+      const existingUser = schoolUsers.find(
+        (u) => (u?.email || '').toLowerCase() === gUser.email!.toLowerCase() || u?.id === gUser.uid
+      );
+      if (existingUser) {
+        setLoggedInUser(existingUser);
+        setCurrentRole(existingUser.role);
+        if (existingUser.role === 'student') {
+          setStudentStatus(existingUser.status || 'unverified');
+          if (activeTab === 'login' || activeTab === 'admissions') {
             setActiveTab('student-portal');
-          } else if (existingUser.role === 'teacher' || existingUser.role === 'hod') {
-            setActiveTab('teacher-dashboard');
-          } else if (existingUser.role === 'admin' || existingUser.role === 'registrar') {
-            setActiveTab('admin-dashboard');
           }
-          alert(`This Google account (${gUser.email}) is already registered as a ${existingUser.role}. You have been signed in to your existing profile instead.`);
-          return true;
+        } else if (existingUser.role === 'teacher' || existingUser.role === 'hod') {
+          setActiveTab('teacher-dashboard');
+        } else if (existingUser.role === 'admin' || existingUser.role === 'registrar') {
+          setActiveTab('admin-dashboard');
         }
+        return true;
+      }
 
+      let completeStudentInfo: StudentInfo;
+      let sName: string;
+
+      if (savedInfo) {
         const info = JSON.parse(savedInfo);
-        const sName = info.studentName || `${info.firstName || ''} ${info.lastName || ''}`.trim() || gUser.displayName || 'Student';
+        sName = info.studentName || `${info.firstName || ''} ${info.lastName || ''}`.trim() || gUser.displayName || (gUser.email ? gUser.email.split('@')[0] : 'Student');
         const pName = info.motherFirstName || info.fatherFirstName || info.guardianFirstName || info.parentName || '';
         const pPhone = info.parentPhone || info.motherCellPhone || info.fatherCellPhone || info.guardianCellPhone || '';
         
-        const completeStudentInfo: StudentInfo = {
+        completeStudentInfo = {
           ...info,
           studentName: sName,
+          studentAge: info.studentAge || info.age || '',
+          gradeLevel: info.gradeLevel || info.formGrade || '',
+          email: gUser.email || info.email || '',
+          gmailAddress: gUser.email || info.gmailAddress || '',
           parentEmail: info.parentEmail || info.motherEmail || info.fatherEmail || info.guardianEmail || '',
           parentName: pName,
           parentPhone: pPhone,
           emergencyContact: info.emergencyContact || pPhone || ''
         };
-        
-        const newUser: SchoolUser = {
-          id: gUser.uid,
-          name: sName,
-          email: gUser.email!,
-          role: 'student',
-          status: 'prospective',
-          avatar: gUser.photoURL || undefined,
-          department: 'Student Body',
-          studentDetails: completeStudentInfo,
+      } else {
+        const displayName = gUser.displayName || '';
+        const nameParts = displayName.trim().split(' ');
+        const fName = nameParts[0] || (gUser.email ? gUser.email.split('@')[0] : 'Student');
+        const lName = nameParts.slice(1).join(' ') || '';
+        sName = displayName || fName;
+
+        completeStudentInfo = {
+          studentName: sName,
+          firstName: fName,
+          lastName: lName,
+          email: gUser.email || '',
+          gmailAddress: gUser.email || '',
+          livesWith: 'Parent',
+          formGrade: '',
+          gradeLevel: '',
+          currentSchool: '',
+          age: '',
+          studentAge: '',
+          cellPhone: '',
+          homePhone: '',
+          parentEmail: '',
+          parentName: '',
+          parentPhone: '',
+          emergencyContact: '',
         };
-        
-        await saveUserToFirestore(newUser);
-        
-        // Store that we just registered this email in this session to bypass automatic signOut race conditions
-        sessionStorage.setItem('just_registered_email', gUser.email!.toLowerCase());
-        
-        setStudentInfo(completeStudentInfo);
-        setSchoolUsers(prev => [...prev.filter(u => u.id !== newUser.id), newUser]);
-        setLoggedInUser(newUser);
-        setCurrentRole('student');
-        setStudentStatus('prospective');
-        setActiveTab('student-portal');
-        
-        setNewAccountSuccess({ name: newUser.name, email: newUser.email });
-        return true;
       }
-      return false;
+      
+      const newUser: SchoolUser = {
+        id: gUser.uid,
+        name: sName,
+        email: gUser.email!.toLowerCase(),
+        role: 'student',
+        status: 'prospective',
+        avatar: gUser.photoURL || undefined,
+        department: 'Student Body',
+        studentDetails: completeStudentInfo,
+      };
+      
+      await saveUserToFirestore(newUser);
+      
+      // Store that we just registered this email in this session to bypass automatic race conditions
+      sessionStorage.setItem('just_registered_email', gUser.email!.toLowerCase());
+      
+      setStudentInfo(completeStudentInfo);
+      setSchoolUsers(prev => [...prev.filter(u => u.id !== newUser.id && (u.email || '').toLowerCase() !== newUser.email), newUser]);
+      setLoggedInUser(newUser);
+      setCurrentRole('student');
+      setStudentStatus('prospective');
+      
+      if (activeTab === 'login' || activeTab === 'admissions') {
+        setActiveTab('student-portal');
+      }
+      
+      setNewAccountSuccess({ name: newUser.name, email: newUser.email });
+      return true;
     } finally {
       setTimeout(() => {
         isCreatingUserRef.current = false;

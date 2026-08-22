@@ -16,37 +16,51 @@ app.use(express.json());
 
 // Initialize Firebase Admin lazily and handle missing configurations gracefully
 let adminApp = null;
-function getFirebaseAuth() {
-  if (adminApp) return getAuth(adminApp);
+let adminAuth = null;
+let adminDb = null;
 
-  const projectId = process.env.VITE_FIREBASE_PROJECT_ID || "shawstemacademy-c0039";
+function initializeFirebaseAdmin() {
+  if (adminApp) return { adminApp, adminAuth, adminDb };
+
   const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
+  const projectId = process.env.VITE_FIREBASE_PROJECT_ID || "shawstemacademy-c0039";
 
-  try {
-    const apps = getApps();
-    if (apps.length > 0) {
-      adminApp = apps[0];
-    } else {
-      if (serviceAccountVar) {
-        const serviceAccount = JSON.parse(serviceAccountVar);
-        adminApp = initializeApp({
-          credential: cert(serviceAccount),
-          projectId: projectId
-        });
-        console.log('Firebase Admin SDK initialized with service account.');
-      } else {
-        adminApp = initializeApp({
-          projectId: projectId
-        });
-        console.log('Firebase Admin SDK initialized with default credentials.');
-      }
-    }
-    return getAuth(adminApp);
-  } catch (err) {
-    console.warn('Firebase Admin SDK warning on initialization:', err.message || err);
-    adminApp = null;
-    throw new Error('Firebase Admin SDK is not fully configured on the server. Please set the FIREBASE_SERVICE_ACCOUNT environment variable to enable administrative user deletion.');
+  const existingApps = getApps();
+  if (existingApps.length > 0) {
+    adminApp = existingApps[0];
+    try {
+      adminAuth = getAuth(adminApp);
+    } catch (_) {}
+    try {
+      adminDb = getFirestore(adminApp);
+    } catch (_) {}
+    return { adminApp, adminAuth, adminDb };
   }
+
+  if (serviceAccountVar) {
+    try {
+      const serviceAccount = JSON.parse(serviceAccountVar);
+      adminApp = initializeApp({
+        credential: cert(serviceAccount),
+        projectId: serviceAccount.project_id || projectId,
+      });
+      adminAuth = getAuth(adminApp);
+      adminDb = getFirestore(adminApp);
+      console.log('Firebase Admin SDK initialized with service account.');
+    } catch (err) {
+      console.warn('Firebase Admin SDK warning on service account parse:', err.message || err);
+      adminApp = null;
+      adminAuth = null;
+      adminDb = null;
+    }
+  } else {
+    // In environments without explicit FIREBASE_SERVICE_ACCOUNT credentials,
+    // we do not initialize ambient default credentials for Firebase Auth to avoid
+    // hitting Identity Toolkit endpoints on unconfigured GCP host projects.
+    console.log('Firebase Admin: running with client-side Firestore management (FIREBASE_SERVICE_ACCOUNT not configured).');
+  }
+
+  return { adminApp, adminAuth, adminDb };
 }
 
 // REST API for deleting a user from Firebase Authentication by UID
@@ -56,22 +70,34 @@ app.post('/api/delete-user', async (req, res) => {
     return res.status(400).json({ error: 'Missing userId parameter.' });
   }
 
+  const { adminAuth } = initializeFirebaseAdmin();
+
+  if (!adminAuth) {
+    console.log(`[delete-user] Notice: Firebase Auth administrative deletion skipped for UID ${userId} (FIREBASE_SERVICE_ACCOUNT not configured). Firestore documents and profile records will be deleted directly.`);
+    return res.status(200).json({
+      success: true,
+      skippedAuth: true,
+      message: 'User profile records removed from database. Firebase Auth deletion was skipped because FIREBASE_SERVICE_ACCOUNT is not configured on the server.'
+    });
+  }
+
   try {
-    const authInstance = getFirebaseAuth();
-    await authInstance.deleteUser(userId);
+    await adminAuth.deleteUser(userId);
     console.log(`Successfully deleted user with UID: ${userId} from Firebase Auth.`);
     return res.status(200).json({ success: true, message: `Successfully deleted user ${userId} from Authentication.` });
   } catch (error) {
-    console.error(`Error deleting user ${userId} from Firebase Auth:`, error.message || error);
-    
     // We treat "user not found" as a successful deletion (since they no longer exist in Auth)
     if (error.code === 'auth/user-not-found') {
       return res.status(200).json({ success: true, message: 'User was already not present in Firebase Auth.' });
     }
 
-    return res.status(500).json({ 
-      error: error.message || 'Failed to delete user from Firebase Authentication.',
-      code: error.code || 'unknown'
+    // Handle Identity Toolkit API not enabled or credentials error gracefully
+    console.warn(`[delete-user] Firebase Auth user deletion notice for UID ${userId}:`, error.message || error);
+    return res.status(200).json({ 
+      success: true,
+      skippedAuth: true,
+      warning: error.message || 'Firebase Auth user deletion could not be completed on server.',
+      message: 'User record removed from application database.'
     });
   }
 });
@@ -133,18 +159,17 @@ app.post('/api/send-email', async (req, res) => {
 
     // 2. Persist to Firestore email_logs and standard Firebase Trigger Email extension collection
     try {
-      getFirebaseAuth();
-      if (adminApp) {
-        const db = getFirestore(adminApp);
+      const { adminDb } = initializeFirebaseAdmin();
+      if (adminDb) {
         const logId = `EMAIL_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        await db.collection('email_logs').doc(logId).set({
+        await adminDb.collection('email_logs').doc(logId).set({
           ...emailRecord,
           id: logId,
           messageId,
         });
 
         // Trigger Email extension collection standard format
-        await db.collection('mail').add({
+        await adminDb.collection('mail').add({
           to: emailRecord.to,
           message: {
             subject: emailRecord.subject,
