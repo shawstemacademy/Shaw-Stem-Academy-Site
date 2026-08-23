@@ -2295,11 +2295,32 @@ export default function App() {
 
     const studentAccountId = loggedInUser?.id || user?.uid || (existingRecord as any)?.studentId;
 
+    const mappedSbaClasses = sbaHubOptions
+      .filter((s) => selectedSbaHubIds.includes(s.id))
+      .map((s) => ({
+        id: s.id,
+        title: s.name,
+        price: s.yearlyPrice,
+        pricePeriod: s.pricePeriod || 'one-time',
+        category: 'SBA Hub',
+        instructor: s.instructor,
+        schedule: 'SBA Hub Session',
+        ageGroup: 'All Levels',
+        capacity: s.capacity || 15,
+        enrolled: 0,
+        location: s.location,
+        description: 'SBA Hub Course',
+        isOffered: s.isOffered !== false,
+        isSbaHub: true,
+      }));
+
+    const combinedSelectedClasses = [...selectedClasses, ...mappedSbaClasses];
+
     const record: RegistrationRecord = {
       id: existingRecord ? existingRecord.id : `REG-${Date.now()}`,
       timestamp: existingRecord ? existingRecord.timestamp : new Date().toISOString(),
       studentInfo: effectiveStudentInfo,
-      selectedClasses,
+      selectedClasses: combinedSelectedClasses,
       subtotal,
       appliedDiscounts,
       totalPrice,
@@ -4538,6 +4559,7 @@ export default function App() {
         registration={completedRegistration}
         onClose={() => setCompletedRegistration(null)}
         theme={theme}
+        logoUrl={landingPageSettings.logoUrl || '/logo.png'}
       />
 
       {/* Interactive Student Registration Auth Modal */}

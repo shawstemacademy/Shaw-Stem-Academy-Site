@@ -784,7 +784,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
         <div className="space-y-8">
 
           {/* Overdue Payment Unrelease Banner */}
-          {overdueClasses.length > 0 && (
+          {overdueClasses.length > 0 && (status === 'accepted' || status === 'enrolled_paid') && (
             <div id="overdue-payment-banner" className="p-5 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-300 dark:border-rose-800 rounded-3xl shadow-md space-y-4 animate-in fade-in slide-in-from-top-2">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-start gap-3.5">
@@ -1038,16 +1038,18 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 }
               </p>
             </div>
-            {!hasCourseRegistrations && (
-              <div className="pt-2">
-                <button
-                  onClick={() => onNavigate('registration')}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-1.5"
-                >
-                  Go to Class Registration →
-                </button>
-              </div>
-            )}
+            <div className="pt-2">
+              <button
+                onClick={() => onNavigate('registration')}
+                className={`px-6 py-2.5 text-white font-bold text-xs rounded-xl shadow-md transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-1.5 cursor-pointer ${
+                  hasCourseRegistrations 
+                    ? "bg-purple-600 hover:bg-purple-700" 
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                }`}
+              >
+                {hasCourseRegistrations ? "Modify Class Selections →" : "Go to Class Registration →"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3700,6 +3702,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
         <RegistrationReceiptModal
           registration={selectedReceiptRecord}
           onClose={() => setSelectedReceiptRecord(null)}
+          logoUrl={logoUrl}
           theme={{
             primary: 'bg-purple-600',
             primaryHover: 'hover:bg-purple-700',

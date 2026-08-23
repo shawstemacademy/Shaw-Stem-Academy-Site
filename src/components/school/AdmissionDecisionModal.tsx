@@ -511,14 +511,26 @@ export const AdmissionDecisionModal: React.FC<AdmissionDecisionModalProps> = ({
                   <XCircle className="w-4 h-4" />
                   <span>Deny Application</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setDecisionMode('accept')}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Accept Application</span>
-                </button>
+                {(!registrationRecord?.selectedClasses || registrationRecord.selectedClasses.length === 0) ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="px-6 py-2.5 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-not-allowed"
+                    title="Student has not registered for any courses yet."
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Accept (Requires Course Registration)</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setDecisionMode('accept')}
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Accept Application</span>
+                  </button>
+                )}
               </div>
             </div>
           )}

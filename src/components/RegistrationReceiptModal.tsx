@@ -11,12 +11,14 @@ interface RegistrationReceiptModalProps {
   registration: RegistrationRecord | null;
   onClose: () => void;
   theme: FormTheme;
+  logoUrl?: string;
 }
 
 export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> = ({
   registration,
   onClose,
   theme,
+  logoUrl,
 }) => {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
@@ -94,15 +96,38 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
 
     setIsDownloadingPdf(true);
     try {
+      // Find the scroll container and temporarily override max-height and overflow
+      // so html2canvas captures the full document without clipping or scrollbars
+      const contentScrollContainer = cardElement.querySelector('.invoice-content-scroll');
+      const originalMaxHeight = contentScrollContainer ? (contentScrollContainer as HTMLElement).style.maxHeight : '';
+      const originalOverflow = contentScrollContainer ? (contentScrollContainer as HTMLElement).style.overflowY : '';
+      
+      if (contentScrollContainer) {
+        (contentScrollContainer as HTMLElement).style.maxHeight = 'none';
+        (contentScrollContainer as HTMLElement).style.overflowY = 'visible';
+      }
+
+      // Briefly wait to ensure repaint occurs
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       const canvas = await html2canvas(cardElement, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         backgroundColor: '#ffffff',
         logging: false,
+        windowWidth: cardElement.scrollWidth,
+        windowHeight: cardElement.scrollHeight,
         ignoreElements: (element) => {
           return element.classList.contains('no-pdf-export');
         }
       });
+
+      // Restore constraints
+      if (contentScrollContainer) {
+        (contentScrollContainer as HTMLElement).style.maxHeight = originalMaxHeight;
+        (contentScrollContainer as HTMLElement).style.overflowY = originalOverflow;
+      }
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
@@ -112,11 +137,25 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
       const imgProps = pdf.getImageProperties(imgData);
-      const imgWidth = pdfWidth - 16; // 8mm margins
+      const margin = 10; // 10mm margins
+      const imgWidth = pdfWidth - (margin * 2); 
       const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
 
-      pdf.addImage(imgData, 'PNG', 8, 8, imgWidth, imgHeight);
+      let heightLeft = imgHeight;
+      let position = margin;
+
+      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+      heightLeft -= (pdfHeight - (margin * 2));
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight + margin;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+        heightLeft -= (pdfHeight - (margin * 2));
+      }
 
       const receiptCode = registration.id.slice(-8).toUpperCase();
       const cleanStudentName = studentNameVal.replace(/[^a-zA-Z0-9]/g, '_');
@@ -134,30 +173,37 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
         id="printable-invoice-card"
         className="printable-receipt-card bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-gray-200 overflow-hidden my-8 print:my-0 print:shadow-none print:border-none print:max-w-full print:rounded-none"
       >
-        {/* Print-only Academy Official Header */}
-        <div className="hidden print:block p-4 border-b border-slate-300 pb-2 mb-2">
-          <div className="flex justify-between items-start">
+        {/* Academy Official Invoice Header - Always Visible */}
+        <div className="p-6 border-b border-gray-150 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-3">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Shaw STEM Academy Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
+            ) : (
+              <div className="w-12 h-12 bg-purple-900 text-white rounded-xl flex items-center justify-center font-black text-xl shadow-md border border-purple-800 shrink-0">
+                S
+              </div>
+            )}
             <div>
-              <h1 className="text-lg font-extrabold text-slate-900 tracking-tight">SHAW STEM ACADEMY</h1>
-              <p className="text-xs text-slate-600 font-medium">Official Student Registration Invoice</p>
+              <h1 className="text-lg font-extrabold text-slate-900 tracking-tight leading-none">SHAW STEM ACADEMY</h1>
+              <p className="text-[10px] text-purple-700 font-bold uppercase tracking-wider mt-1.5">Official Student Registration Invoice</p>
             </div>
-            <div className="text-right text-xs text-slate-600">
-              <p className="font-bold text-slate-900">Invoice #{registration.id.slice(-8).toUpperCase()}</p>
-              <p>Date: {formatSafeDate(registration.timestamp || (registration as any).createdAt || (registration as any).date)}</p>
-            </div>
+          </div>
+          <div className="text-left sm:text-right text-xs text-slate-600">
+            <p className="font-extrabold text-slate-950">Invoice ID: #{registration.id.slice(-8).toUpperCase()}</p>
+            <p className="mt-0.5">Date: {formatSafeDate(registration.timestamp || (registration as any).createdAt || (registration as any).date)}</p>
           </div>
         </div>
 
         {/* Top Confirmation Header (Screen View) */}
-        <div className="p-6 bg-purple-900 text-white flex items-center justify-between print-exact print:bg-purple-900 print:text-white print:p-3 print:rounded-md">
+        <div className="p-4 bg-purple-900 text-white flex items-center justify-between print-exact print:bg-purple-900 print:text-white print:rounded-none">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-emerald-500 text-white rounded-full shrink-0 print-exact">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white print:text-white">Registration Summary & Invoice</h2>
-              <p className="text-xs text-purple-200 print:text-purple-100">
-                Invoice #{registration.id.slice(-8).toUpperCase()} • {formatSafeDate(registration.timestamp || (registration as any).createdAt || (registration as any).date)}
+              <h2 className="text-sm font-bold text-white">Registration Confirmation</h2>
+              <p className="text-[11px] text-purple-200">
+                Thank you for your registration submission.
               </p>
             </div>
           </div>
@@ -172,7 +218,8 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
           </div>
         </div>
 
-        <div className="p-6 space-y-6 max-h-[80vh] print:max-h-none overflow-y-auto print:overflow-visible print:p-2 print:space-y-2">
+        {/* Scrollable content container */}
+        <div className="p-6 space-y-6 max-h-[60vh] print:max-h-none overflow-y-auto print:overflow-visible print:p-2 print:space-y-4 invoice-content-scroll">
           {/* Registrant & Student Details */}
           <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3 print:bg-slate-50 print-exact print:p-2.5 print:space-y-1 print:border-slate-300">
             <div className="text-xs font-bold text-gray-800 uppercase tracking-wider">
@@ -215,7 +262,12 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
                   className="p-3 bg-white border border-gray-200 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs print:border-slate-300 print:p-2 print:my-0.5"
                 >
                   <div>
-                    <div className="font-bold text-gray-900 text-sm print:text-xs">{cls?.title || 'Unknown Class'}</div>
+                    <div className="font-bold text-gray-900 text-sm print:text-xs">
+                      {cls?.title || 'Unknown Class'}
+                      {cls?.isSbaHub && (
+                        <span className="ml-1.5 text-[8px] px-1 py-0.2 bg-purple-100 text-purple-800 border border-purple-200 rounded uppercase font-bold tracking-wider">SBA Hub</span>
+                      )}
+                    </div>
                     <div className="text-gray-500 flex items-center gap-3 mt-1 text-[11px] print:text-[10px] print:mt-0.5">
                       <span className="flex items-center gap-1 font-medium">
                         <Clock className="w-3 h-3 text-purple-600 print:hidden" />
@@ -251,6 +303,31 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
             </div>
           </div>
 
+          {/* Official Signature and Stamp Section */}
+          <div className="grid grid-cols-2 gap-8 pt-6 border-t border-slate-200 mt-6 print:mt-4 print:pt-4">
+            <div className="flex flex-col justify-end space-y-4">
+              <div className="h-10 border-b border-slate-400 border-dashed w-4/5 relative">
+                <span className="absolute bottom-1 left-2 font-serif italic text-sm text-purple-800 opacity-60">
+                  Shaw STEM Registrar
+                </span>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-850">Authorized Signature</p>
+                <p className="text-[10px] text-slate-500">Shaw STEM Academy Administration</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-end justify-center">
+              <div className="w-24 h-24 rounded-full border-2 border-dashed border-purple-300 flex flex-col items-center justify-center text-center p-1.5 bg-purple-50/10">
+                <span className="text-[8px] font-bold text-purple-500 uppercase tracking-widest leading-tight">SHAW STEM</span>
+                <span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest">ACADEMY</span>
+                <div className="w-8 h-[1px] bg-purple-200 my-1"></div>
+                <span className="text-[8px] font-bold text-emerald-600 uppercase">OFFICIAL</span>
+                <span className="text-[7px] font-semibold text-slate-400">STAMP</span>
+              </div>
+            </div>
+          </div>
+
           {/* Print-only Verification Footer */}
           <div className="hidden print:flex pt-3 border-t border-slate-300 text-[10px] text-slate-500 justify-between items-end">
             <div>
@@ -267,7 +344,7 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
         <div className="p-4 bg-gray-100 border-t border-gray-200 flex items-center justify-between print:hidden no-pdf-export">
           <div className="flex items-center gap-1 text-xs text-gray-500">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Confirmation sent to {studentInfo.parentEmail}</span>
+            <span className="truncate max-w-[200px]">Confirmation sent to {studentInfo.parentEmail}</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -281,7 +358,7 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
               ) : (
                 <Download className="w-4 h-4" />
               )}
-              <span>{isDownloadingPdf ? 'Downloading PDF...' : 'Download Invoice (PDF)'}</span>
+              <span>{isDownloadingPdf ? 'Downloading...' : 'Download PDF'}</span>
             </button>
             <button
               onClick={handlePrint}
