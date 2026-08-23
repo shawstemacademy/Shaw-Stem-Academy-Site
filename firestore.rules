@@ -132,6 +132,13 @@ service cloud.firestore {
     match /resourceCategories/{id} { allow read, write: if true; }
     match /addDropRequests/{id} { allow read, write: if true; }
     match /teachers/{id} { allow read, write: if true; }
+    match /passRates/{id} { allow read, write: if true; }
+    match /expenses/{id} { allow read, write: if true; }
+    match /enrollments/{id} { allow read, write: if true; }
+    match /admissionDecisions/{id} { allow read, write: if true; }
+    match /denialReasons/{id} { allow read, write: if true; }
+    match /deleted_users/{deletionId} { allow read, write: if true; }
+    match /deletedUsers/{deletionId} { allow read, write: if true; }
 
     // Catch-all default
     match /{document=**} {

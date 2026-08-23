@@ -72,6 +72,8 @@ import {
   DEFAULT_STUDENT_SECTION_ORDER,
   DEFAULT_TEACHER_SECTION_ORDER,
   OurSchoolPageData,
+  AcademicPerformanceRecord,
+  ExpenseRecord,
 } from './types';
 import { detectScheduleClashes } from './lib/scheduleClashUtils';
 import { calculateClassPaymentStatus } from './lib/paymentUtils';
@@ -350,6 +352,10 @@ export default function App() {
   const [academyInfo, setAcademyInfo] = useState<AcademyInfo | null>(null);
   const [featureCards, setFeatureCards] = useState<FeatureCard[]>(DEFAULT_FEATURE_CARDS);
   const [fieldSettings, setFieldSettings] = useState<FormFieldSetting[]>(INITIAL_FORM_FIELD_SETTINGS);
+
+  // Academic Pass Rates & Financial Ledger Expenses State
+  const [passRates, setPassRates] = useState<AcademicPerformanceRecord[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
 
   // Teaching Claims & Payroll System State
   const [claims, setClaims] = useState<ClassClaimItem[]>([]);
@@ -1024,6 +1030,8 @@ export default function App() {
       }),
       subscribeToCollection<ClassClaimItem>('classClaims', (data) => setClaims(data || [])),
       subscribeToCollection<TeacherHourlyRate>('hourlyRates', (data) => setHourlyRates(data || [])),
+      subscribeToCollection<AcademicPerformanceRecord>('passRates', (data) => setPassRates(data || [])),
+      subscribeToCollection<ExpenseRecord>('expenses', (data) => setExpenses(data || [])),
       subscribeToCollection<LandingPageSettings>('landingPageSettings', (data) => {
         if (data && data.length > 0) {
           const matched = (data as any[]).find(d => d.id === 'general') || data[0];
@@ -3920,6 +3928,10 @@ export default function App() {
               studentPortalSections={studentPortalSections}
               teacherDashboardSections={teacherDashboardSections}
               onSaveSectionOrders={handleSaveSectionOrders}
+              passRates={passRates}
+              onUpdatePassRates={setPassRates}
+              expenses={expenses}
+              onUpdateExpenses={setExpenses}
               onDeleteAllData={async () => {
                 const ok = await deleteAllSiteData();
                 if (ok) {

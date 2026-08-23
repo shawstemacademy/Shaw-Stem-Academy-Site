@@ -27,7 +27,8 @@ import {
   Trash2
 } from 'lucide-react';
 import { SchoolUser, Department, TeacherProfile, UserRole, ClassItem, SbaHubOption, LocationOption, RolePermission } from '../../types';
-import { sendUserPasswordResetEmail } from '../../lib/firebase';
+import { sendUserPasswordResetEmail, cascadeArchiveAndDeleteUser } from '../../lib/firebase';
+import { DeleteUserConfirmationModal } from './DeleteUserConfirmationModal';
 import { WeeklyOfficeHoursSelector } from './WeeklyOfficeHoursSelector';
 
 interface AdminUserManagementProps {
@@ -71,7 +72,32 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   const [roleFilter, setRoleFilter] = useState<'all' | 'teacher' | 'admin' | 'registrar' | 'hod' | 'disabled'>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [confirmingDeleteUserId, setConfirmingDeleteUserId] = useState<string | null>(null);
+  const [cascadeDeleteUser, setCascadeDeleteUser] = useState<SchoolUser | null>(null);
+  const [isCascadeDeleting, setIsCascadeDeleting] = useState(false);
+
+  const handleCascadeDeleteConfirm = async (userId: string, reason: string) => {
+    setIsCascadeDeleting(true);
+    try {
+      const res = await cascadeArchiveAndDeleteUser({
+        userId,
+        userObj: cascadeDeleteUser,
+        actorId: loggedInUser?.id || 'admin',
+        actorName: loggedInUser?.name || 'Administrator',
+        reason
+      });
+      if (res.success) {
+        onDeleteUser(userId);
+        setCascadeDeleteUser(null);
+      } else {
+        alert(`Cascade deletion warning: ${res.error || 'Failed to archive user'}`);
+      }
+    } catch (err: any) {
+      console.error('Error executing cascade user deletion:', err);
+      alert(`Deletion error: ${err?.message || String(err)}`);
+    } finally {
+      setIsCascadeDeleting(false);
+    }
+  };
 
   // Reset selection when filters change to prevent off-screen mistakes
   useEffect(() => {
@@ -960,35 +986,13 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                             </button>
                           )}
 
-                          {confirmingDeleteUserId === u.id ? (
-                            <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 rounded-lg p-1 text-[10px] font-bold text-rose-800 transition-all shadow-sm">
-                              <span className="px-1 text-[10px] text-rose-700 font-extrabold">Delete Staff?</span>
-                              <button
-                                onClick={() => {
-                                  onDeleteUser(u.id);
-                                  setConfirmingDeleteUserId(null);
-                                }}
-                                className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded cursor-pointer text-[10px] font-black shadow-2xs"
-                                title="Permanently delete staff member and all related data"
-                              >
-                                Yes
-                              </button>
-                              <button
-                                onClick={() => setConfirmingDeleteUserId(null)}
-                                className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded hover:bg-slate-300 cursor-pointer text-[10px]"
-                              >
-                                No
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setConfirmingDeleteUserId(u.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                              title="Delete Staff Member & All Related Records"
-                            >
-                              <Trash2 className="w-4 h-4 text-rose-500" />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => setCascadeDeleteUser(u)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Cascade Archive & Scrub User Data"
+                          >
+                            <Trash2 className="w-4 h-4 text-rose-500" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1482,6 +1486,15 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
           </div>
         </div>
       )}
+
+      {/* CASCADE USER DELETION MODAL */}
+      <DeleteUserConfirmationModal
+        isOpen={!!cascadeDeleteUser}
+        user={cascadeDeleteUser}
+        onClose={() => setCascadeDeleteUser(null)}
+        onConfirmCascadeDelete={handleCascadeDeleteConfirm}
+        isProcessing={isCascadeDeleting}
+      />
     </div>
   );
 };

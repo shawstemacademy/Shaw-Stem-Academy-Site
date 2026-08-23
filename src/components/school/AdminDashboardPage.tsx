@@ -38,6 +38,7 @@ import {
   Archive
 } from 'lucide-react';
 import { ClassBatchArchivingManager } from './ClassBatchArchivingManager';
+import { ArchivedUsersManager } from './ArchivedUsersManager';
 import { UserManualPage } from './UserManualPage';
 import { ImageUploadInput } from '../common/ImageUploadInput';
 import { 
@@ -72,12 +73,14 @@ import { ClassClaimForm } from './ClassClaimForm';
 import { AdminAddDropManager } from './AdminAddDropManager';
 import { AdminFormFieldsEditor } from './AdminFormFieldsEditor';
 import { SectionOrderManager } from './SectionOrderManager';
+import { AcademicPerformanceManager } from './AcademicPerformanceManager';
+import { LedgerExpenseManager } from './LedgerExpenseManager';
 import { FormFieldSetting } from '../../lib/formFieldsConfig';
-import { HelpCircle, Newspaper, Send, Smartphone, Laptop, Globe, Wifi, Copy, RefreshCw, CheckCircle, AlertCircle, MessageSquare, Info, SendHorizontal, Download, Database, GripVertical } from 'lucide-react';
+import { HelpCircle, Newspaper, Send, Smartphone, Laptop, Globe, Wifi, Copy, RefreshCw, CheckCircle, AlertCircle, MessageSquare, Info, SendHorizontal, Download, Database, GripVertical, Award } from 'lucide-react';
 import { isFcmSupported, requestAndSaveFcmToken, onForegroundMessage, revokeFcmToken, DEFAULT_VAPID_KEY } from '../../lib/fcm';
 import { subscribeToCollection, db } from '../../lib/firebase';
 import { collection, deleteDoc, doc, addDoc } from 'firebase/firestore';
-import { ClassItem, SbaHubOption, ScheduleClash, ClashAdmissibility, ClassType, LocationOption, ClassClaimItem, TeacherHourlyRate, SectionOrderItem } from '../../types';
+import { ClassItem, SbaHubOption, ScheduleClash, ClashAdmissibility, ClassType, LocationOption, ClassClaimItem, TeacherHourlyRate, SectionOrderItem, AcademicPerformanceRecord, ExpenseRecord } from '../../types';
 
 interface AdminDashboardPageProps {
   registrationLogs: RegistrationRecord[];
@@ -145,6 +148,10 @@ interface AdminDashboardPageProps {
   teacherDashboardSections?: SectionOrderItem[];
   onSaveSectionOrders?: (studentSections: SectionOrderItem[], teacherSections: SectionOrderItem[]) => Promise<boolean | void>;
   onNavigate?: (tab: PortalTab) => void;
+  passRates?: AcademicPerformanceRecord[];
+  onUpdatePassRates?: (records: AcademicPerformanceRecord[]) => void;
+  expenses?: ExpenseRecord[];
+  onUpdateExpenses?: (records: ExpenseRecord[]) => void;
 }
 
 export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
@@ -213,8 +220,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   teacherDashboardSections = [],
   onSaveSectionOrders = async () => {},
   onNavigate = () => {},
+  passRates = [],
+  onUpdatePassRates,
+  expenses = [],
+  onUpdateExpenses,
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'departments' | 'roles' | 'course_bank' | 'class_archiving' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields' | 'section_order' | 'manual' | 'attendance'>(
+  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'archived_users' | 'departments' | 'roles' | 'course_bank' | 'class_archiving' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields' | 'section_order' | 'manual' | 'attendance' | 'academic_performance' | 'ledger_expenses'>(
     currentRole === 'hod' ? 'users' : 'overview'
   );
 
@@ -1094,6 +1105,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       badge: `${disabledUsers.length} Disabled`,
     },
     {
+      id: 'archived_users' as const,
+      label: 'Archived / Scrubbed Users Vault',
+      icon: <Archive className="w-4 h-4 text-rose-500" />,
+      badge: 'Archived Vault',
+    },
+    {
       id: 'departments' as const,
       label: 'Department Management',
       icon: <Building2 className="w-4 h-4" />,
@@ -1128,6 +1145,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       label: 'Teaching Claims & Payroll',
       icon: <FileText className="w-4 h-4 text-emerald-400" />,
       badge: `${(claims || []).filter((c) => c.status === 'claimed').length} Pending`,
+    },
+    {
+      id: 'academic_performance' as const,
+      label: 'Academic Pass Rates',
+      icon: <Award className="w-4 h-4 text-emerald-400" />,
+      badge: `${(passRates || []).length} Records`,
+    },
+    {
+      id: 'ledger_expenses' as const,
+      label: 'Financial Ledger & Expenses',
+      icon: <DollarSign className="w-4 h-4 text-emerald-500" />,
+      badge: `${(expenses || []).length} Records`,
     },
     {
       id: 'add_drop' as const,
@@ -2069,6 +2098,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {/* ARCHIVED / SCRUBBED USERS VAULT TAB */}
+      {activeAdminTab === 'archived_users' && (
+        <ArchivedUsersManager />
       )}
 
       {/* TEACHING CLAIMS & PAYROLL VERIFICATION TAB */}
@@ -3442,6 +3476,28 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           loggedInUser={loggedInUser} 
           onNavigate={onNavigate} 
           embedInAdminDashboard={true} 
+        />
+      )}
+
+      {/* 15. ACADEMIC PERFORMANCE & PASS RATES TAB */}
+      {activeAdminTab === 'academic_performance' && (
+        <AcademicPerformanceManager
+          passRates={passRates || []}
+          onUpdatePassRates={onUpdatePassRates}
+          classList={classList || []}
+          currentUser={loggedInUser || null}
+          theme={currentTheme}
+        />
+      )}
+
+      {/* 16. FINANCIAL LEDGER & EXPENSES TAB */}
+      {activeAdminTab === 'ledger_expenses' && (
+        <LedgerExpenseManager
+          expenses={expenses || []}
+          onUpdateExpenses={onUpdateExpenses}
+          registrationLogs={registrationLogs || []}
+          currentUser={loggedInUser || null}
+          theme={currentTheme}
         />
       )}
 

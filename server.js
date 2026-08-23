@@ -102,6 +102,69 @@ app.post('/api/delete-user', async (req, res) => {
   }
 });
 
+// REST API for Cascade User Deletion & Archiving
+app.post('/api/cascade-delete-user', async (req, res) => {
+  const { userId, archivePayload, reason, actorId, actorName } = req.body;
+  if (!userId) {
+    return res.status(400).json({ error: 'Missing userId parameter.' });
+  }
+
+  const deletionId = `DEL_${Date.now()}_${String(userId).replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const { adminAuth, adminDb } = initializeFirebaseAdmin();
+
+  try {
+    // If adminDb is available, we can also perform server-side archival write
+    if (adminDb && archivePayload) {
+      try {
+        const archiveRef = adminDb.collection('deleted_users').doc(deletionId);
+        await archiveRef.set({
+          ...archivePayload,
+          id: deletionId,
+          deletionId,
+          deletedAt: new Date().toISOString(),
+          deletedBy: actorId || 'admin_server',
+          deletedByName: actorName || 'System Administrator',
+          deletionReason: reason || 'Administrative Deletion',
+          archiveStatus: 'ARCHIVED',
+          activeDataStatus: 'DELETED',
+        });
+        console.log(`[cascade-delete-user] Archived user ${userId} under deletionId ${deletionId}`);
+      } catch (dbErr) {
+        console.warn(`[cascade-delete-user] Firestore server-side archive write failed, falling back to client write:`, dbErr.message);
+      }
+    }
+
+    // Delete from Firebase Auth if adminAuth is initialized
+    let authDeleted = false;
+    if (adminAuth) {
+      try {
+        await adminAuth.deleteUser(userId);
+        authDeleted = true;
+        console.log(`[cascade-delete-user] Deleted user ${userId} from Firebase Auth.`);
+      } catch (authErr) {
+        if (authErr.code === 'auth/user-not-found') {
+          authDeleted = true;
+        } else {
+          console.warn(`[cascade-delete-user] Firebase Auth deletion warning for ${userId}:`, authErr.message);
+        }
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      deletionId,
+      authDeleted,
+      message: `User ${userId} cascade deletion and archival completed.`
+    });
+  } catch (error) {
+    console.error(`[cascade-delete-user] Error during cascade deletion:`, error);
+    return res.status(500).json({
+      error: error.message || 'Internal server error during cascade deletion.'
+    });
+  }
+});
+
+
 // REST API for sending official transactional emails to students and parents
 app.post('/api/send-email', async (req, res) => {
   const { to, cc, bcc, subject, html, text, type, metadata } = req.body;

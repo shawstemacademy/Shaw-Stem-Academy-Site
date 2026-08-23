@@ -152,9 +152,28 @@
         "createdAt": { "type": "string" }
       },
       "required": ["eventType", "status"]
+    },
+    "deleted_users": {
+      "title": "Archived Deleted Users",
+      "description": "Comprehensive cascade archives of deleted users with related registrations, enrollments, decisions, and attendance records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "deletionId": { "type": "string" },
+        "originalUserId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "deletedAt": { "type": "string" },
+        "deletedBy": { "type": "string" },
+        "archiveStatus": { "type": "string" }
+      },
+      "required": ["id", "deletionId", "originalUserId", "deletedAt", "archiveStatus"]
     }
   },
   "firestore": {
+    "/deleted_users/{deletionId}": {
+      "schema": "deleted_users",
+      "description": "Secure archival repository for cascade-deleted user records"
+    },
     "/schoolUsers/{userId}": {
       "schema": "schoolUsers",
       "description": "Unified school user profiles"

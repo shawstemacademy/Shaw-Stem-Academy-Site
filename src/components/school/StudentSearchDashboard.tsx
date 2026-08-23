@@ -32,13 +32,17 @@ import {
   Lock,
   CheckCircle2,
   Download,
-  Eye
+  Eye,
+  ShieldCheck
 } from 'lucide-react';
 import { SchoolUser, RegistrationRecord, ClassItem, AppliedDiscount, AddDropRequest } from '../../types';
 import { saveDocToFirestore, saveUserToFirestore } from '../../lib/firebase';
 import { sendPushNotificationToUser } from '../../lib/fcm';
 import { sendDesktopNotification } from '../../lib/notifications';
 import { downloadImage } from '../../lib/downloadHelper';
+import { AdmissionDecisionModal } from './AdmissionDecisionModal';
+import { DeleteUserConfirmationModal } from './DeleteUserConfirmationModal';
+import { cascadeArchiveAndDeleteUser } from '../../lib/firebase';
 
 interface StudentSearchDashboardProps {
   users: SchoolUser[];
@@ -78,6 +82,37 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
     fields: string[];
     reason: string;
   }>({ isOpen: false, studentId: '', studentName: '', fields: [], reason: '' });
+
+  const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
+  const [cascadeDeleteUser, setCascadeDeleteUser] = useState<SchoolUser | null>(null);
+  const [isCascadeDeleting, setIsCascadeDeleting] = useState(false);
+
+  const handleCascadeDeleteConfirm = async (userId: string, reason: string) => {
+    setIsCascadeDeleting(true);
+    try {
+      const res = await cascadeArchiveAndDeleteUser({
+        userId,
+        userObj: cascadeDeleteUser,
+        actorId: 'admin',
+        actorName: 'Administrator',
+        reason
+      });
+      if (res.success) {
+        if (onDeleteUser) {
+          onDeleteUser(userId);
+        }
+        setSelectedStudentId(null);
+        setCascadeDeleteUser(null);
+      } else {
+        alert(`Cascade deletion warning: ${res.error || 'Failed to archive user'}`);
+      }
+    } catch (err: any) {
+      console.error('Error executing cascade user deletion:', err);
+      alert(`Deletion error: ${err?.message || String(err)}`);
+    } finally {
+      setIsCascadeDeleting(false);
+    }
+  };
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -782,20 +817,10 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                   </button>
                   <button
                     onClick={() => {
-                      requestConfirmation({
-                        title: 'Delete Student Account?',
-                        message: `Are you sure you want to permanently delete the account for ${selectedStudent.name}? This cannot be undone and will delete all enrollment and financial logs.`,
-                        confirmText: 'Delete Permanently',
-                        type: 'danger',
-                        onConfirm: () => {
-                          if (onDeleteUser) {
-                            onDeleteUser(selectedStudent.id);
-                            setSelectedStudentId(null);
-                          }
-                        }
-                      });
+                      setCascadeDeleteUser(selectedStudent);
                     }}
-                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-all flex items-center gap-1.5"
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Cascade Archive and Scrub Student Account"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Delete Account
@@ -1210,6 +1235,13 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                           ? 'Application on Hold'
                           : 'Put on Hold'}
                       </span>
+                    </button>
+                    <button
+                      onClick={() => setIsDecisionModalOpen(true)}
+                      className="px-4 py-2 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 border bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 hover:border-indigo-300"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Formal Admission Decision</span>
                     </button>
                   </div>
                 </div>
@@ -2046,6 +2078,36 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
           </div>
         </div>
       )}
+
+      {/* Admission Decision & Assessment Modal */}
+      {selectedStudent && (
+        <AdmissionDecisionModal
+          isOpen={isDecisionModalOpen}
+          onClose={() => setIsDecisionModalOpen(false)}
+          student={selectedStudent}
+          onDecisionSaved={(decision) => {
+            // Update local student user state
+            const updatedUser: SchoolUser = {
+              ...selectedStudent,
+              status: decision.status as any,
+              deniedFields: decision.invalidFields,
+              deniedReason: decision.notes,
+            };
+            if (onUpdateUser) {
+              onUpdateUser(updatedUser);
+            }
+          }}
+        />
+      )}
+
+      {/* Cascade User Archival & Scrubbing Modal */}
+      <DeleteUserConfirmationModal
+        isOpen={!!cascadeDeleteUser}
+        user={cascadeDeleteUser}
+        onClose={() => setCascadeDeleteUser(null)}
+        onConfirmCascadeDelete={handleCascadeDeleteConfirm}
+        isProcessing={isCascadeDeleting}
+      />
 
     </div>
   );

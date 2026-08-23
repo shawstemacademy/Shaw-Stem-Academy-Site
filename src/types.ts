@@ -196,6 +196,7 @@ export interface StudentInfo {
   parentEmail: string;
   parentPhone: string;
   studentName: string;
+  studentId?: string;
   studentAge: string;
   gradeLevel: string;
   emergencyContact: string;
@@ -298,9 +299,113 @@ export interface LandingPageSettings {
 }
 
 // School Website & Dashboard Types
-export type UserRole = 'student' | 'teacher' | 'admin' | 'registrar' | 'hod';
-export type StudentStatus = 'prospective' | 'awaiting_acceptance' | 'accepted' | 'pending_verification' | 'enrolled_paid' | 'unverified' | 'denied';
+export type UserRole = 'student' | 'teacher' | 'admin' | 'registrar' | 'hod' | 'academic_officer';
+export type StudentStatus = 'prospective' | 'pending_class_registration' | 'pending_review' | 'awaiting_acceptance' | 'accepted' | 'pending_verification' | 'enrolled_paid' | 'unverified' | 'denied';
 export type PortalTab = 'home' | 'our-school' | 'timetable' | 'academics' | 'admissions' | 'registration' | 'student-portal' | 'teacher-dashboard' | 'admin-dashboard' | 'login' | 'registrar-dashboard' | 'privacy' | 'terms' | 'user-manual';
+
+// Academic Performance & Pass Rate Record
+export interface AcademicPerformanceRecord {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  courseCode?: string;
+  category?: string; // e.g. 'CSEC', 'CAPE', 'Lower Secondary', 'STEM & Robotics'
+  academicYear: string; // e.g. '2023', '2024', '2025', '2026'
+  passRatePercentage: number;
+  studentsExamined?: number;
+  studentsPassed?: number;
+  notes?: string;
+  enteredBy: string;
+  enteredByName?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Admission Decision & Field-Specific Denial Reasons
+export interface DenialReasonItem {
+  id: string;
+  admissionDecisionId?: string;
+  fieldKey: string;
+  fieldLabel: string;
+  reason: string;
+  createdAt?: string;
+}
+
+export interface AdmissionDecision {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  registrationId?: string;
+  decision: 'ACCEPTED' | 'DENIED';
+  decidedBy: string;
+  decidedByName?: string;
+  decisionDate: string;
+  generalNotes?: string;
+  denialReasons?: DenialReasonItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Ledger & Expense Management
+export type ExpenseCategory = 
+  | 'Utilities'
+  | 'Salaries/Wages'
+  | 'Equipment'
+  | 'Supplies'
+  | 'Rent'
+  | 'Internet'
+  | 'Transportation'
+  | 'Marketing'
+  | 'Software/Subscriptions'
+  | 'Maintenance'
+  | 'Other';
+
+export interface ExpenseRecord {
+  id: string;
+  date: string; // YYYY-MM-DD
+  description: string;
+  category: ExpenseCategory;
+  amount: number;
+  paymentMethod: 'Cash' | 'Bank Transfer' | 'Credit Card' | 'Debit Card' | 'Check' | 'Online/Zelle' | 'Other';
+  vendorPayee: string;
+  referenceNumber?: string;
+  notes?: string;
+  createdBy: string;
+  createdByName?: string;
+  createdAt: string;
+  updatedBy?: string;
+  updatedByName?: string;
+  updatedAt?: string;
+}
+
+// Single Source of Truth Class Enrollment Model
+export interface EnrollmentRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  classId: string;
+  className: string;
+  classType: 'regular' | 'sba_hub';
+  billingType: 'monthly' | 'one_time';
+  status: 'active' | 'scheduled_drop' | 'dropped' | 'completed';
+  enrollmentStartDate: string;
+  enrollmentEndDate?: string; // For monthly regular classes (e.g. 1 month from payment date)
+  paymentDate?: string;
+  paymentId?: string;
+  scheduledDropDate?: string;
+  effectiveDropDate?: string;
+  dropReason?: string;
+  googleMeetUrl?: string;
+  googleClassroomUrl?: string;
+  googleClassroomCode?: string;
+  instructor?: string;
+  schedule?: string;
+  location?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface OurSchoolStaffMember {
   id: string;
@@ -473,8 +578,8 @@ export interface SchoolUser {
   id: string;
   name: string;
   email: string;
-  role: 'student' | 'teacher' | 'admin' | 'registrar' | 'hod';
-  roles?: ('student' | 'teacher' | 'admin' | 'registrar' | 'hod')[];
+  role: 'student' | 'teacher' | 'admin' | 'registrar' | 'hod' | 'academic_officer';
+  roles?: ('student' | 'teacher' | 'admin' | 'registrar' | 'hod' | 'academic_officer')[];
   phone?: string;
   title?: string;
   departmentId?: string;
@@ -482,11 +587,13 @@ export interface SchoolUser {
   department?: string;
   departmentIds?: string[];
   departmentNames?: string[];
-  status: 'active' | 'on_leave' | 'invited' | 'disabled' | 'enrolled_paid' | 'prospective' | 'awaiting_acceptance' | 'accepted' | 'pending_verification' | 'unverified' | 'denied';
+  status: 'active' | 'on_leave' | 'invited' | 'disabled' | 'enrolled_paid' | 'prospective' | 'pending_class_registration' | 'pending_review' | 'awaiting_acceptance' | 'accepted' | 'pending_verification' | 'unverified' | 'denied';
   disabledAt?: string;
   disabledReason?: string;
   deniedReason?: string;
   deniedFields?: string[];
+  deniedReasonItems?: DenialReasonItem[];
+  admissionDecision?: AdmissionDecision;
   avatar?: string;
   bio?: string;
   officeHours?: string;
@@ -496,6 +603,7 @@ export interface SchoolUser {
   archivedClasses?: ArchivedClassRecord[];
   permissions?: string[];
   password?: string;
+  studentId?: string;
   studentDetails?: StudentInfo;
   themeMode?: 'light' | 'dark';
   notificationPreferences?: NotificationPreferences;
@@ -531,6 +639,7 @@ export interface RolePermission {
   registrarDefault?: boolean;
   hodDefault?: boolean;
   studentDefault?: boolean;
+  academicOfficerDefault?: boolean;
 }
 
 export interface SystemActionLog {
@@ -694,6 +803,69 @@ export const DEFAULT_TEACHER_SECTION_ORDER: SectionOrderItem[] = [
     enabled: true,
   },
 ];
+
+// Archived User Record for Cascade Deletion, Audit, and Recovery
+export interface ArchivedUserRecord {
+  id: string; // deletionId e.g. "DEL_1740000000000_usr123"
+  deletionId: string;
+  originalUserId: string;
+  originalStudentId?: string;
+  userName: string;
+  userEmail: string;
+  userRole: UserRole | string;
+  deletedAt: string; // ISO timestamp
+  deletedBy: string; // Actor UID or email
+  deletedByName?: string;
+  deletionReason?: string;
+  archiveVersion: '1.0';
+  archiveStatus: 'ARCHIVED';
+  activeDataStatus: 'DELETED' | 'PARTIALLY_DELETED' | 'RESTORED' | 'FAILED';
+  recordsArchivedSummary: {
+    userProfile: number;
+    teacherProfile: number;
+    registrations: number;
+    enrollments: number;
+    addDropRequests: number;
+    admissionDecisions: number;
+    denialReasons: number;
+    attendanceRecords: number;
+    teacherClaims: number;
+    teacherResources: number;
+    teacherAnnouncements: number;
+    notifications: number;
+    totalRecords: number;
+  };
+  recordsDeletedSummary?: {
+    totalDeleted: number;
+    collectionsAffected: string[];
+  };
+  financialSummary: {
+    totalTuition: number;
+    totalPaid: number;
+    remainingBalance: number;
+    paymentCount: number;
+    payments: { id: string; amount: number; timestamp: string; type?: string; notes?: string }[];
+  };
+  // Snapshot Payloads
+  user: SchoolUser;
+  teacherProfile?: TeacherProfile | null;
+  registrations: RegistrationRecord[];
+  enrollments: EnrollmentRecord[];
+  addDropRequests: AddDropRequest[];
+  admissionDecisions: AdmissionDecision[];
+  denialReasons: DenialReasonItem[];
+  attendanceRecords: AttendanceRecord[];
+  teacherClaims?: ClassClaimItem[];
+  teacherResources?: TeacherResource[];
+  teacherAnnouncements?: ClassAnnouncement[];
+  notifications?: NotificationLogItem[];
+  // Restoration Metadata
+  restoredAt?: string;
+  restoredBy?: string;
+  restoredByName?: string;
+  restorationNotes?: string;
+}
+
 
 
 
