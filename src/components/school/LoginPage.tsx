@@ -274,7 +274,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           Please sign in to register for classes and manage your student portal. <strong>If you do not have an account yet, please go to{' '}
           <button
             type="button"
-            onClick={() => onNavigate('registration')}
+            onClick={() => onNavigate('admissions')}
             className="text-blue-600 dark:text-blue-400 font-extrabold underline hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer inline-flex items-center gap-0.5"
           >
             <span>School Registration</span>
@@ -414,7 +414,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               Don't have an account?{' '}
               <button
                 type="button"
-                onClick={() => onNavigate('registration')}
+                onClick={() => onNavigate('admissions')}
                 className="font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer inline-flex items-center gap-1"
               >
                 <span>Go to School Registration</span>
