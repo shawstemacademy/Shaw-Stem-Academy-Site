@@ -308,14 +308,26 @@ export const ManageListOptionsModal: React.FC<ManageListOptionsModalProps> = ({
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-700">Fee ($ USD):</span>
-                    <input
-                      type="number"
-                      value={newClassPrice}
-                      onChange={(e) => setNewClassPrice(Number(e.target.value))}
-                      className="w-24 px-3 py-1 border border-slate-300 rounded-lg text-xs bg-white"
-                    />
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-700">Fee ($ USD):</span>
+                      <input
+                        type="number"
+                        value={newClassPrice}
+                        onChange={(e) => setNewClassPrice(Number(e.target.value))}
+                        className="w-24 px-3 py-1 border border-slate-300 rounded-lg text-xs bg-white"
+                      />
+                    </div>
+
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={newClassIsOffered}
+                        onChange={(e) => setNewClassIsOffered(e.target.checked)}
+                        className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span>Offered in Registration Form</span>
+                    </label>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -350,7 +362,16 @@ export const ManageListOptionsModal: React.FC<ManageListOptionsModalProps> = ({
                       }`}
                     >
                       <div>
-                        <div className="text-xs font-bold text-slate-900">{cls.title}</div>
+                        <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                          <span>{cls.title}</span>
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                            cls.isOffered !== false
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-amber-100 text-amber-800 border border-amber-200'
+                          }`}>
+                            {cls.isOffered !== false ? 'Offered in Form' : 'In Course Bank'}
+                          </span>
+                        </div>
                         <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
                           <span>{cls.category}</span>
                           <span>•</span>

@@ -54,7 +54,7 @@ export const RunningTotalCard: React.FC<RunningTotalCardProps> = ({
   // Calculate progress toward next multi-class discount
   const classCount = selectedClasses.length;
   const multiClassRules = discountRules
-    .filter((r) => r.enabled && (r.type === 'percentage_multi_class' || r.type === 'class_type_multi_class') && r.minClassesRequired)
+    .filter((r) => r.enabled && (r.type === 'percentage_multi_class' || r.type === 'class_type_multi_class') && r.minClassesRequired && r.appliesToSbaHub !== true)
     .sort((a, b) => (a.minClassesRequired || 0) - (b.minClassesRequired || 0));
 
   let nextClassTier = multiClassRules.find((r) => (r.minClassesRequired || 0) > classCount);

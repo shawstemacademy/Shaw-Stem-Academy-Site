@@ -1270,20 +1270,20 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                 <p className="text-[11px] text-slate-500">
                   Select all classes (Regular & SBA Hub) this staff member or HOD is assigned to teach or manage.
                 </p>
-                {classList.length === 0 && sbaHubOptions.length === 0 ? (
+                {classList.filter(c => c && c.isOffered !== false).length === 0 && sbaHubOptions.filter(s => s && s.isOffered !== false).length === 0 ? (
                   <p className="text-xs text-slate-400 italic p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    No classes available in the course bank or SBA hub.
+                    No offered classes available in the course bank or SBA hub.
                   </p>
                 ) : (
                   <div className="space-y-3 max-h-60 overflow-y-auto p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
                     {/* Regular Classes */}
-                    {classList.length > 0 && (
+                    {classList.filter(c => c && c.isOffered !== false).length > 0 && (
                       <div>
                         <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5 px-1">
-                          Regular Classes ({classList.length})
+                          Regular Classes ({classList.filter(c => c && c.isOffered !== false).length})
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {classList.map((c, cIdx) => {
+                          {classList.filter(c => c && c.isOffered !== false).map((c, cIdx) => {
                             const isAssigned = assignedClassIds.includes(c.id);
                             return (
                               <button
@@ -1313,13 +1313,13 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                     )}
 
                     {/* SBA Hub Classes */}
-                    {sbaHubOptions.length > 0 && (
+                    {sbaHubOptions.filter(s => s && s.isOffered !== false).length > 0 && (
                       <div>
                         <div className="text-[10px] font-extrabold uppercase tracking-wider text-purple-600 mb-1.5 px-1">
-                          SBA Hub Classes ({sbaHubOptions.length})
+                          SBA Hub Classes ({sbaHubOptions.filter(s => s && s.isOffered !== false).length})
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {sbaHubOptions.map((sba, sIdx) => {
+                          {sbaHubOptions.filter(s => s && s.isOffered !== false).map((sba, sIdx) => {
                             const isAssigned = assignedClassIds.includes(sba.id);
                             return (
                               <button

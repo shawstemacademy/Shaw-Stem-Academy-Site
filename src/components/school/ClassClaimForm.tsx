@@ -197,14 +197,15 @@ export const ClassClaimForm: React.FC<ClassClaimFormProps> = ({
     return [...regularItems, ...sbaItems];
   }, [classList, sbaHubOptions]);
 
-  // Filter classes assigned to the resolved teacher
+  // Filter classes assigned to the resolved teacher (only offered classes in course bank)
   const teacherScheduledClasses = useMemo(() => {
+    const offeredClaimableClasses = allClaimableClasses.filter((c) => c.isOffered !== false);
     if ((currentRole === 'admin' || currentRole === 'registrar') && selectedTeacherIdFilter === 'all') {
-      return allClaimableClasses;
+      return offeredClaimableClasses;
     }
 
     const assignedIds = (resolvedTeacherUser as any)?.assignedClassIds || [];
-    return allClaimableClasses.filter((c) => {
+    return offeredClaimableClasses.filter((c) => {
       const matchInstructor = c.instructor && (
         c.instructor.toLowerCase().includes(resolvedTeacherName.toLowerCase()) ||
         resolvedTeacherName.toLowerCase().includes(c.instructor.toLowerCase())

@@ -2499,17 +2499,17 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                     }
                   });
 
-                  const availableCatalog = (allClasses && allClasses.length > 0) ? allClasses : [];
+                  const availableCatalog = (allClasses && allClasses.length > 0) ? allClasses.filter((c) => c && c.isOffered !== false) : [];
 
                   // Registered classes for Drop dropdown
-                  const registeredClassesForDrop = availableCatalog.filter((c) => pickedClassIds.has(c.id));
+                  const registeredClassesForDrop = (allClasses || []).filter((c) => pickedClassIds.has(c.id));
                   const finalDropClasses = registeredClassesForDrop.length > 0
                     ? registeredClassesForDrop
                     : (currentReg?.selectedClasses || classes || []);
 
-                  // Unregistered classes for Add dropdown: ONLY courses that ARE NOT picked in registration
+                  // Unregistered classes for Add dropdown: ONLY courses that ARE NOT picked in registration and are offered in course bank
                   const unregisteredClassesForAdd = availableCatalog.filter(
-                    (c) => !pickedClassIds.has(c.id)
+                    (c) => !pickedClassIds.has(c.id) && c.isOffered !== false
                   );
 
                   const selectedDropClass = finalDropClasses.find((c) => c.id === selectedDropClassId);

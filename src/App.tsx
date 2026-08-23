@@ -1980,7 +1980,8 @@ export default function App() {
 
   const appliedDiscounts: AppliedDiscount[] = [];
 
-  // 1. Categorized & Multi-Class Percentage Discounts (For both Regular Classes & SBA Hub Classes separately, avoiding confusion)
+  // 1. Categorized & Multi-Class Percentage Discounts (For both Regular Classes & SBA Hub Classes separately)
+  // Evaluate all qualifying rules and apply ONLY the single highest discount available per category.
   const activeMultiClassRules = discountRules.filter(
     (r) => r.enabled && (r.type === 'percentage_multi_class' || r.type === 'class_type_multi_class') && r.minClassesRequired
   );
@@ -1988,110 +1989,131 @@ export default function App() {
   const regularRules = activeMultiClassRules.filter((r) => r.appliesToSbaHub !== true);
   const sbaHubRules = activeMultiClassRules.filter((r) => r.appliesToSbaHub !== false);
 
-  // Group regular rules by target category
-  const regularRulesByTarget: Record<string, DiscountRule[]> = {};
+  // A. Evaluate ALL Regular Multi-Class Rules & pick the SINGLE BEST (highest savings)
+  const qualifyingRegularRules: {
+    rule: DiscountRule;
+    discountAmount: number;
+    minRequired: number;
+    pct: number;
+    target: string;
+  }[] = [];
+
   for (const rule of regularRules) {
+    const minRequired = rule.minClassesRequired || 1;
+    const pct = rule.percentageOff || 0;
     const rawTarget = rule.targetClassType || 'ALL';
     const target = normalizeTargetCode(rawTarget);
-    if (!regularRulesByTarget[target]) {
-      regularRulesByTarget[target] = [];
+
+    if (target === 'ALL' || target === 'REGULAR') {
+      if (selectedClasses.length >= minRequired && classSubtotal > 0) {
+        // Percentage discount applies ONLY to minRequired classes (highest priced first)
+        const sortedPrices = selectedClasses.map((c) => c.price).sort((a, b) => b - a);
+        const eligibleSubtotal = sortedPrices.slice(0, minRequired).reduce((sum, p) => sum + p, 0);
+        const discountAmount = pct > 0 ? (eligibleSubtotal * pct) / 100 : (rule.flatAmountOff || 0);
+
+        if (discountAmount > 0) {
+          qualifyingRegularRules.push({ rule, discountAmount, minRequired, pct, target });
+        }
+      }
+    } else {
+      const typeStat = classTypeStats[target];
+      if (typeStat && typeStat.count >= minRequired && typeStat.subtotal > 0) {
+        const sortedPrices = typeStat.items.map((c) => c.price).sort((a, b) => b - a);
+        const eligibleSubtotal = sortedPrices.slice(0, minRequired).reduce((sum, p) => sum + p, 0);
+        const discountAmount = pct > 0 ? (eligibleSubtotal * pct) / 100 : (rule.flatAmountOff || 0);
+
+        if (discountAmount > 0) {
+          qualifyingRegularRules.push({ rule, discountAmount, minRequired, pct, target });
+        }
+      }
     }
-    regularRulesByTarget[target].push(rule);
   }
 
-  // Group SBA Hub rules by target category
-  const sbaRulesByTarget: Record<string, DiscountRule[]> = {};
+  if (qualifyingRegularRules.length > 0) {
+    qualifyingRegularRules.sort((a, b) => {
+      if (b.discountAmount !== a.discountAmount) return b.discountAmount - a.discountAmount;
+      if (b.pct !== a.pct) return b.pct - a.pct;
+      return b.minRequired - a.minRequired;
+    });
+
+    const best = qualifyingRegularRules[0];
+    const pctLabel = best.pct > 0 ? `${best.pct}% off` : `$${best.rule.flatAmountOff} off`;
+    const targetLabel = (best.target === 'ALL' || best.target === 'REGULAR')
+      ? 'regular classes'
+      : `${best.rule.targetClassType || best.target} regular classes`;
+
+    const remainingCount = selectedClasses.length - best.minRequired;
+    const extraInfo = remainingCount > 0 ? ` (${remainingCount} at standard price)` : '';
+
+    appliedDiscounts.push({
+      ruleId: best.rule.id,
+      name: best.rule.name,
+      amountOff: best.discountAmount,
+      description: `${pctLabel} applied to ${best.minRequired} ${targetLabel}${extraInfo}`,
+    });
+  }
+
+  // B. Evaluate ALL SBA Hub Multi-Class Rules & pick the SINGLE BEST (highest savings)
+  const qualifyingSbaRules: {
+    rule: DiscountRule;
+    discountAmount: number;
+    minRequired: number;
+    pct: number;
+    target: string;
+  }[] = [];
+
   for (const rule of sbaHubRules) {
+    const minRequired = rule.minClassesRequired || 1;
+    const pct = rule.percentageOff || 0;
     const rawTarget = rule.targetClassType || 'ALL';
     const target = normalizeTargetCode(rawTarget);
-    if (!sbaRulesByTarget[target]) {
-      sbaRulesByTarget[target] = [];
-    }
-    sbaRulesByTarget[target].push(rule);
-  }
 
-  // A. Apply rules to Regular Classes
-  for (const [target, rules] of Object.entries(regularRulesByTarget)) {
-    const qualifyingRules: { rule: DiscountRule; discountAmount: number }[] = [];
-    for (const rule of rules) {
-      const minRequired = rule.minClassesRequired || 1;
-      const pct = rule.percentageOff || 0;
+    if (target === 'ALL' || target === 'SBAHUB' || target === 'SBA') {
+      if (selectedSbaHubItems.length >= minRequired && sbaSubtotal > 0) {
+        const sortedPrices = selectedSbaHubItems.map((s) => s.yearlyPrice).sort((a, b) => b - a);
+        const eligibleSubtotal = sortedPrices.slice(0, minRequired).reduce((sum, p) => sum + p, 0);
+        const discountAmount = pct > 0 ? (eligibleSubtotal * pct) / 100 : (rule.flatAmountOff || 0);
 
-      if (target === 'ALL') {
-        if (selectedClasses.length >= minRequired && classSubtotal > 0) {
-          const discountAmount = (classSubtotal * pct) / 100;
-          qualifyingRules.push({ rule, discountAmount });
+        if (discountAmount > 0) {
+          qualifyingSbaRules.push({ rule, discountAmount, minRequired, pct, target });
         }
-      } else {
-        const typeStat = classTypeStats[target];
-        if (typeStat && typeStat.count >= minRequired && typeStat.subtotal > 0) {
-          const discountAmount = (typeStat.subtotal * pct) / 100;
-          qualifyingRules.push({ rule, discountAmount });
+      }
+    } else {
+      const sbaStat = sbaTypeStats[target];
+      if (sbaStat && sbaStat.count >= minRequired && sbaStat.subtotal > 0) {
+        const sortedPrices = sbaStat.items.map((s) => s.yearlyPrice).sort((a, b) => b - a);
+        const eligibleSubtotal = sortedPrices.slice(0, minRequired).reduce((sum, p) => sum + p, 0);
+        const discountAmount = pct > 0 ? (eligibleSubtotal * pct) / 100 : (rule.flatAmountOff || 0);
+
+        if (discountAmount > 0) {
+          qualifyingSbaRules.push({ rule, discountAmount, minRequired, pct, target });
         }
       }
     }
-
-    if (qualifyingRules.length > 0) {
-      qualifyingRules.sort((a, b) => {
-        if (b.discountAmount !== a.discountAmount) return b.discountAmount - a.discountAmount;
-        return (b.rule.percentageOff || 0) - (a.rule.percentageOff || 0);
-      });
-
-      const best = qualifyingRules[0];
-      const minRequired = best.rule.minClassesRequired || 1;
-      const pct = best.rule.percentageOff || 0;
-
-      appliedDiscounts.push({
-        ruleId: best.rule.id,
-        name: best.rule.name,
-        amountOff: best.discountAmount,
-        description: target === 'ALL'
-          ? `${pct}% off regular class tuition for enrolling in ${minRequired}+ classes`
-          : `${pct}% off ${best.rule.targetClassType || target} regular class tuition for enrolling in ${minRequired}+ classes`,
-      });
-    }
   }
 
-  // B. Apply rules to SBA Hub Classes (based on either general SBA_HUB rule, ALL rule, or matching grade-level target)
-  for (const [target, rules] of Object.entries(sbaRulesByTarget)) {
-    const qualifyingRules: { rule: DiscountRule; discountAmount: number }[] = [];
-    for (const rule of rules) {
-      const minRequired = rule.minClassesRequired || 1;
-      const pct = rule.percentageOff || 0;
+  if (qualifyingSbaRules.length > 0) {
+    qualifyingSbaRules.sort((a, b) => {
+      if (b.discountAmount !== a.discountAmount) return b.discountAmount - a.discountAmount;
+      if (b.pct !== a.pct) return b.pct - a.pct;
+      return b.minRequired - a.minRequired;
+    });
 
-      if (target === 'ALL' || target === 'SBAHUB' || target === 'SBA') {
-        if (selectedSbaHubItems.length >= minRequired && sbaSubtotal > 0) {
-          const discountAmount = (sbaSubtotal * pct) / 100;
-          qualifyingRules.push({ rule, discountAmount });
-        }
-      } else {
-        const sbaStat = sbaTypeStats[target];
-        if (sbaStat && sbaStat.count >= minRequired && sbaStat.subtotal > 0) {
-          const discountAmount = (sbaStat.subtotal * pct) / 100;
-          qualifyingRules.push({ rule, discountAmount });
-        }
-      }
-    }
+    const best = qualifyingSbaRules[0];
+    const pctLabel = best.pct > 0 ? `${best.pct}% off` : `$${best.rule.flatAmountOff} off`;
+    const targetLabel = (best.target === 'ALL' || best.target === 'SBAHUB' || best.target === 'SBA')
+      ? 'SBA Hub classes'
+      : `${best.rule.targetClassType || best.target} SBA Hub classes`;
 
-    if (qualifyingRules.length > 0) {
-      qualifyingRules.sort((a, b) => {
-        if (b.discountAmount !== a.discountAmount) return b.discountAmount - a.discountAmount;
-        return (b.rule.percentageOff || 0) - (a.rule.percentageOff || 0);
-      });
+    const remainingCount = selectedSbaHubItems.length - best.minRequired;
+    const extraInfo = remainingCount > 0 ? ` (${remainingCount} at standard price)` : '';
 
-      const best = qualifyingRules[0];
-      const minRequired = best.rule.minClassesRequired || 1;
-      const pct = best.rule.percentageOff || 0;
-
-      appliedDiscounts.push({
-        ruleId: best.rule.id,
-        name: `${best.rule.name}`,
-        amountOff: best.discountAmount,
-        description: (target === 'ALL' || target === 'SBAHUB' || target === 'SBA')
-          ? `${pct}% off SBA Hub tuition for enrolling in ${minRequired}+ SBA Hub classes`
-          : `${pct}% off ${best.rule.targetClassType || target} SBA Hub tuition for enrolling in ${minRequired}+ SBA Hub classes`,
-      });
-    }
+    appliedDiscounts.push({
+      ruleId: best.rule.id,
+      name: best.rule.name,
+      amountOff: best.discountAmount,
+      description: `${pctLabel} applied to ${best.minRequired} ${targetLabel}${extraInfo}`,
+    });
   }
 
   // 2. Spend Threshold Flat Discount (Based on total subtotal, including both regular classes and SBA Hub classes)
