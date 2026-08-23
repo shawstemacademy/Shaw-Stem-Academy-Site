@@ -225,7 +225,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   expenses = [],
   onUpdateExpenses,
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'archived_users' | 'departments' | 'roles' | 'course_bank' | 'class_archiving' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields' | 'section_order' | 'manual' | 'attendance' | 'academic_performance' | 'ledger_expenses'>(
+  const [activeAdminTab, setActiveAdminTab] = useState<'overview' | 'users' | 'disabled' | 'archived_users' | 'deletion_logs' | 'departments' | 'roles' | 'course_bank' | 'class_archiving' | 'clashes' | 'claims' | 'add_drop' | 'news' | 'faqs' | 'academy_info' | 'activity' | 'notifications' | 'landing_page' | 'student_search' | 'form_fields' | 'section_order' | 'manual' | 'attendance' | 'academic_performance' | 'ledger_expenses'>(
     currentRole === 'hod' ? 'users' : 'overview'
   );
 
@@ -1109,6 +1109,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       label: 'Archived / Scrubbed Users Vault',
       icon: <Archive className="w-4 h-4 text-rose-500" />,
       badge: 'Archived Vault',
+    },
+    {
+      id: 'deletion_logs' as const,
+      label: 'Deletion Logs',
+      icon: <Trash2 className="w-4 h-4 text-rose-600" />,
+      badge: `${(systemActionLogs || []).filter((l) => l.actionType === 'user_deleted').length} Deleted`,
     },
     {
       id: 'departments' as const,
@@ -2717,6 +2723,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       {/* 6. ACTIVITY LOG TAB */}
       {activeAdminTab === 'activity' && (
         <AdminSystemActionLogs logs={systemActionLogs} />
+      )}
+
+      {/* DELETION LOGS TAB */}
+      {activeAdminTab === 'deletion_logs' && (
+        <AdminSystemActionLogs
+          logs={systemActionLogs}
+          initialActionType="user_deleted"
+          titleOverride="Deletion Logs & Audit Trail (Archived Student Data)"
+        />
       )}
 
       {/* 6. NOTIFICATION TEST CENTER TAB */}

@@ -528,6 +528,25 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
             </div>
           )}
 
+          {/* Google / Gmail Address */}
+          {isEnabled('gmailAddress') && (
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-gray-700">
+                {getLabel('gmailAddress', '13. Google / Gmail Address')}{' '}
+                {isRequired('gmailAddress') && <span className="text-red-500">*</span>}
+                {renderAdminFieldBadge('gmailAddress')}
+              </label>
+              <input
+                type="email"
+                required={isRequired('gmailAddress')}
+                value={studentInfo.gmailAddress || ''}
+                onChange={(e) => onChange('gmailAddress', e.target.value)}
+                placeholder="student@gmail.com"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+              />
+            </div>
+          )}
+
           {/* Gender */}
           {isEnabled('gender') && (
             <div id="student-gender-section" className="space-y-2 pt-2 border-t border-gray-100">
@@ -564,46 +583,50 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
           )}
 
           {/* Who do you currently live with? */}
-          <div id="student-liveswith-section" className="space-y-2 pt-2 border-t border-gray-100">
-            <label className="block text-xs font-semibold text-gray-700">
-              15. Who do you currently live with? <span className="text-red-500">*</span>
-            </label>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <label className={`p-3 rounded-xl border cursor-pointer flex items-center justify-between text-xs font-bold transition-all ${
-                studentInfo.livesWith === 'Parent' ? 'border-purple-500 bg-purple-50 text-purple-900 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="livesWith"
-                    value="Parent"
-                    checked={studentInfo.livesWith === 'Parent'}
-                    onChange={() => onChange('livesWith', 'Parent')}
-                    className="text-purple-600 focus:ring-purple-500"
-                  />
-                  <span>Parent</span>
-                </div>
-                <span className="text-[11px] font-normal text-gray-500 ml-2">(Fills Parent Information)</span>
+          {isEnabled('livesWith') && (
+            <div id="student-liveswith-section" className="space-y-2 pt-2 border-t border-gray-100">
+              <label className="block text-xs font-semibold text-gray-700">
+                {getLabel('livesWith', '15. Who do you currently live with?')}{' '}
+                {isRequired('livesWith') && <span className="text-red-500">*</span>}
+                {renderAdminFieldBadge('livesWith')}
               </label>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <label className={`p-3 rounded-xl border cursor-pointer flex items-center justify-between text-xs font-bold transition-all ${
+                  studentInfo.livesWith === 'Parent' ? 'border-purple-500 bg-purple-50 text-purple-900 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="livesWith"
+                      value="Parent"
+                      checked={studentInfo.livesWith === 'Parent'}
+                      onChange={() => onChange('livesWith', 'Parent')}
+                      className="text-purple-600 focus:ring-purple-500"
+                    />
+                    <span>Parent</span>
+                  </div>
+                  <span className="text-[11px] font-normal text-gray-500 ml-2">(Fills Parent Information)</span>
+                </label>
 
-              <label className={`p-3 rounded-xl border cursor-pointer flex items-center justify-between text-xs font-bold transition-all ${
-                studentInfo.livesWith === 'Guardian' ? 'border-purple-500 bg-purple-50 text-purple-900 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="livesWith"
-                    value="Guardian"
-                    checked={studentInfo.livesWith === 'Guardian'}
-                    onChange={() => onChange('livesWith', 'Guardian')}
-                    className="text-purple-600 focus:ring-purple-500"
-                  />
-                  <span>Guardian</span>
-                </div>
-                <span className="text-[11px] font-normal text-gray-500 ml-2">(Fills Guardian Information)</span>
-              </label>
+                <label className={`p-3 rounded-xl border cursor-pointer flex items-center justify-between text-xs font-bold transition-all ${
+                  studentInfo.livesWith === 'Guardian' ? 'border-purple-500 bg-purple-50 text-purple-900 ring-2 ring-purple-200' : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="livesWith"
+                      value="Guardian"
+                      checked={studentInfo.livesWith === 'Guardian'}
+                      onChange={() => onChange('livesWith', 'Guardian')}
+                      className="text-purple-600 focus:ring-purple-500"
+                    />
+                    <span>Guardian</span>
+                  </div>
+                  <span className="text-[11px] font-normal text-gray-500 ml-2">(Fills Guardian Information)</span>
+                </label>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

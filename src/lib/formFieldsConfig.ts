@@ -25,6 +25,8 @@ export const INITIAL_FORM_FIELD_SETTINGS: FormFieldSetting[] = [
   { fieldId: 'age', formId: 'student_registration', formName: 'Student Registration & Application Form', section: '1. Student Details', label: 'Age', enabled: true, required: true },
   { fieldId: 'gender', formId: 'student_registration', formName: 'Student Registration & Application Form', section: '1. Student Details', label: 'Gender', enabled: true, required: true },
   { fieldId: 'address', formId: 'student_registration', formName: 'Student Registration & Application Form', section: '1. Student Details', label: 'Address', enabled: true, required: true },
+  { fieldId: 'gmailAddress', formId: 'student_registration', formName: 'Student Registration & Application Form', section: '1. Student Details', label: 'Google / Gmail Address', enabled: true, required: false },
+  { fieldId: 'livesWith', formId: 'student_registration', formName: 'Student Registration & Application Form', section: '1. Student Details', label: 'Who Student Lives With', enabled: true, required: true },
   { fieldId: 'cellPhone', formId: 'student_registration', formName: 'Student Registration & Application Form', section: '1. Student Details', label: 'Cell Phone Number', enabled: true, required: true },
   { fieldId: 'homePhone', formId: 'student_registration', formName: 'Student Registration & Application Form', section: '1. Student Details', label: 'Home Phone Number', enabled: true, required: true },
   { fieldId: 'gradeLevel', formId: 'student_registration', formName: 'Student Registration & Application Form', section: '1. Student Details', label: 'Grade / Form Level', enabled: true, required: true },

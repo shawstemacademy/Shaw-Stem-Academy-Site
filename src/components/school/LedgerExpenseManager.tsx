@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -12,18 +12,16 @@ import {
   CreditCard, 
   PieChart, 
   FileText, 
-  CheckCircle2, 
   AlertCircle, 
   X, 
   Receipt,
   ArrowUpRight,
   ArrowDownRight,
-  Filter,
-  ShieldCheck,
-  Building2,
-  RefreshCw
+  Sliders,
+  Tag,
+  Check
 } from 'lucide-react';
-import { ExpenseRecord, ExpenseCategory, RegistrationRecord, SchoolUser } from '../../types';
+import { ExpenseRecord, RegistrationRecord, SchoolUser, LedgerCategoryItem } from '../../types';
 import { saveExpenseToFirestore, deleteExpenseFromFirestore } from '../../lib/firebase';
 import { ConfirmationModal } from '../ConfirmationModal';
 
@@ -35,18 +33,30 @@ interface LedgerExpenseManagerProps {
   theme?: any;
 }
 
-const EXPENSE_CATEGORIES: ExpenseCategory[] = [
-  'Utilities',
-  'Salaries/Wages',
-  'Equipment',
-  'Supplies',
-  'Rent',
-  'Internet',
-  'Transportation',
-  'Marketing',
-  'Software/Subscriptions',
-  'Maintenance',
-  'Other',
+const DEFAULT_CATEGORIES: LedgerCategoryItem[] = [
+  // Expenses
+  { id: 'cat-exp-1', name: 'Utilities', type: 'expense', isDefault: true },
+  { id: 'cat-exp-2', name: 'Salaries/Wages', type: 'expense', isDefault: true },
+  { id: 'cat-exp-3', name: 'Equipment', type: 'expense', isDefault: true },
+  { id: 'cat-exp-4', name: 'Supplies', type: 'expense', isDefault: true },
+  { id: 'cat-exp-5', name: 'Rent', type: 'expense', isDefault: true },
+  { id: 'cat-exp-6', name: 'Internet', type: 'expense', isDefault: true },
+  { id: 'cat-exp-7', name: 'Transportation', type: 'expense', isDefault: true },
+  { id: 'cat-exp-8', name: 'Marketing', type: 'expense', isDefault: true },
+  { id: 'cat-exp-9', name: 'Software/Subscriptions', type: 'expense', isDefault: true },
+  { id: 'cat-exp-10', name: 'Maintenance', type: 'expense', isDefault: true },
+  { id: 'cat-exp-11', name: 'Other Expense', type: 'expense', isDefault: true },
+
+  // Income
+  { id: 'cat-inc-1', name: 'Tuition & Fees', type: 'income', isDefault: true },
+  { id: 'cat-inc-2', name: 'Grants & Subsidies', type: 'income', isDefault: true },
+  { id: 'cat-inc-3', name: 'Donations & Sponsorships', type: 'income', isDefault: true },
+  { id: 'cat-inc-4', name: 'Lab & Materials Fees', type: 'income', isDefault: true },
+  { id: 'cat-inc-5', name: 'Fundraising', type: 'income', isDefault: true },
+  { id: 'cat-inc-6', name: 'Facility Rental', type: 'income', isDefault: true },
+  { id: 'cat-inc-7', name: 'Merchandise & Books', type: 'income', isDefault: true },
+  { id: 'cat-inc-8', name: 'Exam / Certification Fees', type: 'income', isDefault: true },
+  { id: 'cat-inc-9', name: 'Other Income', type: 'income', isDefault: true },
 ];
 
 const PAYMENT_METHODS = [
@@ -66,7 +76,29 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
   currentUser,
   theme,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'analytics' | 'expenses' | 'ledger_audit'>('analytics');
+  const [activeSubTab, setActiveSubTab] = useState<'analytics' | 'expenses'>('analytics');
+
+  // Categories State
+  const [categories, setCategories] = useState<LedgerCategoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('shaw_stem_ledger_categories');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Failed to parse ledger categories from localStorage', e);
+    }
+    return DEFAULT_CATEGORIES;
+  });
+
+  // Save categories to localStorage whenever changed
+  useEffect(() => {
+    try {
+      localStorage.setItem('shaw_stem_ledger_categories', JSON.stringify(categories));
+    } catch (e) {
+      console.error('Failed to save categories to localStorage', e);
+    }
+  }, [categories]);
 
   // Custom Date Range Filters (default: This Month)
   const [dateRangePreset, setDateRangePreset] = useState<'all' | 'this_week' | 'this_month' | 'this_year' | 'custom'>('this_month');
@@ -81,14 +113,23 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
     return new Date().toISOString().split('T')[0];
   });
 
-  // Expense Filter states
+  // Filter states
+  const [entryTypeFilter, setEntryTypeFilter] = useState<'all' | 'expense' | 'income'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
 
-  // Modal states for Create / Edit Expense
+  // Modal states for Record Create / Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<ExpenseRecord | null>(null);
+
+  // Category Manager Modal state
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+  const [categoryManagerTab, setCategoryManagerTab] = useState<'expense' | 'income'>('expense');
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryType, setNewCategoryType] = useState<'expense' | 'income'>('expense');
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editCategoryNameValue, setEditCategoryNameValue] = useState('');
 
   // Delete Confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -96,19 +137,28 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
     expenseId: string;
     description: string;
     amount: number;
-  }>({ isOpen: false, expenseId: '', description: '', amount: 0 });
+    type: 'expense' | 'income';
+  }>({ isOpen: false, expenseId: '', description: '', amount: 0, type: 'expense' });
 
-  // Form states
+  // Record Form state
   const [formData, setFormData] = useState({
+    entryType: 'expense' as 'expense' | 'income',
     date: new Date().toISOString().split('T')[0],
     description: '',
-    category: 'Utilities' as ExpenseCategory,
+    category: 'Utilities',
     amount: '',
     paymentMethod: 'Bank Transfer' as typeof PAYMENT_METHODS[number],
     vendorPayee: '',
     referenceNumber: '',
     notes: '',
   });
+
+  // Available categories for selected entry type in record form
+  const availableCategoriesForForm = useMemo(() => {
+    return categories
+      .filter((c) => c.type === formData.entryType)
+      .map((c) => c.name);
+  }, [categories, formData.entryType]);
 
   // Apply Quick Date Range Preset
   const handleSelectPreset = (preset: 'all' | 'this_week' | 'this_month' | 'this_year' | 'custom') => {
@@ -120,7 +170,7 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
       setEndDate('');
     } else if (preset === 'this_week') {
       const firstDayOfWeek = new Date(now);
-      const day = now.getDay() || 7; // Sunday as 7 or Monday as 1
+      const day = now.getDay() || 7;
       firstDayOfWeek.setDate(now.getDate() - day + 1);
       setStartDate(firstDayOfWeek.toISOString().split('T')[0]);
       setEndDate(now.toISOString().split('T')[0]);
@@ -136,13 +186,15 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
   };
 
   // Open Modal for Create or Edit
-  const handleOpenModal = (expense?: ExpenseRecord) => {
+  const handleOpenModal = (expense?: ExpenseRecord, defaultType: 'expense' | 'income' = 'expense') => {
     if (expense) {
       setEditingExpense(expense);
+      const eType = expense.entryType || 'expense';
       setFormData({
+        entryType: eType,
         date: expense.date || new Date().toISOString().split('T')[0],
         description: expense.description || '',
-        category: expense.category || 'Utilities',
+        category: expense.category || (eType === 'income' ? 'Grants & Subsidies' : 'Utilities'),
         amount: String(expense.amount || ''),
         paymentMethod: expense.paymentMethod || 'Bank Transfer',
         vendorPayee: expense.vendorPayee || '',
@@ -151,10 +203,13 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
       });
     } else {
       setEditingExpense(null);
+      const defaultCatList = categories.filter((c) => c.type === defaultType);
+      const firstCatName = defaultCatList.length > 0 ? defaultCatList[0].name : (defaultType === 'income' ? 'Other Income' : 'Utilities');
       setFormData({
+        entryType: defaultType,
         date: new Date().toISOString().split('T')[0],
         description: '',
-        category: 'Utilities',
+        category: firstCatName,
         amount: '',
         paymentMethod: 'Bank Transfer',
         vendorPayee: '',
@@ -165,11 +220,22 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
     setIsModalOpen(true);
   };
 
-  // Save Expense Handler
-  const handleSaveExpense = async (e: React.FormEvent) => {
+  // Handle entryType toggle inside record form
+  const handleFormEntryTypeChange = (newType: 'expense' | 'income') => {
+    const defaultCatList = categories.filter((c) => c.type === newType);
+    const firstCatName = defaultCatList.length > 0 ? defaultCatList[0].name : (newType === 'income' ? 'Other Income' : 'Utilities');
+    setFormData((prev) => ({
+      ...prev,
+      entryType: newType,
+      category: firstCatName,
+    }));
+  };
+
+  // Save Record Handler (Expense or Income)
+  const handleSaveRecord = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.description.trim()) {
-      alert('Please enter a description for this expense.');
+      alert(`Please enter a description for this ${formData.entryType}.`);
       return;
     }
     const amtNum = parseFloat(formData.amount);
@@ -178,12 +244,13 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
       return;
     }
     if (!formData.vendorPayee.trim()) {
-      alert('Please enter the Vendor or Payee name.');
+      alert(formData.entryType === 'income' ? 'Please enter the Payer or Income Source Name.' : 'Please enter the Vendor or Payee name.');
       return;
     }
 
     const newExpense: ExpenseRecord = {
-      id: editingExpense ? editingExpense.id : `EXP-${Date.now()}`,
+      id: editingExpense ? editingExpense.id : `REC-${Date.now()}`,
+      entryType: formData.entryType,
       date: formData.date,
       description: formData.description.trim(),
       category: formData.category,
@@ -211,32 +278,76 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
       }
       setIsModalOpen(false);
     } catch (err) {
-      console.error('Error saving expense:', err);
-      alert('Failed to save expense record.');
+      console.error('Error saving ledger record:', err);
+      alert('Failed to save ledger record.');
     }
   };
 
-  // Delete Expense Handler
-  const handleDeleteExpense = async () => {
+  // Delete Record Handler
+  const handleDeleteRecord = async () => {
     if (!deleteConfirm.expenseId) return;
     try {
       await deleteExpenseFromFirestore(deleteConfirm.expenseId);
       if (onUpdateExpenses) {
         onUpdateExpenses(expenses.filter((exp) => exp.id !== deleteConfirm.expenseId));
       }
-      setDeleteConfirm({ isOpen: false, expenseId: '', description: '', amount: 0 });
+      setDeleteConfirm({ isOpen: false, expenseId: '', description: '', amount: 0, type: 'expense' });
     } catch (err) {
-      console.error('Error deleting expense:', err);
-      alert('Failed to delete expense.');
+      console.error('Error deleting record:', err);
+      alert('Failed to delete record.');
     }
   };
 
-  // Filtered Expenses by Date Range and search
-  const filteredExpenses = useMemo(() => {
+  // Category Management Handlers
+  const handleAddCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) {
+      alert('Please enter a category name.');
+      return;
+    }
+
+    // Check duplicate
+    const exists = categories.some(
+      (c) => c.type === newCategoryType && c.name.toLowerCase() === newCategoryName.trim().toLowerCase()
+    );
+    if (exists) {
+      alert(`A category with the name "${newCategoryName.trim()}" already exists for ${newCategoryType}s.`);
+      return;
+    }
+
+    const newCatItem: LedgerCategoryItem = {
+      id: `cat-${Date.now()}`,
+      name: newCategoryName.trim(),
+      type: newCategoryType,
+      isDefault: false,
+    };
+
+    setCategories((prev) => [...prev, newCatItem]);
+    setNewCategoryName('');
+  };
+
+  const handleUpdateCategoryName = (id: string) => {
+    if (!editCategoryNameValue.trim()) return;
+    setCategories((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, name: editCategoryNameValue.trim() } : c))
+    );
+    setEditingCategoryId(null);
+    setEditCategoryNameValue('');
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    setCategories((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  // Filtered Ledger Records
+  const filteredRecords = useMemo(() => {
     return expenses.filter((exp) => {
+      const eType = exp.entryType || 'expense';
+
       if (startDate && exp.date < startDate) return false;
       if (endDate && exp.date > endDate) return false;
 
+      if (entryTypeFilter !== 'all' && eType !== entryTypeFilter) return false;
       if (categoryFilter !== 'all' && exp.category !== categoryFilter) return false;
       if (paymentMethodFilter !== 'all' && exp.paymentMethod !== paymentMethodFilter) return false;
 
@@ -244,14 +355,15 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
         const q = searchQuery.toLowerCase();
         const matchDesc = (exp.description || '').toLowerCase().includes(q);
         const matchVendor = (exp.vendorPayee || '').toLowerCase().includes(q);
+        const matchCat = (exp.category || '').toLowerCase().includes(q);
         const matchRef = (exp.referenceNumber || '').toLowerCase().includes(q);
         const matchNotes = (exp.notes || '').toLowerCase().includes(q);
-        if (!matchDesc && !matchVendor && !matchRef && !matchNotes) return false;
+        if (!matchDesc && !matchVendor && !matchCat && !matchRef && !matchNotes) return false;
       }
 
       return true;
     }).sort((a, b) => b.date.localeCompare(a.date));
-  }, [expenses, startDate, endDate, categoryFilter, paymentMethodFilter, searchQuery]);
+  }, [expenses, startDate, endDate, entryTypeFilter, categoryFilter, paymentMethodFilter, searchQuery]);
 
   // Filtered Revenue Registrations by Date Range
   const filteredRegistrations = useMemo(() => {
@@ -263,89 +375,117 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
     });
   }, [registrationLogs, startDate, endDate]);
 
-  // Revenue, Expense, and Net Profit Calculations for Selected Period
+  // Comprehensive Financial Summary
   const financialSummary = useMemo(() => {
-    // 1. Invoiced Revenue (Total price across filtered registrations)
-    const totalInvoiced = filteredRegistrations.reduce((acc, r) => acc + (r.totalPrice || 0), 0);
+    // 1. Invoiced Tuition Revenue
+    const totalInvoicedTuition = filteredRegistrations.reduce((acc, r) => acc + (r.totalPrice || 0), 0);
 
-    // 2. Collected Revenue (Sum of completed payments)
-    let totalCollected = 0;
+    // 2. Collected Student Tuition Revenue
+    let totalTuitionCollected = 0;
     filteredRegistrations.forEach((reg) => {
       if (reg.payments && Array.isArray(reg.payments)) {
         reg.payments.forEach((p) => {
-          totalCollected += (p.amount || 0);
+          totalTuitionCollected += (p.amount || 0);
         });
       } else if (reg.isPaid) {
-        totalCollected += (reg.totalPrice || 0);
+        totalTuitionCollected += (reg.totalPrice || 0);
       }
     });
 
-    // 3. Outstanding Balances
-    const outstanding = Math.max(0, totalInvoiced - totalCollected);
+    // 3. Directly Recorded Ledger Income
+    const activeDirectIncomeRecords = filteredRecords.filter((r) => r.entryType === 'income');
+    const totalDirectIncome = activeDirectIncomeRecords.reduce((acc, r) => acc + (r.amount || 0), 0);
 
-    // 4. Operating Expenses
-    const totalExpenses = filteredExpenses.reduce((acc, exp) => acc + (exp.amount || 0), 0);
+    // Total Combined Revenue
+    const totalCollectedIncome = totalTuitionCollected + totalDirectIncome;
 
-    // 5. Net Financial Position (Surplus / Deficit)
-    const netPosition = totalCollected - totalExpenses;
+    // 4. Unpaid Tuition Balances
+    const outstandingTuition = Math.max(0, totalInvoicedTuition - totalTuitionCollected);
 
-    // Expenses by Category breakdown
-    const categoryTotals: Record<string, number> = {};
-    EXPENSE_CATEGORIES.forEach((cat) => {
-      categoryTotals[cat] = 0;
+    // 5. Operating Expenses
+    const activeExpenseRecords = filteredRecords.filter((r) => (r.entryType || 'expense') === 'expense');
+    const totalOperatingExpenses = activeExpenseRecords.reduce((acc, r) => acc + (r.amount || 0), 0);
+
+    // 6. Net Financial Position (Surplus / Deficit)
+    const netPosition = totalCollectedIncome - totalOperatingExpenses;
+
+    // Category breakdown maps
+    const expenseCategoryTotals: Record<string, number> = {};
+    const incomeCategoryTotals: Record<string, number> = {};
+
+    categories.forEach((cat) => {
+      if (cat.type === 'expense') expenseCategoryTotals[cat.name] = 0;
+      if (cat.type === 'income') incomeCategoryTotals[cat.name] = 0;
     });
-    filteredExpenses.forEach((exp) => {
-      categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
+
+    // Populate Expense category totals
+    activeExpenseRecords.forEach((exp) => {
+      expenseCategoryTotals[exp.category] = (expenseCategoryTotals[exp.category] || 0) + exp.amount;
+    });
+
+    // Populate Income category totals
+    activeDirectIncomeRecords.forEach((inc) => {
+      incomeCategoryTotals[inc.category] = (incomeCategoryTotals[inc.category] || 0) + inc.amount;
     });
 
     return {
-      totalInvoiced,
-      totalCollected,
-      outstanding,
-      totalExpenses,
+      totalInvoicedTuition,
+      totalTuitionCollected,
+      totalDirectIncome,
+      totalCollectedIncome,
+      outstandingTuition,
+      totalOperatingExpenses,
       netPosition,
-      categoryTotals,
+      expenseCategoryTotals,
+      incomeCategoryTotals,
       countInvoices: filteredRegistrations.length,
-      countExpenses: filteredExpenses.length,
+      countExpenseRecords: activeExpenseRecords.length,
+      countIncomeRecords: activeDirectIncomeRecords.length,
     };
-  }, [filteredRegistrations, filteredExpenses]);
+  }, [filteredRegistrations, filteredRecords, categories]);
 
-  // Export Combined Ledger CSV
+  // Export Combined Financial Ledger CSV
   const handleExportLedgerCsv = () => {
     const headers = [
       'Transaction Date',
-      'Type',
-      'Category / Description',
-      'Vendor / Payee / Student',
-      'Reference / Invoice ID',
-      'Income (Collected $)',
+      'Entry Type',
+      'Category Name',
+      'Description / Purpose',
+      'Vendor / Payee / Payer Source',
+      'Reference #',
+      'Income ($)',
       'Expense ($)',
       'Recorded By',
       'Notes',
     ];
 
-    const expenseRows = filteredExpenses.map((exp) => [
-      `"${exp.date}"`,
-      '"EXPENSE"',
-      `"[${exp.category}] ${(exp.description || '').replace(/"/g, '""')}"`,
-      `"${(exp.vendorPayee || '').replace(/"/g, '""')}"`,
-      `"${(exp.referenceNumber || exp.id).replace(/"/g, '""')}"`,
-      '0.00',
-      exp.amount.toFixed(2),
-      `"${(exp.createdByName || exp.createdBy || '').replace(/"/g, '""')}"`,
-      `"${(exp.notes || '').replace(/"/g, '""')}"`,
-    ]);
+    const directLedgerRows = filteredRecords.map((rec) => {
+      const isInc = rec.entryType === 'income';
+      return [
+        `"${rec.date}"`,
+        `"${isInc ? 'INCOME' : 'EXPENSE'}"`,
+        `"${(rec.category || '').replace(/"/g, '""')}"`,
+        `"${(rec.description || '').replace(/"/g, '""')}"`,
+        `"${(rec.vendorPayee || '').replace(/"/g, '""')}"`,
+        `"${(rec.referenceNumber || rec.id).replace(/"/g, '""')}"`,
+        isInc ? rec.amount.toFixed(2) : '0.00',
+        !isInc ? rec.amount.toFixed(2) : '0.00',
+        `"${(rec.createdByName || rec.createdBy || '').replace(/"/g, '""')}"`,
+        `"${(rec.notes || '').replace(/"/g, '""')}"`,
+      ];
+    });
 
-    const revenueRows: string[][] = [];
+    const tuitionRows: string[][] = [];
     filteredRegistrations.forEach((reg) => {
       const regDate = reg.timestamp ? reg.timestamp.split('T')[0] : '';
       const sName = reg.studentInfo?.studentName || `${reg.studentInfo?.firstName || ''} ${reg.studentInfo?.lastName || ''}`.trim() || 'Student';
       const paidAmt = reg.payments?.reduce((s, p) => s + (p.amount || 0), 0) || (reg.isPaid ? reg.totalPrice : 0);
 
-      revenueRows.push([
+      tuitionRows.push([
         `"${regDate}"`,
         '"TUITION INCOME"',
-        `"Course Tuition Registration (${reg.selectedClasses?.length || 0} classes)"`,
+        '"Tuition & Fees"',
+        `"Student Course Registration (${reg.selectedClasses?.length || 0} classes)"`,
         `"${sName.replace(/"/g, '""')}"`,
         `"${reg.id}"`,
         paidAmt.toFixed(2),
@@ -355,7 +495,7 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
       ]);
     });
 
-    const allRows = [...expenseRows, ...revenueRows].sort((a, b) => b[0].localeCompare(a[0]));
+    const allRows = [...directLedgerRows, ...tuitionRows].sort((a, b) => b[0].localeCompare(a[0]));
     const csvContent = [headers.join(','), ...allRows.map((r) => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -370,7 +510,7 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header Banner */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center shrink-0 shadow-xs">
             <DollarSign className="w-7 h-7" />
@@ -378,32 +518,50 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-                Ledger, Expense Management & Tuition Analytics
+                Financial Ledger & Expense/Income Management
               </h1>
               <span className="px-2.5 py-0.5 bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 text-xs font-bold rounded-full border border-blue-300/60">
-                Finance & Registrar
+                Finance & Ledger
               </span>
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Track operating costs, log invoices, analyze student tuition payments, and calculate net revenue across custom timeframes.
+              Record operating costs, direct income, manage customizable ledger categories, track student tuition, and calculate net positions.
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
           <button
+            onClick={() => setIsCategoryManagerOpen(true)}
+            className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer border border-slate-300/50"
+            title="Manage Ledger Categories for Expenses and Income"
+          >
+            <Sliders className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <span>Manage Categories</span>
+          </button>
+
+          <button
             onClick={handleExportLedgerCsv}
             className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            <span>Export Financial Ledger</span>
+            <span>Export CSV Ledger</span>
           </button>
+
           <button
-            onClick={() => handleOpenModal()}
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
+            onClick={() => handleOpenModal(undefined, 'income')}
+            className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Record Operating Expense</span>
+            <span>Record Income (+)</span>
+          </button>
+
+          <button
+            onClick={() => handleOpenModal(undefined, 'expense')}
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Record Expense (-)</span>
           </button>
         </div>
       </div>
@@ -486,59 +644,59 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
 
       {/* Financial Overview KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Total Invoiced */}
+        {/* Total Invoiced Tuition */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-            <span>Total Invoiced</span>
+            <span>Invoiced Tuition</span>
             <FileText className="w-4 h-4 text-blue-500" />
           </div>
           <div className="text-2xl font-black text-slate-900 dark:text-slate-100">
-            ${financialSummary.totalInvoiced.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            ${financialSummary.totalInvoicedTuition.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            {financialSummary.countInvoices} total registration invoices
+            {financialSummary.countInvoices} student registration invoices
           </p>
         </div>
 
-        {/* Collected Revenue */}
+        {/* Total Collected Revenue (Tuition + Direct Income) */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-            <span>Collected Revenue</span>
-            <ArrowUpRight className="w-4 h-4 text-emerald-500" />
+            <span>Total Income Received</span>
+            <ArrowUpRight className="w-4 h-4 text-teal-500" />
           </div>
-          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            ${financialSummary.totalCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+          <div className="text-2xl font-black text-teal-600 dark:text-teal-400">
+            ${financialSummary.totalCollectedIncome.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </div>
-          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">
-            Received into school accounts
+          <p className="text-[11px] text-teal-700 dark:text-teal-300 font-bold mt-1">
+            ${financialSummary.totalTuitionCollected.toFixed(0)} Tuition + ${financialSummary.totalDirectIncome.toFixed(0)} Grants/Direct
           </p>
         </div>
 
-        {/* Outstanding Balance */}
+        {/* Unpaid Tuition */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
             <span>Unpaid Balances</span>
             <AlertCircle className="w-4 h-4 text-amber-500" />
           </div>
           <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
-            ${financialSummary.outstanding.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            ${financialSummary.outstandingTuition.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
             Pending student payments
           </p>
         </div>
 
-        {/* Total Expenses */}
+        {/* Total Operating Expenses */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
             <span>Operating Expenses</span>
             <ArrowDownRight className="w-4 h-4 text-rose-500" />
           </div>
           <div className="text-2xl font-black text-rose-600 dark:text-rose-400">
-            ${financialSummary.totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            ${financialSummary.totalOperatingExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            {financialSummary.countExpenses} recorded disbursements
+            {financialSummary.countExpenseRecords} recorded disbursements
           </p>
         </div>
 
@@ -585,7 +743,7 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
           }`}
         >
           <PieChart className="w-4 h-4" />
-          <span>Revenue & Expense Breakdown</span>
+          <span>Revenue & Expense Analytics</span>
         </button>
         <button
           onClick={() => setActiveSubTab('expenses')}
@@ -596,144 +754,113 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
           }`}
         >
           <Receipt className="w-4 h-4" />
-          <span>Expense Logs ({filteredExpenses.length})</span>
+          <span>Ledger Logs ({filteredRecords.length})</span>
         </button>
       </div>
 
       {/* SUBTAB 1: Revenue vs Expense Breakdown */}
       {activeSubTab === 'analytics' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Operating Expense Breakdown by Category */}
+          {/* Expenses Breakdown by Category */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <PieChart className="w-4 h-4 text-emerald-500" />
+                <PieChart className="w-4 h-4 text-rose-500" />
                 <span>Expenses by Category</span>
               </h3>
-              <span className="text-xs font-bold text-slate-500">
-                Total: ${financialSummary.totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                Total: ${financialSummary.totalOperatingExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}
               </span>
             </div>
 
-            <div className="space-y-3">
-              {EXPENSE_CATEGORIES.map((cat) => {
-                const amt = financialSummary.categoryTotals[cat] || 0;
-                const percentage = financialSummary.totalExpenses > 0
-                  ? ((amt / financialSummary.totalExpenses) * 100).toFixed(1)
-                  : '0';
+            <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+              {categories
+                .filter((c) => c.type === 'expense')
+                .map((cat) => {
+                  const amt = financialSummary.expenseCategoryTotals[cat.name] || 0;
+                  const percentage = financialSummary.totalOperatingExpenses > 0
+                    ? ((amt / financialSummary.totalOperatingExpenses) * 100).toFixed(1)
+                    : '0';
 
-                return (
-                  <div key={cat} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-700 dark:text-slate-300">
-                        {cat}
-                      </span>
-                      <span className="font-black text-slate-900 dark:text-slate-100">
-                        ${amt.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                        <span className="text-slate-400 font-normal ml-1">({percentage}%)</span>
-                      </span>
+                  return (
+                    <div key={cat.id} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
+                          {cat.name}
+                        </span>
+                        <span className="font-black text-slate-900 dark:text-slate-100">
+                          ${amt.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          <span className="text-slate-400 font-normal ml-1">({percentage}%)</span>
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-rose-500 rounded-full transition-all duration-500"
+                          style={{ width: `${Math.min(100, parseFloat(percentage))}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, parseFloat(percentage))}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </div>
 
-          {/* Revenue vs. Expense Comparison Card */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-6 flex flex-col justify-between">
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-blue-500" />
-                <span>Financial Performance Snapshot</span>
+          {/* Income Breakdown by Category */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <PieChart className="w-4 h-4 text-teal-500" />
+                <span>Direct Income by Category</span>
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Comparison of collected income against operational expenses for the selected timeframe.
-              </p>
+              <span className="text-xs font-bold text-teal-600 dark:text-teal-400">
+                Total Direct: ${financialSummary.totalDirectIncome.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </span>
             </div>
 
-            <div className="space-y-4">
-              <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 rounded-xl flex items-center justify-center font-bold">
-                    +
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                      Total Tuition Collections
-                    </div>
-                    <div className="text-sm font-black text-emerald-900 dark:text-emerald-100">
-                      ${financialSummary.totalCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 bg-emerald-200/80 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 rounded-lg text-xs font-bold">
-                  Inflow
-                </span>
-              </div>
+            <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+              {categories
+                .filter((c) => c.type === 'income')
+                .map((cat) => {
+                  const amt = financialSummary.incomeCategoryTotals[cat.name] || 0;
+                  const percentage = financialSummary.totalDirectIncome > 0
+                    ? ((amt / financialSummary.totalDirectIncome) * 100).toFixed(1)
+                    : '0';
 
-              <div className="p-4 bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-2xl flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-rose-100 dark:bg-rose-900/60 text-rose-600 rounded-xl flex items-center justify-center font-bold">
-                    -
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-rose-800 dark:text-rose-300">
-                      Total Operating Expenses
+                  return (
+                    <div key={cat.id} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
+                          {cat.name}
+                        </span>
+                        <span className="font-black text-slate-900 dark:text-slate-100">
+                          ${amt.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          <span className="text-slate-400 font-normal ml-1">({percentage}%)</span>
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-teal-500 rounded-full transition-all duration-500"
+                          style={{ width: `${Math.min(100, parseFloat(percentage))}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-sm font-black text-rose-900 dark:text-rose-100">
-                      ${financialSummary.totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 bg-rose-200/80 dark:bg-rose-900 text-rose-900 dark:text-rose-200 rounded-lg text-xs font-bold">
-                  Outflow
-                </span>
-              </div>
-
-              <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Net Cash Position
-                  </div>
-                  <div className={`text-lg font-black ${
-                    financialSummary.netPosition >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                  }`}>
-                    {financialSummary.netPosition >= 0 ? '+' : ''}
-                    ${financialSummary.netPosition.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </div>
-                </div>
-                <button
-                  onClick={handleExportLedgerCsv}
-                  className="px-3.5 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-xl text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer"
-                >
-                  Download Summary
-                </button>
-              </div>
-            </div>
-
-            <div className="text-[11px] text-slate-400">
-              * Audit trail synchronized with Firestore persistent database.
+                  );
+                })}
             </div>
           </div>
         </div>
       )}
 
-      {/* SUBTAB 2: Detailed Expense Logs Table */}
+      {/* SUBTAB 2: Detailed Ledger Logs Table */}
       {activeSubTab === 'expenses' && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs space-y-4">
           <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Operating Expense Logs
+                Ledger Logs (Expense & Income)
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Showing {filteredExpenses.length} expense items for selected date filter.
+                Showing {filteredRecords.length} ledger items for selected filters.
               </p>
             </div>
 
@@ -743,12 +870,23 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search description, payee..."
+                  placeholder="Search description, payee, payer..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100"
                 />
               </div>
+
+              {/* Entry Type Filter */}
+              <select
+                value={entryTypeFilter}
+                onChange={(e) => setEntryTypeFilter(e.target.value as any)}
+                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 cursor-pointer font-bold"
+              >
+                <option value="all">All Entry Types</option>
+                <option value="expense">Expenses Only (-)</option>
+                <option value="income">Income Only (+)</option>
+              </select>
 
               <select
                 value={categoryFilter}
@@ -756,9 +894,9 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
                 className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 cursor-pointer"
               >
                 <option value="all">All Categories</option>
-                {EXPENSE_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.name}>
+                    [{cat.type.toUpperCase()}] {cat.name}
                   </option>
                 ))}
               </select>
@@ -779,25 +917,34 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
           </div>
 
           <div className="overflow-x-auto">
-            {filteredExpenses.length === 0 ? (
+            {filteredRecords.length === 0 ? (
               <div className="p-12 text-center text-slate-400 space-y-3">
                 <Receipt className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600" />
-                <p className="text-sm font-semibold">No expenses recorded for this period.</p>
-                <button
-                  onClick={() => handleOpenModal()}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  Record First Expense
-                </button>
+                <p className="text-sm font-semibold">No ledger items recorded for this period.</p>
+                <div className="flex justify-center gap-3">
+                  <button
+                    onClick={() => handleOpenModal(undefined, 'income')}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    Record Income (+)
+                  </button>
+                  <button
+                    onClick={() => handleOpenModal(undefined, 'expense')}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold cursor-pointer"
+                  >
+                    Record Expense (-)
+                  </button>
+                </div>
               </div>
             ) : (
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider">
                     <th className="py-3.5 px-4">Date</th>
+                    <th className="py-3.5 px-3">Type</th>
                     <th className="py-3.5 px-4">Description</th>
                     <th className="py-3.5 px-3">Category</th>
-                    <th className="py-3.5 px-3">Vendor / Payee</th>
+                    <th className="py-3.5 px-3">Vendor / Payee / Source</th>
                     <th className="py-3.5 px-3">Payment Method</th>
                     <th className="py-3.5 px-3 text-right">Amount</th>
                     <th className="py-3.5 px-4">Logged By</th>
@@ -805,64 +952,79 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                  {filteredExpenses.map((exp) => (
-                    <tr
-                      key={exp.id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
-                    >
-                      <td className="py-3.5 px-4 font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                        {exp.date}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">
-                        <div>{exp.description}</div>
-                        {exp.referenceNumber && (
-                          <div className="text-[10px] text-slate-400 font-mono">
-                            Ref: {exp.referenceNumber}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-3">
-                        <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md text-[11px] font-medium">
-                          {exp.category}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-3 text-slate-700 dark:text-slate-300 font-medium">
-                        {exp.vendorPayee}
-                      </td>
-                      <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">
-                        {exp.paymentMethod}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-black text-rose-600 dark:text-rose-400">
-                        ${exp.amount.toFixed(2)}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 text-[11px]">
-                        {exp.createdByName || exp.createdBy || 'Staff'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right space-x-1 whitespace-nowrap">
-                        <button
-                          onClick={() => handleOpenModal(exp)}
-                          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 rounded-lg transition-colors cursor-pointer"
-                          title="Edit Expense"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() =>
-                            setDeleteConfirm({
-                              isOpen: true,
-                              expenseId: exp.id,
-                              description: exp.description,
-                              amount: exp.amount,
-                            })
-                          }
-                          className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
-                          title="Delete Expense"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredRecords.map((rec) => {
+                    const isIncome = rec.entryType === 'income';
+                    return (
+                      <tr
+                        key={rec.id}
+                        className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        <td className="py-3.5 px-4 font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                          {rec.date}
+                        </td>
+                        <td className="py-3.5 px-3">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                            isIncome
+                              ? 'bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-300/60'
+                              : 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-300/60'
+                          }`}>
+                            {isIncome ? '+ Income' : '- Expense'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">
+                          <div>{rec.description}</div>
+                          {rec.referenceNumber && (
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              Ref: {rec.referenceNumber}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-3">
+                          <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md text-[11px] font-medium">
+                            {rec.category}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-3 text-slate-700 dark:text-slate-300 font-medium">
+                          {rec.vendorPayee}
+                        </td>
+                        <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">
+                          {rec.paymentMethod}
+                        </td>
+                        <td className={`py-3.5 px-3 text-right font-black ${
+                          isIncome ? 'text-teal-600 dark:text-teal-400' : 'text-rose-600 dark:text-rose-400'
+                        }`}>
+                          {isIncome ? '+' : '-'}${rec.amount.toFixed(2)}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 text-[11px]">
+                          {rec.createdByName || rec.createdBy || 'Staff'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right space-x-1 whitespace-nowrap">
+                          <button
+                            onClick={() => handleOpenModal(rec)}
+                            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 rounded-lg transition-colors cursor-pointer"
+                            title="Edit Record"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() =>
+                              setDeleteConfirm({
+                                isOpen: true,
+                                expenseId: rec.id,
+                                description: rec.description,
+                                amount: rec.amount,
+                                type: rec.entryType || 'expense',
+                              })
+                            }
+                            className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Record"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -870,18 +1032,210 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
         </div>
       )}
 
-      {/* CREATE / EDIT EXPENSE MODAL */}
+      {/* CATEGORY MANAGER MODAL */}
+      {isCategoryManagerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg">
+                    Manage Ledger Categories
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Add or edit custom Expense and Income category names
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCategoryManagerOpen(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto">
+              {/* Add Category Form */}
+              <form onSubmit={handleAddCategory} className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                  Add New Category
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      Type
+                    </label>
+                    <select
+                      value={newCategoryType}
+                      onChange={(e) => setNewCategoryType(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-slate-100 cursor-pointer"
+                    >
+                      <option value="expense">Expense (-)</option>
+                      <option value="income">Income (+)</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      Category Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Lab Consumables, STEM Grants"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Category</span>
+                </button>
+              </form>
+
+              {/* Category List & Filter Tabs */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCategoryManagerTab('expense')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        categoryManagerTab === 'expense'
+                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Expense Categories ({categories.filter((c) => c.type === 'expense').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCategoryManagerTab('income')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        categoryManagerTab === 'income'
+                          ? 'bg-teal-100 text-teal-800 dark:bg-teal-950/80 dark:text-teal-300'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Income Categories ({categories.filter((c) => c.type === 'income').length})
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                  {categories
+                    .filter((c) => c.type === categoryManagerTab)
+                    .map((cat) => (
+                      <div
+                        key={cat.id}
+                        className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
+                      >
+                        {editingCategoryId === cat.id ? (
+                          <div className="flex items-center gap-2 flex-1 mr-2">
+                            <input
+                              type="text"
+                              value={editCategoryNameValue}
+                              onChange={(e) => setEditCategoryNameValue(e.target.value)}
+                              className="flex-1 px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-900 dark:text-slate-100"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateCategoryName(cat.id)}
+                              className="p-1 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 cursor-pointer"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingCategoryId(null)}
+                              className="p-1 bg-slate-300 text-slate-700 rounded-lg hover:bg-slate-400 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Tag className="w-3.5 h-3.5 text-slate-400" />
+                              <span className="font-bold text-slate-800 dark:text-slate-200">{cat.name}</span>
+                              {cat.isDefault && (
+                                <span className="text-[10px] text-slate-400 font-medium px-1.5 py-0.2 bg-slate-200/60 dark:bg-slate-700/50 rounded">
+                                  Default
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCategoryId(cat.id);
+                                  setEditCategoryNameValue(cat.name);
+                                }}
+                                className="p-1 text-slate-500 hover:text-slate-900 rounded cursor-pointer"
+                                title="Edit Name"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              {!cat.isDefault && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCategory(cat.id)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
+                                  title="Delete Custom Category"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsCategoryManagerOpen(false)}
+                className="px-5 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE / EDIT LEDGER RECORD MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  formData.entryType === 'income'
+                    ? 'bg-teal-100 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400'
+                    : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
+                }`}>
                   <DollarSign className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg">
-                    {editingExpense ? 'Edit Expense Record' : 'Record Operating Expense'}
+                    {editingExpense ? `Edit ${formData.entryType === 'income' ? 'Income' : 'Expense'} Record` : `Record ${formData.entryType === 'income' ? 'New Income' : 'Operating Expense'}`}
                   </h3>
                   <p className="text-xs text-slate-500">
                     Logged by {currentUser?.name || 'Staff Member'}
@@ -896,12 +1250,43 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveExpense} className="p-6 space-y-4 overflow-y-auto">
+            <form onSubmit={handleSaveRecord} className="p-6 space-y-4 overflow-y-auto">
+              {/* Entry Type Toggle */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Ledger Transaction Type <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={() => handleFormEntryTypeChange('expense')}
+                    className={`py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      formData.entryType === 'expense'
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>🔴 Expense (-)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleFormEntryTypeChange('income')}
+                    className={`py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      formData.entryType === 'income'
+                        ? 'bg-teal-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>🟢 Income (+)</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Date & Category */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Expense Date <span className="text-rose-500">*</span>
+                    Transaction Date <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -913,15 +1298,24 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Expense Category <span className="text-rose-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Category <span className="text-rose-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCategoryManagerOpen(true)}
+                      className="text-[10px] text-purple-600 dark:text-purple-400 font-bold hover:underline cursor-pointer"
+                    >
+                      + Edit Categories
+                    </button>
+                  </div>
                   <select
                     value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value as ExpenseCategory })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 cursor-pointer font-medium"
                   >
-                    {EXPENSE_CATEGORIES.map((cat) => (
+                    {availableCategoriesForForm.map((cat) => (
                       <option key={cat} value={cat}>
                         {cat}
                       </option>
@@ -930,18 +1324,18 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
                 </div>
               </div>
 
-              {/* Description */}
+              {/* Description / Name of Expense/Income */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Description / Purpose <span className="text-rose-500">*</span>
+                  {formData.entryType === 'income' ? 'Name of Income / Purpose' : 'Name of Expense / Purpose'} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Electricity bill for Labs, Robotics starter kits"
+                  placeholder={formData.entryType === 'income' ? 'e.g. STEM Grant 2026, Alumni Robotics Donation' : 'e.g. Electricity bill for Labs, Science kits'}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 font-medium"
                 />
               </div>
 
@@ -963,14 +1357,16 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
                       placeholder="0.00"
                       value={formData.amount}
                       onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      className="w-full pl-7 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-rose-600 focus:ring-2 focus:ring-emerald-500"
+                      className={`w-full pl-7 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold ${
+                        formData.entryType === 'income' ? 'text-teal-600' : 'text-rose-600'
+                      } focus:ring-2 focus:ring-emerald-500`}
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Payment Method <span className="text-rose-500">*</span>
+                    {formData.entryType === 'income' ? 'Deposit Method' : 'Payment Method'} <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={formData.paymentMethod}
@@ -986,16 +1382,16 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
                 </div>
               </div>
 
-              {/* Vendor / Payee & Reference */}
+              {/* Vendor / Payee / Payer Source & Reference */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Vendor / Payee <span className="text-rose-500">*</span>
+                    {formData.entryType === 'income' ? 'Payer / Source Name' : 'Vendor / Payee Name'} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Electric Power Co, Office Depot"
+                    placeholder={formData.entryType === 'income' ? 'e.g. Ministry of Education, National Tech Foundation' : 'e.g. Electric Power Co, Office Depot'}
                     value={formData.vendorPayee}
                     onChange={(e) => setFormData({ ...formData, vendorPayee: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500"
@@ -1008,7 +1404,7 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. INV-9042, TX-0012"
+                    placeholder="e.g. INV-9042, TX-0012, Grant-2026"
                     value={formData.referenceNumber}
                     onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500"
@@ -1040,9 +1436,13 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer"
+                  className={`px-6 py-2.5 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer ${
+                    formData.entryType === 'income'
+                      ? 'bg-teal-600 hover:bg-teal-700'
+                      : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
                 >
-                  {editingExpense ? 'Update Expense' : 'Save Expense Record'}
+                  {editingExpense ? 'Update Record' : `Save ${formData.entryType === 'income' ? 'Income' : 'Expense'} Record`}
                 </button>
               </div>
             </form>
@@ -1053,13 +1453,13 @@ export const LedgerExpenseManager: React.FC<LedgerExpenseManagerProps> = ({
       {/* DELETE CONFIRMATION MODAL */}
       <ConfirmationModal
         isOpen={deleteConfirm.isOpen}
-        title="Delete Expense Record"
-        message={`Are you sure you want to delete the expense "${deleteConfirm.description}" ($${deleteConfirm.amount.toFixed(2)})?`}
+        title={`Delete ${deleteConfirm.type === 'income' ? 'Income' : 'Expense'} Record`}
+        message={`Are you sure you want to delete the ${deleteConfirm.type} record "${deleteConfirm.description}" ($${deleteConfirm.amount.toFixed(2)})?`}
         confirmText="Yes, Delete"
         cancelText="Cancel"
         type="danger"
-        onConfirm={handleDeleteExpense}
-        onCancel={() => setDeleteConfirm({ isOpen: false, expenseId: '', description: '', amount: 0 })}
+        onConfirm={handleDeleteRecord}
+        onCancel={() => setDeleteConfirm({ isOpen: false, expenseId: '', description: '', amount: 0, type: 'expense' })}
       />
     </div>
   );

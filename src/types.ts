@@ -348,27 +348,24 @@ export interface AdmissionDecision {
 }
 
 // Ledger & Expense Management
-export type ExpenseCategory = 
-  | 'Utilities'
-  | 'Salaries/Wages'
-  | 'Equipment'
-  | 'Supplies'
-  | 'Rent'
-  | 'Internet'
-  | 'Transportation'
-  | 'Marketing'
-  | 'Software/Subscriptions'
-  | 'Maintenance'
-  | 'Other';
+export type ExpenseCategory = string;
+
+export interface LedgerCategoryItem {
+  id: string;
+  name: string;
+  type: 'expense' | 'income';
+  isDefault?: boolean;
+}
 
 export interface ExpenseRecord {
   id: string;
+  entryType?: 'expense' | 'income'; // Defaults to 'expense'
   date: string; // YYYY-MM-DD
   description: string;
-  category: ExpenseCategory;
+  category: string;
   amount: number;
   paymentMethod: 'Cash' | 'Bank Transfer' | 'Credit Card' | 'Debit Card' | 'Check' | 'Online/Zelle' | 'Other';
-  vendorPayee: string;
+  vendorPayee: string; // Vendor/Payee for Expense, or Payer/Source for Income
   referenceNumber?: string;
   notes?: string;
   createdBy: string;

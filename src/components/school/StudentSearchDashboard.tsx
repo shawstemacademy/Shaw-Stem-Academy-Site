@@ -892,6 +892,8 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                   {(() => {
                     const sInfo = currentRegistration?.studentInfo || selectedStudent?.studentDetails || {};
                     const displayStudentName = sInfo.studentName || selectedStudent?.name || `${sInfo.firstName || ''} ${sInfo.lastName || ''}`.trim() || 'Not Provided';
+                    const displayMiddleName = sInfo.middleName || 'Not Provided';
+                    const displayGender = sInfo.gender || 'Not Provided';
                     const displayFormGrade = sInfo.formGrade || sInfo.gradeLevel || 'Not Provided';
                     const displayPrimarySchool = sInfo.currentSchool || 'Not Provided';
                     const displayDOB = sInfo.dateOfBirth || sInfo.dob || 'Not Provided';
@@ -899,6 +901,9 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                     const displayContactNumber = sInfo.cellPhone || 'Not Provided';
                     const displayHomePhone = sInfo.homePhone || 'Not Provided';
                     const displayStudentAddress = sInfo.address || 'Not Provided';
+                    const displayGmailAddress = sInfo.gmailAddress || 'Not Provided';
+                    const displayEmergencyContact = sInfo.emergencyContact || 'Not Provided';
+                    const displayMedicalNotes = sInfo.medicalNotes || (sInfo as any).specialNeeds || 'None / Not Provided';
                     const displayLivesWith = sInfo.livesWith || 'Not Provided';
 
                     // Mother Info
@@ -1008,6 +1013,16 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                               <span className="text-slate-500 font-medium">Full Name</span>
                               <span className="font-bold text-slate-900">{displayStudentName}</span>
                             </div>
+                            {displayMiddleName !== 'Not Provided' && (
+                              <div className="flex justify-between py-1 border-b border-slate-100">
+                                <span className="text-slate-500 font-medium">Middle Name</span>
+                                <span className="font-bold text-slate-900">{displayMiddleName}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Gender</span>
+                              <span className="font-bold text-slate-900">{displayGender}</span>
+                            </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
                               <span className="text-slate-500 font-medium">Form Grade</span>
                               <span className="font-bold text-slate-900">{displayFormGrade}</span>
@@ -1033,12 +1048,24 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                               <span className="font-bold text-slate-900">{displayHomePhone}</span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Google / Gmail Address</span>
+                              <span className="font-bold text-slate-900 truncate max-w-[200px]" title={displayGmailAddress}>{displayGmailAddress}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
                               <span className="text-slate-500 font-medium">Residential Address</span>
                               <span className="font-bold text-slate-900 truncate max-w-[200px]" title={displayStudentAddress}>{displayStudentAddress}</span>
                             </div>
-                            <div className="flex justify-between py-1">
+                            <div className="flex justify-between py-1 border-b border-slate-100">
                               <span className="text-slate-500 font-medium">Lives With</span>
                               <span className="font-bold text-slate-900">{displayLivesWith}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-500 font-medium">Emergency Contact</span>
+                              <span className="font-bold text-slate-900">{displayEmergencyContact}</span>
+                            </div>
+                            <div className="flex justify-between py-1">
+                              <span className="text-slate-500 font-medium">Medical Notes & Special Needs</span>
+                              <span className="font-bold text-slate-900 truncate max-w-[200px]" title={displayMedicalNotes}>{displayMedicalNotes}</span>
                             </div>
                           </div>
                         </div>

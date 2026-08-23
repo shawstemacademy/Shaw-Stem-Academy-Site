@@ -42,14 +42,18 @@ import { SystemActionLog } from '../../types';
 interface AdminSystemActionLogsProps {
   logs: SystemActionLog[];
   onClearLogs?: () => void;
+  initialActionType?: string;
+  titleOverride?: string;
 }
 
 export const AdminSystemActionLogs: React.FC<AdminSystemActionLogsProps> = ({
   logs = [],
+  initialActionType = 'all',
+  titleOverride,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [userIdFilter, setUserIdFilter] = useState<string>('all');
-  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>(initialActionType);
   const [timeRangeFilter, setTimeRangeFilter] = useState<'all' | 'today' | '24h' | '7d' | '30d'>('all');
   const [showMetadataToggle, setShowMetadataToggle] = useState<boolean>(false);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
@@ -386,7 +390,7 @@ export const AdminSystemActionLogs: React.FC<AdminSystemActionLogsProps> = ({
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
             <Activity className="w-6 h-6 text-blue-600" />
-            System Activity & Security Analysis
+            {titleOverride || 'System Activity & Security Analysis'}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Audit trail capturing user actions, granular browser/OS diagnostics, IP addresses, and payload metadata in real-time.
