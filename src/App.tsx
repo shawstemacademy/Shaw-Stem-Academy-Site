@@ -3573,20 +3573,33 @@ export default function App() {
         }
 
         // Pre-populate previously chosen classes and SBA Hub options for editing
-        const email = user?.email || loggedInUser?.email;
-        if (email) {
-          const matchedRecord = registrationLogs.find(
-            (log) => 
-              (log.studentInfo?.parentEmail || '').toLowerCase() === email.toLowerCase() || 
-              (log.studentInfo?.email || '').toLowerCase() === email.toLowerCase() || 
-              (log.studentInfo?.gmailAddress || '').toLowerCase() === email.toLowerCase()
-          );
-          if (matchedRecord) {
-            const classIds = matchedRecord.selectedClasses?.map(c => c.id) || [];
-            setSelectedClassIds(classIds);
-            
-            const sbaIds = matchedRecord.studentInfo?.selectedSbaHubIds || [];
-            setSelectedSbaHubIds(sbaIds);
+        const matchedRecord = studentRegistrationRecord || registrationLogs.find(isLogForStudent);
+        if (matchedRecord) {
+          const classIds = matchedRecord.selectedClasses
+            ?.filter(c => !c.isSbaHub)
+            ?.map(c => c.id) || [];
+          setSelectedClassIds(classIds);
+          
+          const sbaIds = matchedRecord.selectedClasses
+            ?.filter(c => c.isSbaHub === true)
+            ?.map(c => c.id) || matchedRecord.studentInfo?.selectedSbaHubIds || [];
+          setSelectedSbaHubIds(sbaIds);
+        } else {
+          const email = user?.email || loggedInUser?.email;
+          if (email) {
+            const matchedByEmail = registrationLogs.find(
+              (log) => 
+                (log.studentInfo?.parentEmail || '').toLowerCase() === email.toLowerCase() || 
+                (log.studentInfo?.email || '').toLowerCase() === email.toLowerCase() || 
+                (log.studentInfo?.gmailAddress || '').toLowerCase() === email.toLowerCase()
+            );
+            if (matchedByEmail) {
+              const classIds = matchedByEmail.selectedClasses?.filter(c => !c.isSbaHub)?.map(c => c.id) || [];
+              setSelectedClassIds(classIds);
+              
+              const sbaIds = matchedByEmail.selectedClasses?.filter(c => c.isSbaHub === true)?.map(c => c.id) || matchedByEmail.studentInfo?.selectedSbaHubIds || [];
+              setSelectedSbaHubIds(sbaIds);
+            }
           }
         }
       }
@@ -3853,7 +3866,7 @@ export default function App() {
                 studentPortalSections={studentPortalSections}
                 initialAcademicTab={studentPortalAcademicTab}
                 sbaHubOptions={sbaHubOptions}
-                onNavigate={setActiveTab}
+                onNavigate={handleTabSelect}
               />
             )
           )}

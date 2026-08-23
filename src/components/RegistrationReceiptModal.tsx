@@ -307,9 +307,6 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
           <div className="grid grid-cols-2 gap-8 pt-6 border-t border-slate-200 mt-6 print:mt-4 print:pt-4">
             <div className="flex flex-col justify-end space-y-4">
               <div className="h-10 border-b border-slate-400 border-dashed w-4/5 relative">
-                <span className="absolute bottom-1 left-2 font-serif italic text-sm text-purple-800 opacity-60">
-                  Shaw STEM Registrar
-                </span>
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-850">Authorized Signature</p>
@@ -318,13 +315,9 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
             </div>
 
             <div className="flex flex-col items-end justify-center">
-              <div className="w-24 h-24 rounded-full border-2 border-dashed border-purple-300 flex flex-col items-center justify-center text-center p-1.5 bg-purple-50/10">
-                <span className="text-[8px] font-bold text-purple-500 uppercase tracking-widest leading-tight">SHAW STEM</span>
-                <span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest">ACADEMY</span>
-                <div className="w-8 h-[1px] bg-purple-200 my-1"></div>
-                <span className="text-[8px] font-bold text-emerald-600 uppercase">OFFICIAL</span>
-                <span className="text-[7px] font-semibold text-slate-400">STAMP</span>
+              <div className="w-24 h-24 rounded-lg border-2 border-dashed border-purple-300 flex flex-col items-center justify-center text-center p-1.5 bg-purple-50/10" title="Stamp Area">
               </div>
+              <p className="text-[9px] text-slate-400 mt-1 font-bold tracking-wider uppercase text-right w-24">Official Stamp</p>
             </div>
           </div>
 

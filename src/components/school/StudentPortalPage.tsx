@@ -3139,7 +3139,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                             <FileText className="w-3.5 h-3.5" />
                             <span>View Invoice / Receipt</span>
                           </button>
-                          {onDeleteRegistration && (
+                          {onDeleteRegistration && isAdminLoggedIn && (
                             <button
                               onClick={() => {
                                 if (confirm(`Are you sure you want to delete this registration record (Receipt #${record.id.slice(-8).toUpperCase()})?`)) {
