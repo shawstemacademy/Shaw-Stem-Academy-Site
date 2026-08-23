@@ -69,6 +69,10 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
     studentInfo.formGrade ||
     'N/A';
 
+  const cleanGradeDisplay = gradeLevelVal.toLowerCase().startsWith('grade')
+    ? gradeLevelVal
+    : `Grade ${gradeLevelVal}`;
+
   const rawParentName = studentInfo.parentName;
   const motherFullName = `${studentInfo.motherFirstName || ''} ${studentInfo.motherLastName || ''}`.trim();
   const fatherFullName = `${studentInfo.fatherFirstName || ''} ${studentInfo.fatherLastName || ''}`.trim();
@@ -95,25 +99,23 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
     if (!cardElement) return;
 
     setIsDownloadingPdf(true);
+    const contentScrollContainer = cardElement.querySelector('.invoice-content-scroll');
+    const originalMaxHeight = contentScrollContainer ? (contentScrollContainer as HTMLElement).style.maxHeight : '';
+    const originalOverflow = contentScrollContainer ? (contentScrollContainer as HTMLElement).style.overflowY : '';
+
     try {
-      // Find the scroll container and temporarily override max-height and overflow
-      // so html2canvas captures the full document without clipping or scrollbars
-      const contentScrollContainer = cardElement.querySelector('.invoice-content-scroll');
-      const originalMaxHeight = contentScrollContainer ? (contentScrollContainer as HTMLElement).style.maxHeight : '';
-      const originalOverflow = contentScrollContainer ? (contentScrollContainer as HTMLElement).style.overflowY : '';
-      
       if (contentScrollContainer) {
         (contentScrollContainer as HTMLElement).style.maxHeight = 'none';
         (contentScrollContainer as HTMLElement).style.overflowY = 'visible';
       }
 
       // Briefly wait to ensure repaint occurs
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       const canvas = await html2canvas(cardElement, {
         scale: 2,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false, // Must be false to prevent SecurityError on tainted cross-origin canvas
         backgroundColor: '#ffffff',
         logging: false,
         windowWidth: cardElement.scrollWidth,
@@ -122,12 +124,6 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
           return element.classList.contains('no-pdf-export');
         }
       });
-
-      // Restore constraints
-      if (contentScrollContainer) {
-        (contentScrollContainer as HTMLElement).style.maxHeight = originalMaxHeight;
-        (contentScrollContainer as HTMLElement).style.overflowY = originalOverflow;
-      }
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
@@ -163,6 +159,11 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
     } catch (err) {
       console.error('Failed to export PDF:', err);
     } finally {
+      // ALWAYS restore original constraints to prevent permanent layout expansion
+      if (contentScrollContainer) {
+        (contentScrollContainer as HTMLElement).style.maxHeight = originalMaxHeight;
+        (contentScrollContainer as HTMLElement).style.overflowY = originalOverflow;
+      }
       setIsDownloadingPdf(false);
     }
   };
@@ -231,7 +232,7 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
                 <span className="text-gray-500">Student Name:</span>
                 <span className="font-bold text-gray-900 ml-1">{studentNameVal}</span>
                 <span className="text-gray-500 ml-1">
-                  (Age {studentAgeVal}, Grade {gradeLevelVal})
+                  (Age {studentAgeVal}, {cleanGradeDisplay})
                 </span>
               </div>
               <div>
