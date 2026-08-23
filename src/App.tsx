@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SEOOptimizer } from './components/common/SEOOptimizer';
+import { registerUserGetterForErrorLogger, logAppError } from './lib/errorLogger';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { Lock, Loader2, Bell, CheckCircle2, Plus, Sparkles } from 'lucide-react';
 import { requestNotificationPermission, sendDesktopNotification, playNotificationSound } from './lib/notifications';
@@ -526,6 +527,10 @@ export default function App() {
 
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    registerUserGetterForErrorLogger(() => loggedInUser);
+  }, [loggedInUser]);
 
   useEffect(() => {
     if (firestoreToast) {
@@ -4444,9 +4449,11 @@ export default function App() {
           <div className="space-y-2">
             <h4 className="font-bold text-white text-sm">Campus &amp; Location</h4>
             <p className="text-slate-400 leading-relaxed">
-              {academyInfo?.address || '123 STEM Innovation Way'}<br />
-              Tel: {academyInfo?.contactPhone || '(555) 019-2834'}<br />
-              Email: {academyInfo?.contactEmail || 'shawstemacademy@gmail.com'}
+              {academyInfo?.address || DEFAULT_ACADEMY_INFO.address}<br />
+              {(academyInfo ? academyInfo.contactPhone?.trim() : DEFAULT_ACADEMY_INFO.contactPhone?.trim()) ? (
+                <>Tel: {academyInfo ? academyInfo.contactPhone : DEFAULT_ACADEMY_INFO.contactPhone}<br /></>
+              ) : null}
+              Email: {academyInfo?.contactEmail || DEFAULT_ACADEMY_INFO.contactEmail}
             </p>
             <div className="text-[11px] text-slate-500 pt-1">
               <span>© {new Date().getFullYear()} Shaw STEM Academy. All rights reserved.</span>

@@ -64,14 +64,14 @@ export const AdminSystemActionLogs: React.FC<AdminSystemActionLogsProps> = ({
     const map = new Map<string, { userId?: string; name: string; email?: string; role?: string; count: number }>();
 
     logs.forEach((log) => {
-      const key = log.actorUserId || log.actorEmail || log.actor;
+      const key = log.actorUserId || log.actorEmail || log.actor || 'unknown_actor';
       const existing = map.get(key);
       if (existing) {
         existing.count += 1;
       } else {
         map.set(key, {
           userId: log.actorUserId,
-          name: log.actor,
+          name: log.actor || 'Unknown Actor',
           email: log.actorEmail,
           role: log.actorRole,
           count: 1,
@@ -79,8 +79,8 @@ export const AdminSystemActionLogs: React.FC<AdminSystemActionLogsProps> = ({
       }
     });
 
-    return Array.from(map.entries()).map(([key, val]) => ({
-      key,
+    return Array.from(map.entries()).map(([key, val], idx) => ({
+      key: key || `user-option-${idx}`,
       ...val,
     }));
   }, [logs]);
@@ -88,6 +88,7 @@ export const AdminSystemActionLogs: React.FC<AdminSystemActionLogsProps> = ({
   // Extract unique action types present in logs
   const actionTypes = [
     { value: 'all', label: 'All Action Types' },
+    { value: 'app_error', label: '⚠️ Application Errors' },
     { value: 'registration', label: 'Registration' },
     { value: 'user_created', label: 'User Created' },
     { value: 'user_updated', label: 'User Updated' },
@@ -111,6 +112,12 @@ export const AdminSystemActionLogs: React.FC<AdminSystemActionLogsProps> = ({
   // Get Badge Icon and Style per Action Type
   const getActionBadge = (type: SystemActionLog['actionType']) => {
     switch (type) {
+      case 'app_error':
+        return {
+          icon: Shield,
+          label: 'Application Error',
+          color: 'bg-rose-100 text-rose-800 border-rose-300 font-extrabold',
+        };
       case 'registration':
         return {
           icon: UserCheck,
@@ -543,9 +550,9 @@ export const AdminSystemActionLogs: React.FC<AdminSystemActionLogsProps> = ({
               onChange={(e) => setUserIdFilter(e.target.value)}
               className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
-              <option value="all">👥 Filter by User ID / Actor (All)</option>
-              {uniqueUserOptions.map((actor) => (
-                <option key={actor.key} value={actor.key}>
+              <option key="all" value="all">👥 Filter by User ID / Actor (All)</option>
+              {uniqueUserOptions.map((actor, idx) => (
+                <option key={actor.key || `actor-${idx}`} value={actor.key || ''}>
                   {actor.name} {actor.userId ? `[ID: ${actor.userId}]` : ''} ({actor.count} log{actor.count === 1 ? '' : 's'})
                 </option>
               ))}
@@ -574,11 +581,11 @@ export const AdminSystemActionLogs: React.FC<AdminSystemActionLogsProps> = ({
               onChange={(e) => setTimeRangeFilter(e.target.value as any)}
               className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
-              <option value="all">📅 All Time</option>
-              <option value="today">Today</option>
-              <option value="24h">Last 24 Hours</option>
-              <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
+              <option key="all" value="all">📅 All Time</option>
+              <option key="today" value="today">Today</option>
+              <option key="24h" value="24h">Last 24 Hours</option>
+              <option key="7d" value="7d">Last 7 Days</option>
+              <option key="30d" value="30d">Last 30 Days</option>
             </select>
           </div>
         </div>
@@ -869,6 +876,50 @@ export const AdminSystemActionLogs: React.FC<AdminSystemActionLogsProps> = ({
                             </div>
                           </div>
                         </div>
+
+                        {/* Detailed Application Error Diagnostics for Admin Debugging */}
+                        {(log.actionType === 'app_error' || log.errorMessage || log.errorStack) && (
+                          <div className="bg-rose-950/90 border border-rose-800 p-4 rounded-2xl text-xs space-y-3">
+                            <div className="flex items-center justify-between text-[11px] font-extrabold uppercase tracking-wider text-rose-300 pb-2 border-b border-rose-800/80">
+                              <span className="flex items-center gap-1.5">
+                                <Terminal className="w-4 h-4 text-rose-400" />
+                                Exception Diagnostic Stack & Context
+                              </span>
+                              {log.errorName && (
+                                <span className="font-mono text-[10px] bg-rose-900/60 text-rose-200 px-2 py-0.5 rounded border border-rose-700/60">
+                                  {log.errorName}
+                                </span>
+                              )}
+                            </div>
+
+                            {log.errorMessage && (
+                              <div className="space-y-1">
+                                <span className="text-2xs font-bold text-rose-300 uppercase">Error Message:</span>
+                                <div className="font-mono text-xs text-rose-100 bg-slate-950 p-2.5 rounded-xl border border-rose-900/60 font-semibold">
+                                  {log.errorMessage}
+                                </div>
+                              </div>
+                            )}
+
+                            {log.errorStack && (
+                              <div className="space-y-1">
+                                <span className="text-2xs font-bold text-rose-300 uppercase">Stack Trace:</span>
+                                <pre className="font-mono text-[11px] text-rose-200 bg-slate-950/90 p-3 rounded-xl border border-rose-900/60 overflow-x-auto max-h-48 leading-relaxed">
+                                  {log.errorStack}
+                                </pre>
+                              </div>
+                            )}
+
+                            {log.componentStack && (
+                              <div className="space-y-1">
+                                <span className="text-2xs font-bold text-rose-300 uppercase">Component Stack Trace:</span>
+                                <pre className="font-mono text-[10px] text-rose-300 bg-slate-950/90 p-3 rounded-xl border border-rose-900/60 overflow-x-auto max-h-36 leading-relaxed">
+                                  {log.componentStack}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* User Agent Raw String Bar */}
                         {log.userAgent && (

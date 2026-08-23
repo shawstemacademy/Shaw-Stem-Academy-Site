@@ -642,7 +642,7 @@ export interface RolePermission {
 export interface SystemActionLog {
   id: string;
   timestamp: string;
-  actionType: 'registration' | 'user_created' | 'user_updated' | 'user_disabled' | 'user_enabled' | 'user_deleted' | 'role_changed' | 'discount_updated' | 'login' | 'system_alert' | 'other';
+  actionType: 'registration' | 'user_created' | 'user_updated' | 'user_disabled' | 'user_enabled' | 'user_deleted' | 'role_changed' | 'discount_updated' | 'login' | 'system_alert' | 'app_error' | 'other';
   actor: string;
   actorUserId?: string;
   actorEmail?: string;
@@ -658,6 +658,10 @@ export interface SystemActionLog {
   timeZone?: string;
   language?: string;
   path?: string;
+  errorName?: string;
+  errorMessage?: string;
+  errorStack?: string;
+  componentStack?: string;
   metadata?: any;
 }
 

@@ -514,9 +514,9 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
             {info.aboutText}
           </p>
           <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 dark:text-slate-400 pt-2 font-medium">
-            <span>📍 {info.address}</span>
-            <span>📞 {info.contactPhone}</span>
-            <span>✉️ {info.contactEmail}</span>
+            {info.address?.trim() && <span>📍 {info.address}</span>}
+            {info.contactPhone?.trim() && <span>📞 {info.contactPhone}</span>}
+            {info.contactEmail?.trim() && <span>✉️ {info.contactEmail}</span>}
           </div>
         </div>
 

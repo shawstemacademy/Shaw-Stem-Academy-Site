@@ -47,7 +47,7 @@ export const DEFAULT_ACADEMY_INFO: AcademyInfo = {
   aboutText: 'Founded in 2018, Shaw STEM Academy provides a state-of-the-art educational facility combining rigorous science and engineering theory with real-world lab experimentation. Our students build autonomous rovers, design artificial neural networks, program microcontrollers, and compose electronic soundscapes.',
   establishedYear: '2018',
   contactEmail: 'admissions@shawstemacademy.edu',
-  contactPhone: '(555) 839-2041',
+  contactPhone: '',
   address: '100 STEM Academy Boulevard, Tech Campus Suite 400',
   portalWelcomeText: 'Welcome to the official Academy Portal. Choose your profile view or register for Fall term classes.',
   pillar1Title: 'Hands-On STEM Labs',
