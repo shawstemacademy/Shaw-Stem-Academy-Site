@@ -6,8 +6,6 @@ import {
   Music, 
   Sparkles, 
   UserCheck, 
-  Mail, 
-  Clock, 
   BookOpen,
   ArrowRight,
   Search,
@@ -390,75 +388,6 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
               </div>
             </div>
           )})}
-        </div>
-      </div>
-
-      {/* Faculty Directory */}
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Faculty & Department Chairs</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Meet our instructors and check their weekly office hours for student mentorship.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {teachers.filter((t) => t.status !== 'disabled').map((teacher) => (
-            <div
-              key={teacher.id}
-              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs flex flex-col sm:flex-row gap-5"
-            >
-              <img
-                src={teacher.avatar || '/logo.png'}
-                alt={teacher.name}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/logo.png';
-                }}
-                className="w-20 h-20 rounded-2xl object-cover border border-slate-200 dark:border-slate-800 shrink-0 bg-slate-100 dark:bg-slate-800 p-1"
-              />
-              <div className="space-y-2 flex-1">
-                <div className="flex flex-wrap items-center gap-2 justify-between">
-                  <div className="flex flex-wrap gap-1">
-                    {teacher.departmentNames && teacher.departmentNames.length > 0 ? (
-                      teacher.departmentNames.map((deptName, idx) => (
-                        <span key={idx} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/40 whitespace-nowrap">
-                          {deptName}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/40 whitespace-nowrap">
-                        {teacher.department || 'General Faculty'}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    {teacher.officeHours}
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg">{teacher.name}</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{teacher.title}</p>
-                </div>
-
-                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{teacher.bio}</p>
-
-                <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
-                  <a
-                    href={`mailto:${teacher.email}`}
-                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                  >
-                    <Mail className="w-3.5 h-3.5" />
-                    {teacher.email}
-                  </a>
-                  <span className="text-[11px] text-slate-400 dark:text-slate-500">
-                    {(teacher?.assignedClassIds || []).length} Active Course
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 
