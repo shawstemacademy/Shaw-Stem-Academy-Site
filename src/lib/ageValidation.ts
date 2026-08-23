@@ -11,7 +11,23 @@ export const calculateAge = (dobString: string): number | null => {
   return age;
 };
 
-export const isValidAge = (age: number | null): boolean => {
+export const isValidAge = (age: number | null, minAge: number = 14, maxAge: number = 100): boolean => {
   if (age === null) return false;
-  return age >= 14 && age <= 100;
+  return age >= minAge && age <= maxAge;
+};
+
+export const getMaxDobDateString = (minAge: number = 14): string => {
+  const today = new Date();
+  const maxYear = today.getFullYear() - minAge;
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${maxYear}-${month}-${day}`;
+};
+
+export const getMinDobDateString = (maxAge: number = 100): string => {
+  const today = new Date();
+  const minYear = today.getFullYear() - maxAge;
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${minYear}-${month}-${day}`;
 };

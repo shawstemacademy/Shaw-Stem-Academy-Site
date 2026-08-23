@@ -4,7 +4,7 @@ import { User, Mail, Phone, GraduationCap, Upload, MapPin, Calendar, Heart, Shie
 import { ImageUploadInput } from './common/ImageUploadInput';
 import { FormFieldSetting, getFieldSetting } from '../lib/formFieldsConfig';
 import { getPhoneValidationError, sanitizePhoneDigits } from '../lib/phoneValidation';
-import { calculateAge } from '../lib/ageValidation';
+import { calculateAge, getMaxDobDateString, getMinDobDateString } from '../lib/ageValidation';
 
 interface StudentInfoFormProps {
   studentInfo: StudentInfo;
@@ -18,6 +18,8 @@ interface StudentInfoFormProps {
   isAdminLoggedIn?: boolean;
   onToggleFieldSetting?: (formId: string, fieldId: string, property: 'enabled' | 'required') => void;
   onClearDraft?: () => void;
+  minAge?: number;
+  maxAge?: number;
 }
 
 export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
@@ -32,6 +34,8 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
   isAdminLoggedIn = false,
   onToggleFieldSetting,
   onClearDraft,
+  minAge = 14,
+  maxAge = 100,
 }) => {
   const [photoPreview, setPhotoPreview] = useState<string>(studentInfo.photoUrl || '');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle');
@@ -387,6 +391,28 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
                     type="date"
                     required={isRequired('dob')}
                     value={studentInfo.dateOfBirth || ''}
+                    min={getMinDobDateString(maxAge)}
+                    max={getMaxDobDateString(minAge)}
+                    onFocus={(e) => {
+                      if (!studentInfo.dateOfBirth) {
+                        const defaultDob = getMaxDobDateString(minAge);
+                        onChange('dateOfBirth', defaultDob);
+                        const calculatedAgeNum = calculateAge(defaultDob);
+                        const calculatedAgeStr = calculatedAgeNum !== null ? String(calculatedAgeNum) : '';
+                        onChange('age', calculatedAgeStr);
+                        onChange('studentAge', calculatedAgeStr);
+                      }
+                    }}
+                    onClick={(e) => {
+                      if (!studentInfo.dateOfBirth) {
+                        const defaultDob = getMaxDobDateString(minAge);
+                        onChange('dateOfBirth', defaultDob);
+                        const calculatedAgeNum = calculateAge(defaultDob);
+                        const calculatedAgeStr = calculatedAgeNum !== null ? String(calculatedAgeNum) : '';
+                        onChange('age', calculatedAgeStr);
+                        onChange('studentAge', calculatedAgeStr);
+                      }
+                    }}
                     onChange={(e) => {
                       const dobVal = e.target.value;
                       onChange('dateOfBirth', dobVal);
@@ -408,7 +434,7 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
                   {renderAdminFieldBadge('age')}
                 </label>
                 <div className={`w-full px-3 py-2 text-sm border rounded-lg min-h-[38px] flex items-center justify-between font-medium ${
-                  studentInfo.dateOfBirth && (Number(studentInfo.age) < 14 || Number(studentInfo.age) > 100)
+                  studentInfo.dateOfBirth && (Number(studentInfo.age) < minAge || Number(studentInfo.age) > maxAge)
                     ? 'border-red-300 bg-red-50 text-red-700'
                     : 'border-gray-300 bg-gray-50 text-gray-700'
                 }`}>
@@ -417,9 +443,9 @@ export const StudentInfoForm: React.FC<StudentInfoFormProps> = ({
                       ? `${studentInfo.age || ''} years old` 
                       : 'Enter Date of Birth'}
                   </span>
-                  {studentInfo.dateOfBirth && (Number(studentInfo.age) < 14 || Number(studentInfo.age) > 100) && (
+                  {studentInfo.dateOfBirth && (Number(studentInfo.age) < minAge || Number(studentInfo.age) > maxAge) && (
                     <span className="text-[11px] font-bold text-red-600 animate-pulse">
-                      Must be 14-100 years old
+                      Must be {minAge}-{maxAge} years old
                     </span>
                   )}
                 </div>

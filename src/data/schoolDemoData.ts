@@ -57,6 +57,8 @@ export const DEFAULT_ACADEMY_INFO: AcademyInfo = {
   pillar3Title: 'Flexible Tuition Discounts',
   pillar3Desc: 'We offer automatic multi-class bundle savings, sibling reward pricing, and promo code discounts calculated in real time.',
   formGrades: ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12', 'Grade 13', 'Form 1', 'Form 2', 'Form 3', 'Form 4', 'Form 5', 'CAPE Unit 1', 'CAPE Unit 2'],
+  minStudentAge: 14,
+  maxStudentAge: 100,
 };
 
 export const DEFAULT_FEATURE_CARDS: FeatureCard[] = [

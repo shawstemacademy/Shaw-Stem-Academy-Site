@@ -43,7 +43,7 @@ export const AdminAcademyInfoManagement: React.FC<AdminAcademyInfoManagementProp
     setCardsForm(getMergedCards(featureCards));
   }, [featureCards]);
 
-  const handleInfoChange = (field: keyof AcademyInfo, value: string) => {
+  const handleInfoChange = (field: keyof AcademyInfo, value: any) => {
     setInfoForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -254,6 +254,34 @@ export const AdminAcademyInfoManagement: React.FC<AdminAcademyInfoManagementProp
                 type="text"
                 value={infoForm.portalWelcomeText}
                 onChange={(e) => handleInfoChange('portalWelcomeText', e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Minimum Student Registration Age
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={infoForm.minStudentAge ?? 14}
+                onChange={(e) => handleInfoChange('minStudentAge', parseInt(e.target.value, 10) || 14)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Maximum Student Registration Age
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={150}
+                value={infoForm.maxStudentAge ?? 100}
+                onChange={(e) => handleInfoChange('maxStudentAge', parseInt(e.target.value, 10) || 100)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-emerald-500"
               />
             </div>

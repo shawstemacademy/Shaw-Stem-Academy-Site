@@ -44,9 +44,6 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
   const handleEnrollInDepartment = () => {
     if (!isLoggedIn) {
       onNavigate('admissions');
-    } else if (!isAccepted) {
-      alert("You have not been accepted yet. Registration and class enrollment are unavailable until your application is approved by the administration. You will be redirected to the Student Portal to check your status.");
-      onNavigate('student-portal');
     } else {
       onNavigate('registration');
     }
@@ -55,9 +52,6 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
   const handleProceedToRegistration = () => {
     if (!isLoggedIn) {
       onNavigate('admissions');
-    } else if (!isAccepted) {
-      alert("You have not been accepted yet. Registration and class enrollment are unavailable until your application is approved by the administration. You will be redirected to the Student Portal to check your status.");
-      onNavigate('student-portal');
     } else {
       onNavigate('registration');
     }
@@ -66,9 +60,6 @@ export const AcademicsPage: React.FC<AcademicsPageProps> = ({
   const handleOpenRegistrationForm = () => {
     if (!isLoggedIn) {
       onNavigate('admissions');
-    } else if (!isAccepted) {
-      alert("You have not been accepted yet. Registration and class enrollment are unavailable until your application is approved by the administration. You will be redirected to the Student Portal to check your status.");
-      onNavigate('student-portal');
     } else {
       onNavigate('registration');
     }

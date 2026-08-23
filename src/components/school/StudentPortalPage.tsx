@@ -80,6 +80,7 @@ import {
   DEFAULT_STUDENT_SECTION_ORDER,
   PortalTab,
   SbaHubOption,
+  AcademyInfo,
 } from '../../types';
 import { calculateClassPaymentStatus, formatPricePeriod } from '../../lib/paymentUtils';
 import { FormFieldSetting } from '../../lib/formFieldsConfig';
@@ -117,6 +118,7 @@ interface StudentPortalPageProps {
   initialAcademicTab?: 'schedule' | 'attendance' | 'grades' | 'progress' | 'add_drop';
   sbaHubOptions?: SbaHubOption[];
   onNavigate?: (tab: PortalTab) => void;
+  academyInfo?: AcademyInfo | null;
 }
 
 export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
@@ -146,6 +148,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   studentPortalSections = DEFAULT_STUDENT_SECTION_ORDER,
   initialAcademicTab,
   onNavigate = (_tab: PortalTab) => {},
+  academyInfo,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showQrFullscreen, setShowQrFullscreen] = useState(false);
@@ -1013,20 +1016,36 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               <span>Awaiting Decision</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-              Application Under Review
+              {hasCourseRegistrations ? "Application & Course Selection Under Review" : "Please Complete Course Registration"}
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium max-w-2xl">
-              Thank you for choosing Shaw STEM Academy. Your student profile registration has been successfully received and is currently being reviewed by our admissions department.
+              {hasCourseRegistrations 
+                ? "Thank you for selecting your courses! Your student profile and requested STEM classes are currently queued for administrative review. Once our admissions department accepts your application, you will be able to complete tuition payment to activate your seat."
+                : "Thank you for creating your student account. To proceed with your enrollment, you must now select and register for your courses. Please click the button below to go to Class Registration and pick your STEM classes."
+              }
             </p>
             <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl max-w-2xl">
               <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-blue-500 shrink-0 animate-pulse" />
-                Status: Awaiting Acceptance
+                Status: {hasCourseRegistrations ? "Course Registration Received - Awaiting Acceptance" : "Awaiting Course Selection"}
               </p>
               <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-1">
-                Your profile is queued for administrative review. Once your account is approved and accepted, you will see your acceptance details here and be able to proceed with final class enrollment.
+                {hasCourseRegistrations 
+                  ? "We are currently reviewing your curriculum selections. You will receive live updates as soon as an admissions officer approves your application."
+                  : "You need to register for courses before our administration team can review your application for final acceptance. Use the registration module to choose your courses now."
+                }
               </p>
             </div>
+            {!hasCourseRegistrations && (
+              <div className="pt-2">
+                <button
+                  onClick={() => onNavigate('registration')}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-1.5"
+                >
+                  Go to Class Registration →
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -3650,6 +3669,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 fieldSettings={fieldSettings}
                 isAdminLoggedIn={isAdminLoggedIn}
                 onToggleFieldSetting={onToggleFieldSetting}
+                minAge={academyInfo?.minStudentAge ?? 14}
+                maxAge={academyInfo?.maxStudentAge ?? 100}
               />
             </div>
             

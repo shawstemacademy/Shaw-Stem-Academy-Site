@@ -186,7 +186,7 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
           return false;
         }
         const status = loggedInUser?.status || studentStatus;
-        if (status !== 'accepted' && status !== 'enrolled_paid') {
+        if (status === 'denied') {
           return false;
         }
       }

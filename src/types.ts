@@ -485,6 +485,8 @@ export interface AcademyInfo {
   pillar3Title: string;
   pillar3Desc: string;
   formGrades?: string[];
+  minStudentAge?: number;
+  maxStudentAge?: number;
 }
 
 export interface FeatureCard {

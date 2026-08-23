@@ -1303,8 +1303,7 @@ export default function App() {
               matched.status === 'pending_verification' ||
               matched.status === 'accepted';
 
-            const isAccepted = matched.status === 'accepted' || matched.status === 'enrolled_paid';
-            if (hasRegisteredClasses || !isAccepted) {
+            if (hasRegisteredClasses) {
               setActiveTab('student-portal');
             } else {
               setActiveTab('registration');
@@ -1602,7 +1601,7 @@ export default function App() {
       setStudentStatus('prospective');
       
       if (activeTab === 'login' || activeTab === 'admissions') {
-        setActiveTab('student-portal');
+        setActiveTab('registration');
       }
       
       setNewAccountSuccess({ name: newUser.name, email: newUser.email });
@@ -3408,8 +3407,7 @@ export default function App() {
           userObj?.status === 'pending_verification' ||
           userObj?.status === 'accepted';
 
-        const isAccepted = userObj?.status === 'accepted' || userObj?.status === 'enrolled_paid';
-        if (hasRegisteredClasses || !isAccepted) {
+        if (hasRegisteredClasses) {
           setActiveTab('student-portal');
         } else {
           setActiveTab('registration');
@@ -3540,8 +3538,8 @@ export default function App() {
       const isStudent = (loggedInUser?.role || currentRole) === 'student';
       if (isStudent) {
         const status = loggedInUser?.status || studentStatus;
-        if (status !== 'accepted' && status !== 'enrolled_paid') {
-          alert('Access denied: You must be accepted or enrolled to register for classes.');
+        if (status === 'denied') {
+          alert('Access denied: Your student application has been denied by the administration.');
           setActiveTab('student-portal');
           return;
         }
@@ -3818,6 +3816,7 @@ export default function App() {
                 onUpdateUserProfile={handleUpdateUserProfile}
                 onDeleteRegistration={handleDeleteRegistration}
                 classes={enrolledClasses}
+                academyInfo={academyInfo}
                 allClasses={synchronizedClassList}
                 resources={resources}
                 announcements={announcements}
@@ -4001,6 +4000,8 @@ export default function App() {
                   fieldSettings={fieldSettings}
                   isAdminLoggedIn={currentRole === 'admin'}
                   onToggleFieldSetting={handleToggleFieldSetting}
+                  minAge={academyInfo?.minStudentAge ?? 14}
+                  maxAge={academyInfo?.maxStudentAge ?? 100}
                   onClearDraft={() => {
                     setStudentInfo({
                       email: '',
@@ -4065,13 +4066,15 @@ export default function App() {
 
                         if (studentInfo.dateOfBirth) {
                           const ageNum = calculateAge(studentInfo.dateOfBirth);
-                          if (!isValidAge(ageNum)) {
+                          const minAge = academyInfo?.minStudentAge ?? 14;
+                          const maxAge = academyInfo?.maxStudentAge ?? 100;
+                          if (!isValidAge(ageNum, minAge, maxAge)) {
                             const el = document.getElementById('student-dob');
                             if (el) {
                               el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                               el.focus?.();
                             }
-                            alert('Student age must be between 14 and 100 years old.');
+                            alert(`Student age must be between ${minAge} and ${maxAge} years old.`);
                             return;
                           }
                         }
@@ -4109,11 +4112,12 @@ export default function App() {
                         }
                         
                         const currentStatus = loggedInUser?.status || 'unverified';
-                        if (currentStatus === 'accepted' || currentStatus === 'enrolled_paid') {
-                          setActiveTab('registration');
-                        } else {
-                          alert('Profile saved successfully! Your registration is now pending review. You will be redirected to the Student Portal to track your status.');
+                        if (currentStatus === 'denied') {
+                          alert('Access denied: Your student application has been denied.');
                           setActiveTab('student-portal');
+                        } else {
+                          alert('Profile saved successfully! Please proceed to select and register for your courses.');
+                          setActiveTab('registration');
                         }
                       }}
                       className={`px-8 py-3 rounded-xl text-white font-bold text-sm shadow-md transition-all ${theme.buttonBg}`}
@@ -4154,13 +4158,15 @@ export default function App() {
 
                         if (studentInfo.dateOfBirth) {
                           const ageNum = calculateAge(studentInfo.dateOfBirth);
-                          if (!isValidAge(ageNum)) {
+                          const minAge = academyInfo?.minStudentAge ?? 14;
+                          const maxAge = academyInfo?.maxStudentAge ?? 100;
+                          if (!isValidAge(ageNum, minAge, maxAge)) {
                             const el = document.getElementById('student-dob');
                             if (el) {
                               el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                               el.focus?.();
                             }
-                            alert('Student age must be between 14 and 100 years old.');
+                            alert(`Student age must be between ${minAge} and ${maxAge} years old.`);
                             return;
                           }
                         }
@@ -4707,7 +4713,7 @@ export default function App() {
                 Account Created Successfully!
               </h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Welcome to Shaw STEM Academy, <strong className="text-slate-900 dark:text-slate-100">{newAccountSuccess.name}</strong> ({newAccountSuccess.email}). Your admissions application has been submitted and is currently being processed.
+                Welcome to Shaw STEM Academy, <strong className="text-slate-900 dark:text-slate-100">{newAccountSuccess.name}</strong> ({newAccountSuccess.email}). Your student profile registration is complete! You can now proceed directly to register for classes.
               </p>
             </div>
 
@@ -4718,7 +4724,7 @@ export default function App() {
                 <span>Turn on Push Notifications</span>
               </div>
               <p className="text-xs text-purple-800/80 dark:text-purple-300/80 leading-relaxed">
-                Get notified immediately once your admission is accepted so you can enroll in classes without delay.
+                Get notified immediately once your class registrations and admissions are accepted.
               </p>
             </div>
 
@@ -4737,7 +4743,7 @@ export default function App() {
                 onClick={() => setNewAccountSuccess(null)}
                 className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs transition-all cursor-pointer"
               >
-                Maybe Later (Continue to Portal)
+                Continue to Class Registration →
               </button>
             </div>
           </div>
