@@ -705,7 +705,9 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                   : status === 'pending_verification'
                   ? 'Your course selections have been submitted and are currently pending registrar verification. Your class schedule is active below.'
                   : status === 'awaiting_acceptance' || status === 'unverified' || status === 'prospective'
-                  ? 'Your student account registration has been received and is currently being reviewed by admissions officers. You are waiting for acceptance. Your application has not yet been accepted.'
+                  ? (hasCourseRegistrations
+                    ? 'Your student account registration and selected courses have been received and are currently being reviewed by school administration.'
+                    : 'To proceed with your admissions process, you must now select and register for your courses. Please complete your class registration.')
                   : ''}
               </p>
             </div>
