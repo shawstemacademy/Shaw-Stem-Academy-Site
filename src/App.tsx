@@ -36,6 +36,7 @@ import {
   saveSectionOrdersToFirestore,
   registerWithEmailPassword,
 } from './lib/firebase';
+import { sendCourseRegistrationEmail, sendAddDropStatusEmail } from './lib/emailService';
 import { captureClientMetadata, fetchClientIp } from './lib/clientMetadata';
 import { getRecaptchaToken, createRecaptchaAssessment, verifyRecaptcha } from './lib/recaptcha';
 import {
@@ -456,6 +457,27 @@ export default function App() {
     await saveDocToFirestore('addDropRequests', req.id, updatedReq);
     setAddDropRequests(prev => prev.map(r => r.id === req.id ? updatedReq : r));
 
+    // Send tailored Add/Drop approval email to student and parent/guardian
+    try {
+      sendAddDropStatusEmail({
+        studentName: req.studentName || reg?.studentInfo?.studentName || '',
+        studentEmail: req.studentEmail || reg?.studentInfo?.email || '',
+        parentEmail: reg?.studentInfo?.parentEmail || reg?.studentInfo?.motherEmail || reg?.studentInfo?.fatherEmail || reg?.studentInfo?.guardianEmail || '',
+        parentName: reg?.studentInfo?.parentName || '',
+        type: req.type,
+        courseTitle: req.classItem?.title || 'Class',
+        status: 'approved',
+        effectivePrice: req.effectivePrice || req.originalPrice || req.classItem?.price || 0,
+        originalPrice: req.originalPrice || req.classItem?.price,
+        reviewNotes: notes || 'Approved by Registrar',
+        reviewedBy: loggedInUser?.name || 'Registrar',
+        newTotalTuition: updatedRegTotalPrice,
+        totalPaid: reg?.payments ? reg.payments.reduce((sum, p: any) => sum + (p.amount || 0), 0) : 0,
+      });
+    } catch (emailErr) {
+      console.warn('Failed to send Add/Drop approval email:', emailErr);
+    }
+
     sendPushNotificationToUser(
       req.studentEmail,
       req.studentId,
@@ -481,6 +503,31 @@ export default function App() {
 
     await saveDocToFirestore('addDropRequests', req.id, updatedReq);
     setAddDropRequests(prev => prev.map(r => r.id === req.id ? updatedReq : r));
+
+    const reg = registrationLogs.find(
+      r => r.id === req.registrationId || r.studentInfo?.email?.toLowerCase() === req.studentEmail?.toLowerCase()
+    );
+
+    // Send tailored Add/Drop rejection email to student and parent/guardian
+    try {
+      sendAddDropStatusEmail({
+        studentName: req.studentName || reg?.studentInfo?.studentName || '',
+        studentEmail: req.studentEmail || reg?.studentInfo?.email || '',
+        parentEmail: reg?.studentInfo?.parentEmail || reg?.studentInfo?.motherEmail || reg?.studentInfo?.fatherEmail || reg?.studentInfo?.guardianEmail || '',
+        parentName: reg?.studentInfo?.parentName || '',
+        type: req.type,
+        courseTitle: req.classItem?.title || 'Class',
+        status: 'rejected',
+        effectivePrice: req.effectivePrice || req.originalPrice || req.classItem?.price || 0,
+        originalPrice: req.originalPrice || req.classItem?.price,
+        reviewNotes: notes || 'Declined by Registrar',
+        reviewedBy: loggedInUser?.name || 'Registrar',
+        newTotalTuition: reg?.totalPrice,
+        totalPaid: reg?.payments ? reg.payments.reduce((sum, p: any) => sum + (p.amount || 0), 0) : 0,
+      });
+    } catch (emailErr) {
+      console.warn('Failed to send Add/Drop rejection email:', emailErr);
+    }
 
     sendPushNotificationToUser(
       req.studentEmail,
@@ -2215,6 +2262,14 @@ export default function App() {
         alert('Class Registration is currently closed by the administration.');
         return;
       }
+      const status = loggedInUser?.status || studentStatus;
+      const isAccepted = status === 'accepted' || status === 'enrolled_paid';
+      if (isAccepted) {
+        alert('Your admission application has been accepted. To request course changes, please submit an Add/Drop request in your Student Portal.');
+        setStudentPortalAcademicTab('add_drop');
+        setActiveTab('student-portal');
+        return;
+      }
       if (isCurrentStudentPaid && !landingPageSettings.isPaidRegistrationReopened) {
         alert('Registration is already complete and paid. Please use the Add/Drop workflow in your Student Portal for course changes.');
         setStudentPortalAcademicTab('add_drop');
@@ -2343,6 +2398,24 @@ export default function App() {
     
     // Save persistently to Firebase Firestore
     saveRegistrationToFirestore(record);
+
+    // Send tailored course registration email to student and parent/guardian
+    try {
+      sendCourseRegistrationEmail({
+        studentName: effectiveStudentInfo.studentName || `${effectiveStudentInfo.firstName || ''} ${effectiveStudentInfo.lastName || ''}`.trim(),
+        studentEmail: effectiveStudentInfo.email || '',
+        parentEmail: effectiveStudentInfo.parentEmail || '',
+        parentName: effectiveStudentInfo.parentName || '',
+        selectedClasses: combinedSelectedClasses,
+        subtotal,
+        appliedDiscounts,
+        totalPrice,
+        totalPaid: record.payments ? record.payments.reduce((sum, p: any) => sum + (p.amount || 0), 0) : 0,
+        isUpdate: Boolean(existingRecord),
+      });
+    } catch (emailErr) {
+      console.warn('Failed to send course registration email confirmation:', emailErr);
+    }
 
     // Notify the student of their submission via the modern FCM framework
     try {
@@ -3534,6 +3607,13 @@ export default function App() {
       return false;
     }
 
+    // NEW Priority: IF student is accepted -> Block editing/registration (direct to Add/Drop)
+    const status = loggedInUser?.status || studentStatus;
+    const isAccepted = status === 'accepted' || status === 'enrolled_paid';
+    if (isAccepted) {
+      return false;
+    }
+
     // Priority 2: ELSE IF student has paid
     if (isCurrentStudentPaid) {
       // IF admin has enabled "Reopen Registration for Paid Students" -> Student can access
@@ -3546,7 +3626,7 @@ export default function App() {
 
     // Priority 3: ELSE IF student has not paid -> Student can access Class Registration
     return true;
-  }, [currentRole, loggedInUser, landingPageSettings.isRegistrationClosed, landingPageSettings.isPaidRegistrationReopened, isCurrentStudentPaid]);
+  }, [currentRole, loggedInUser, landingPageSettings.isRegistrationClosed, landingPageSettings.isPaidRegistrationReopened, isCurrentStudentPaid, studentStatus]);
 
   const handleTabSelect = (tab: PortalTab) => {
     const isLoggedIn = !!user || !!loggedInUser;
@@ -3559,8 +3639,18 @@ export default function App() {
       const isStudent = (loggedInUser?.role || currentRole) === 'student';
       if (isStudent) {
         const status = loggedInUser?.status || studentStatus;
+        const isAccepted = status === 'accepted' || status === 'enrolled_paid';
+
         if (status === 'denied') {
           alert('Access denied: Your student application has been denied by the administration.');
+          setActiveTab('student-portal');
+          return;
+        }
+
+        // If student is already accepted, smoothly redirect to Add/Drop workflow
+        if (isAccepted && !landingPageSettings.isRegistrationClosed) {
+          alert('Your admission application has been accepted. To request course changes, please submit an Add/Drop request in your Student Portal.');
+          setStudentPortalAcademicTab('add_drop');
           setActiveTab('student-portal');
           return;
         }
@@ -3736,7 +3826,7 @@ export default function App() {
               settings={landingPageSettings}
               isLoggedIn={!!user || !!loggedInUser}
               onNavigate={setActiveTab}
-              onOpenRegistration={() => setActiveTab('admissions')}
+              onOpenRegistration={() => handleTabSelect('registration')}
               loggedInUser={loggedInUser}
               onUpdateLandingPageSettings={async (newSettings) => {
                 setLandingPageSettings(newSettings);
@@ -3814,7 +3904,7 @@ export default function App() {
               isLoggedIn={!!user || !!loggedInUser}
               isAccepted={studentStatus === 'accepted' || studentStatus === 'enrolled_paid'}
               onNavigate={setActiveTab}
-              onOpenRegistration={() => setActiveTab('admissions')}
+              onOpenRegistration={() => handleTabSelect('registration')}
             />
           )}
 
@@ -4297,6 +4387,41 @@ export default function App() {
                       className="w-full sm:w-auto px-6 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs transition-all cursor-pointer"
                     >
                       Back to Home
+                    </button>
+                  </div>
+                </div>
+              ) : (loggedInUser?.status === 'accepted' || loggedInUser?.status === 'enrolled_paid' || studentStatus === 'accepted' || studentStatus === 'enrolled_paid') ? (
+                <div className="max-w-xl mx-auto my-12 bg-white dark:bg-slate-900 rounded-3xl p-8 border border-purple-200 dark:border-purple-900 shadow-xl text-center space-y-6">
+                  <div className="w-16 h-16 bg-purple-100 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 rounded-full text-xs font-bold uppercase tracking-wider">
+                      Admissions Accepted
+                    </div>
+                    <h2 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">
+                      Your Admissions Application is Accepted!
+                    </h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
+                      Your admissions application has been officially accepted. Since your schedule is active, you can no longer edit your course selections directly here. To add, drop, or swap classes, please submit an official <strong>Add/Drop Request</strong> in your Student Portal.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      onClick={() => {
+                        setStudentPortalAcademicTab('add_drop');
+                        setActiveTab('student-portal');
+                      }}
+                      className="w-full sm:w-auto px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Go to Course Add / Drop →</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('student-portal')}
+                      className="w-full sm:w-auto px-6 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                    >
+                      Go to Student Portal
                     </button>
                   </div>
                 </div>

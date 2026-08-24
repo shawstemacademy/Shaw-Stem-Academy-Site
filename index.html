@@ -154,6 +154,21 @@
         Please enable JavaScript in your browser to experience all dynamic features of the Shaw STEM Academy Portal.
       </div>
     </noscript>
+    <script>
+      window.addEventListener('error', function(e) {
+        var errDiv = document.createElement('div');
+        errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;z-index:9999;padding:20px;font-family:monospace;white-space:pre-wrap;';
+        errDiv.textContent = 'Uncaught Error: ' + e.message + '\n' + (e.error && e.error.stack ? e.error.stack : '');
+        document.body.prepend(errDiv);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        if (e.reason && e.reason.toString().toLowerCase().includes('websocket')) return;
+        var errDiv = document.createElement('div');
+        errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:orange;color:white;z-index:9999;padding:20px;font-family:monospace;white-space:pre-wrap;';
+        errDiv.textContent = 'Unhandled Rejection: ' + e.reason;
+        document.body.prepend(errDiv);
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

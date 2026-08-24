@@ -405,6 +405,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
 
+  // Email Testing States
+  const [testEmailTo, setTestEmailTo] = useState('shawstemacademy@gmail.com');
+  const [testEmailSubject, setTestEmailSubject] = useState('Shaw STEM Academy - Transactional Email Test');
+  const [testEmailBody, setTestEmailBody] = useState(`Hello,\n\nThis is an official transactional test email dispatched from the Shaw STEM Academy Administration Dashboard's Notification & Integration Test Center.\n\nAll email integrations are active and verified.\n\nBest regards,\nShaw STEM Academy Registrar Team`);
+  const [testEmailStatus, setTestEmailStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [testEmailError, setTestEmailError] = useState('');
+
   // Admin Self Profile Editing State
   const [isEditingAdminProfileModal, setIsEditingAdminProfileModal] = useState(false);
   const [adminEditName, setAdminEditName] = useState('');
@@ -957,6 +964,46 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       }
     } else if (currentPerm === 'denied') {
       alert("Note: Customizable sound played successfully! The OS Desktop Notification was blocked because notifications are currently Denied. Please click the site padlock/settings icon in your URL bar and change notifications to 'Allow' to view the popups on your system.");
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testEmailTo.trim() || !testEmailSubject.trim() || !testEmailBody.trim()) {
+      alert('Please fill out all email test fields (recipient, subject, and body message).');
+      return;
+    }
+
+    setTestEmailStatus('sending');
+    setTestEmailError('');
+
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: testEmailTo.trim(),
+          subject: testEmailSubject.trim(),
+          html: testEmailBody.replace(/\n/g, '<br />'),
+          type: 'test_dispatch',
+          metadata: {
+            tester: loggedInUser?.email || 'Admin Tester',
+            timestamp: new Date().toISOString()
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || `Server returned non-200 status (${response.status})`);
+      }
+
+      setTestEmailStatus('success');
+    } catch (err) {
+      console.error('Email Test failed:', err);
+      setTestEmailStatus('error');
+      setTestEmailError(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -3404,6 +3451,163 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                         </div>
                       </div>
                     ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section Divider to Email Testing */}
+          <div className="border-t border-slate-200/80 my-10 pt-10"></div>
+
+          {/* SMTP Email Testing Center Section */}
+          <div className="space-y-6">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 text-purple-700 text-[10px] font-extrabold uppercase tracking-wider rounded-full border border-purple-100 mb-2">
+                <CheckCircle className="w-3 h-3 text-purple-500 animate-pulse" />
+                SMTP Server Verification
+              </div>
+              <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                <Send className="w-5 h-5 text-purple-600 animate-pulse" />
+                SMTP Transactional Email Test Center
+              </h2>
+              <p className="text-xs text-slate-500">
+                Verify real email delivery status, test secure SMTP routing, and test mail server configuration.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column: Email Configuration Verification Info */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-6">
+                <div className="border-b border-slate-100 pb-4 flex items-center gap-2">
+                  <Info className="w-4.5 h-4.5 text-purple-500" />
+                  <h3 className="font-bold text-slate-800 text-sm">SMTP Setup & Connection Info</h3>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-2 text-xs">
+                    <p className="font-bold text-purple-950 flex items-center gap-1.5">
+                      <span>🚀 Current Delivery Profile:</span>
+                      <span className="bg-emerald-100 text-emerald-800 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded border border-emerald-200">Active</span>
+                    </p>
+                    <div className="text-slate-600 font-medium space-y-1.5 leading-relaxed pt-1">
+                      <div>• SMTP Hostname: <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">smtp.gmail.com</span></div>
+                      <div>• SMTP Connection Port: <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">587 (Secure TLS)</span></div>
+                      <div>• Authorized Mailer: <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">shawstemacademy@gmail.com</span></div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50/50 border border-slate-200 rounded-2xl p-4.5 space-y-3">
+                    <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>📋 Checklist for Successful Real Deliveries</span>
+                    </h4>
+                    <div className="text-[10.5px] text-slate-600 space-y-2.5 font-medium leading-relaxed">
+                      <div className="space-y-1">
+                        <strong className="block text-slate-800 font-bold">1. Enable Google App Passwords:</strong>
+                        <p className="text-slate-500">Google accounts require a dedicated 16-character App Password to allow applications to connect. Regular logins will fail.</p>
+                      </div>
+                      <div className="space-y-1">
+                        <strong className="block text-slate-800 font-bold">2. Set Environment Secrets:</strong>
+                        <p className="text-slate-500">Ensure <code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, and <code>SMTP_PASS</code> are configured in your platform environment.</p>
+                      </div>
+                      <div className="space-y-1">
+                        <strong className="block text-slate-800 font-bold">3. Check Spam Folder:</strong>
+                        <p className="text-slate-500">Test dispatches are marked as transactional but can sometimes settle in your Spam/Junk folder depending on domain rules.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Interactive Send Test Tool */}
+              <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6 text-white space-y-6 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div className="border-b border-slate-800 pb-4 flex items-center gap-2">
+                  <SendHorizontal className="w-4.5 h-4.5 text-purple-400" />
+                  <h3 className="font-bold text-slate-200 text-sm">SMTP Dispatch Tool</h3>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Recipient Input */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Recipient Email (To):
+                    </label>
+                    <input
+                      type="email"
+                      value={testEmailTo}
+                      onChange={(e) => setTestEmailTo(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-xs font-semibold px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden text-white"
+                      placeholder="e.g. shawstemacademy@gmail.com"
+                    />
+                  </div>
+
+                  {/* Subject Input */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Email Subject Line:
+                    </label>
+                    <input
+                      type="text"
+                      value={testEmailSubject}
+                      onChange={(e) => setTestEmailSubject(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-xs font-semibold px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden text-white"
+                      placeholder="Enter subject..."
+                    />
+                  </div>
+
+                  {/* Message Body Input */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Message Content (HTML Supported):
+                    </label>
+                    <textarea
+                      rows={5}
+                      value={testEmailBody}
+                      onChange={(e) => setTestEmailBody(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 text-xs font-semibold px-4 py-2.5 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-hidden text-white font-mono leading-relaxed"
+                      placeholder="Type your test message content..."
+                    />
+                  </div>
+
+                  {/* Trigger Dispatch Button */}
+                  <div className="pt-2">
+                    <button
+                      onClick={handleSendTestEmail}
+                      disabled={testEmailStatus === 'sending'}
+                      className="w-full py-4.5 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl font-bold text-sm shadow-xl shadow-purple-900/30 transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:bg-slate-800 disabled:text-slate-400 disabled:cursor-not-allowed"
+                    >
+                      {testEmailStatus === 'sending' ? (
+                        <>
+                          <RefreshCw className="w-5 h-5 animate-spin text-purple-300" />
+                          <span>Dispatching SMTP Email...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-5 h-5 text-purple-300" />
+                          <span>Send Test Email via Mail Server</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Send Status Alert Messages */}
+                  {testEmailStatus === 'success' && (
+                    <div className="p-3 bg-emerald-950/80 border border-emerald-800 text-emerald-200 rounded-xl text-[10.5px] font-semibold flex gap-2 items-center">
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>SMTP test email sent successfully! Check the recipient's inbox.</span>
+                    </div>
+                  )}
+
+                  {testEmailStatus === 'error' && (
+                    <div className="p-3 bg-rose-950/80 border border-rose-800 text-rose-200 rounded-xl text-[10.5px] font-semibold flex gap-2 items-start">
+                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="block text-rose-300">SMTP Server Handshake Failed:</strong>
+                        <span className="leading-normal">{testEmailError}</span>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>

@@ -1,16 +1,14 @@
 import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import nodemailer from 'nodemailer';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const _dirname = process.cwd();
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const PORT = 3000;
 
 app.use(express.json());
 
@@ -708,21 +706,25 @@ app.get(['/academics', '/academics/'], (req, res) => {
 });
 
 // Vite middleware for development or standard static serving for production
-if (process.env.NODE_ENV !== "production") {
-  const { createServer: createViteServer } = await import('vite');
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: "spa",
-  });
-  app.use(vite.middlewares);
-} else {
-  const distPath = path.join(__dirname, 'dist');
-  app.use(express.static(distPath));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
+async function startServer() {
+  if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(_dirname, 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Shaw STEM Academy full-stack server running on http://0.0.0.0:${PORT}`);
   });
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Shaw STEM Academy full-stack server running on http://0.0.0.0:${PORT}`);
-});
+startServer();

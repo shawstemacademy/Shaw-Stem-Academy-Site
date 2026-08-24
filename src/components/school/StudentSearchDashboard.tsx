@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { SchoolUser, RegistrationRecord, ClassItem, AppliedDiscount, AddDropRequest } from '../../types';
 import { saveDocToFirestore, saveUserToFirestore } from '../../lib/firebase';
+import { sendPaymentEmail } from '../../lib/emailService';
 import { sendPushNotificationToUser } from '../../lib/fcm';
 import { sendDesktopNotification } from '../../lib/notifications';
 import { downloadImage } from '../../lib/downloadHelper';
@@ -316,6 +317,24 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
         '🎉 Tuition Payment Recorded & Verified!',
         `Your payment of $${Math.abs(amt).toFixed(2)} has been recorded in the Student Directory and your registration status is verified.`
       );
+
+      // Send tailored payment receipt email to student and parent/guardian
+      try {
+        const studentDetails = selectedStudent.studentDetails || currentRegistration.studentInfo || {};
+        sendPaymentEmail({
+          studentName: selectedStudent.name || studentDetails.studentName || `${studentDetails.firstName || ''} ${studentDetails.lastName || ''}`.trim(),
+          studentEmail: selectedStudent.email || studentDetails.email || '',
+          parentEmail: studentDetails.parentEmail || studentDetails.motherEmail || studentDetails.fatherEmail || studentDetails.guardianEmail || '',
+          parentName: studentDetails.parentName || '',
+          amount: Math.abs(amt),
+          isRefund: false,
+          totalTuition,
+          remainingBalance: Math.max(0, totalTuition - newTotalPaid),
+          notes: paymentNote.trim() || undefined,
+        });
+      } catch (emailErr) {
+        console.warn('Failed to send payment confirmation email:', emailErr);
+      }
     } else if (isRefund && selectedStudent) {
       sendPushNotificationToUser(
         selectedStudent.email,
@@ -323,6 +342,24 @@ export const StudentSearchDashboard: React.FC<StudentSearchDashboardProps> = ({
         '💸 Tuition Refund Processed',
         `A tuition refund of $${amt.toFixed(2)} has been recorded for your account. Revised balance: $${Math.max(0, totalTuition - newTotalPaid).toFixed(2)}.`
       );
+
+      // Send tailored refund notice email to student and parent/guardian
+      try {
+        const studentDetails = selectedStudent.studentDetails || currentRegistration.studentInfo || {};
+        sendPaymentEmail({
+          studentName: selectedStudent.name || studentDetails.studentName || `${studentDetails.firstName || ''} ${studentDetails.lastName || ''}`.trim(),
+          studentEmail: selectedStudent.email || studentDetails.email || '',
+          parentEmail: studentDetails.parentEmail || studentDetails.motherEmail || studentDetails.fatherEmail || studentDetails.guardianEmail || '',
+          parentName: studentDetails.parentName || '',
+          amount: Math.abs(amt),
+          isRefund: true,
+          totalTuition,
+          remainingBalance: Math.max(0, totalTuition - newTotalPaid),
+          notes: paymentNote.trim() || undefined,
+        });
+      } catch (emailErr) {
+        console.warn('Failed to send refund notification email:', emailErr);
+      }
     }
 
     onUpdateRegistration(updatedReg);
@@ -787,7 +824,45 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
 
               {/* Action Tabs and Account Actions */}
               <div className="flex flex-col items-end gap-2 self-start md:self-auto">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 items-center justify-end">
+                  {/* Direct Status Changer */}
+                  <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-3 py-1 shadow-2xs hover:border-slate-300 transition-all">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status:</span>
+                    <select
+                      value={selectedStudent.status || 'prospective'}
+                      onChange={(e) => {
+                        const newStatus = e.target.value as any;
+                        const updatedUser = {
+                          ...selectedStudent,
+                          status: newStatus
+                        };
+                        saveUserToFirestore(updatedUser);
+                        if (onUpdateUser) {
+                          onUpdateUser(updatedUser);
+                        }
+                        
+                        sendPushNotificationToUser(
+                          selectedStudent.email,
+                          selectedStudent.id,
+                          '🎓 Student Status Updated',
+                          `Your student account status has been updated to ${newStatus.replace('_', ' ').toUpperCase()}.`
+                        );
+                        
+                        alert(`Successfully changed ${selectedStudent.name}'s status to ${newStatus.replace('_', ' ').toUpperCase()}.`);
+                      }}
+                      className="bg-transparent border-0 text-xs font-bold text-slate-800 focus:outline-hidden focus:ring-0 cursor-pointer pr-6 py-0.5"
+                    >
+                      <option value="prospective">Prospective</option>
+                      <option value="awaiting_acceptance">Awaiting Acceptance</option>
+                      <option value="accepted">Accepted</option>
+                      <option value="pending_verification">Awaiting Verification</option>
+                      <option value="enrolled_paid">Paid & Enrolled</option>
+                      <option value="on_leave">On Leave</option>
+                      <option value="disabled">Disabled</option>
+                      <option value="denied">Denied</option>
+                    </select>
+                  </div>
+
                   <button
                     onClick={() => {
                       const isDisabled = selectedStudent.status === 'disabled';
@@ -1541,10 +1616,13 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                                 }`}
                               >
                                 <div className="min-w-0 pr-2">
-                                  <div className="flex items-center gap-1.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     <h4 className="text-xs font-bold text-slate-800 truncate">{cls.title}</h4>
+                                    <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[9px] font-extrabold uppercase shrink-0">
+                                      {cls.isSbaHub ? 'SBA Hub' : 'Regular Class'}
+                                    </span>
                                     {isCompleted && (
-                                      <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[9px] font-extrabold flex items-center gap-0.5">
+                                      <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[9px] font-extrabold flex items-center gap-0.5 shrink-0">
                                         <Lock className="w-2.5 h-2.5" /> Archived
                                       </span>
                                     )}
@@ -1731,6 +1809,9 @@ Leo,Sterling,leo.sterling@gmail.com,90,92,89`;
                             <div className="flex items-center justify-between">
                               <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold">
                                 {cls.classType || 'CSEC'}
+                              </span>
+                              <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold uppercase">
+                                {cls.isSbaHub ? 'SBA Hub' : 'Regular Class'}
                               </span>
                               {isReleased ? (
                                 <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[9px] font-black tracking-wide uppercase flex items-center gap-1">

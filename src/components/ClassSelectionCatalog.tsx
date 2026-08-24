@@ -405,27 +405,32 @@ export const ClassSelectionCatalog: React.FC<ClassSelectionCatalogProps> = ({
                     </div>
 
                     {/* Class Details */}
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-base font-bold text-gray-900 group-hover:text-purple-900">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                          <h3 className="text-sm sm:text-base font-bold text-gray-900 group-hover:text-purple-900 truncate">
                             {cls.title}
                           </h3>
-                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                            {cls.category}
-                          </span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 shrink-0">
+                              {cls.category}
+                            </span>
+                            <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 uppercase shrink-0 border border-purple-100">
+                              {cls.isSbaHub ? 'SBA Hub' : 'Regular Class'}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Price Badge */}
-                        <div className="text-right">
-                          <span className="text-lg font-black text-purple-900">{formatUSD(cls.price)}</span>
-                          <span className="text-[11px] text-gray-500 font-semibold">
+                        <div className="text-left sm:text-right shrink-0">
+                          <span className="text-base sm:text-lg font-black text-purple-900">{formatUSD(cls.price)}</span>
+                          <span className="text-[10px] sm:text-[11px] text-gray-500 font-semibold ml-1">
                             {formatPricePeriod(cls.pricePeriod)}
                           </span>
                         </div>
                       </div>
 
-                      <p className="text-xs text-gray-600 mt-1 leading-relaxed">{cls.description}</p>
+                      <p className="text-[11px] sm:text-xs text-gray-600 mt-2 sm:mt-1 leading-relaxed line-clamp-2">{cls.description}</p>
 
                       {/* Class Metadata Badges */}
                       <div className="mt-3 flex flex-wrap items-center gap-y-1.5 gap-x-4 text-xs text-gray-500">

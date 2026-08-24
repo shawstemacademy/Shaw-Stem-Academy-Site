@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { SchoolUser, RegistrationRecord, DenialReasonItem, AdmissionDecision, ClassItem } from '../../types';
 import { saveUserToFirestore, saveAdmissionDecisionToFirestore, saveEnrollmentToFirestore, saveRegistrationToFirestore } from '../../lib/firebase';
+import { sendAdmissionDecisionEmail } from '../../lib/emailService';
 import { sendPushNotificationToUser } from '../../lib/fcm';
 
 interface AdmissionDecisionModalProps {
@@ -185,6 +186,21 @@ export const AdmissionDecisionModal: React.FC<AdmissionDecisionModalProps> = ({
         console.warn('FCM notify error:', err);
       }
 
+      // Send tailored admissions acceptance email to student and parent/guardian
+      try {
+        const studentDetails = student.studentDetails || registrationRecord?.studentInfo || {};
+        await sendAdmissionDecisionEmail({
+          studentName: sName,
+          studentEmail: sEmail,
+          parentEmail: studentDetails.parentEmail || studentDetails.motherEmail || studentDetails.fatherEmail || studentDetails.guardianEmail || '',
+          parentName: studentDetails.parentName || '',
+          decision: 'ACCEPTED',
+          notes: acceptNotes.trim() || undefined,
+        });
+      } catch (emailErr) {
+        console.warn('Failed to send acceptance decision email:', emailErr);
+      }
+
       onDecisionComplete(updatedUser);
       onClose();
     } catch (err) {
@@ -288,6 +304,22 @@ export const AdmissionDecisionModal: React.FC<AdmissionDecisionModalProps> = ({
         );
       } catch (err) {
         console.warn('FCM notify error:', err);
+      }
+
+      // Send tailored admissions denial/revision request email to student and parent/guardian
+      try {
+        const studentDetails = student.studentDetails || registrationRecord?.studentInfo || {};
+        await sendAdmissionDecisionEmail({
+          studentName: sName,
+          studentEmail: sEmail,
+          parentEmail: studentDetails.parentEmail || studentDetails.motherEmail || studentDetails.fatherEmail || studentDetails.guardianEmail || '',
+          parentName: studentDetails.parentName || '',
+          decision: 'DENIED',
+          notes: generalDenialNotes.trim() || undefined,
+          denialReasons: denialReasonItems,
+        });
+      } catch (emailErr) {
+        console.warn('Failed to send denial decision email:', emailErr);
       }
 
       onDecisionComplete(updatedUser);

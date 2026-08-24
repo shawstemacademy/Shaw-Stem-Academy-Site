@@ -2910,22 +2910,40 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                       {outstandingRegistrations
                         .filter((r) => r.outstandingBalance > 0)
                         .map((r) => (
-                          <div key={r.id} className="flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-950 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-slate-600 dark:text-slate-400 truncate max-w-[120px]">
-                                {r.id.slice(-8).toUpperCase()}
+                          <div key={r.id} className="flex flex-col text-xs bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-slate-600 dark:text-slate-400 truncate max-w-[120px]">
+                                  {r.id.slice(-8).toUpperCase()}
+                                </span>
+                                <button
+                                  onClick={() => setSelectedReceiptRecord(r)}
+                                  className="px-2 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                  title="View Invoice"
+                                >
+                                  <FileText className="w-3 h-3" /> Invoice
+                                </button>
+                              </div>
+                              <span className="font-extrabold text-amber-600 dark:text-amber-400">
+                                ${r.outstandingBalance.toFixed(2)}
                               </span>
-                              <button
-                                onClick={() => setSelectedReceiptRecord(r)}
-                                className="px-2 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                                title="View Invoice"
-                              >
-                                <FileText className="w-3 h-3" /> Invoice
-                              </button>
                             </div>
-                            <span className="font-extrabold text-amber-600 dark:text-amber-400">
-                              ${r.outstandingBalance.toFixed(2)}
-                            </span>
+                            {r.selectedClasses && r.selectedClasses.length > 0 && (
+                              <div className="flex flex-col gap-1.5 pt-1">
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Registered Classes</div>
+                                {r.selectedClasses.map(c => (
+                                  <div key={c.id} className="flex items-start justify-between gap-2">
+                                    <span className="text-slate-600 dark:text-slate-400 flex-1 leading-tight flex flex-wrap items-center gap-1.5">
+                                      {c.title}
+                                      <span className="text-[9px] uppercase font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1 py-0.5 rounded whitespace-nowrap">
+                                        {c.isSbaHub ? 'SBA Hub' : 'Regular Class'}
+                                      </span>
+                                    </span>
+                                    <span className="font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">${(c.price || 0).toFixed(2)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                     </div>

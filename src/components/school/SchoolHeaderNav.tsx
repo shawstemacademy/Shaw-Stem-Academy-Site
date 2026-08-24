@@ -186,6 +186,10 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
           return false;
         }
         const status = loggedInUser?.status || studentStatus;
+        const isAccepted = status === 'accepted' || status === 'enrolled_paid';
+        if (isAccepted) {
+          return false;
+        }
         if (status === 'denied') {
           return false;
         }

@@ -69,7 +69,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   locations = [],
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'teacher' | 'admin' | 'registrar' | 'hod' | 'disabled'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'teacher' | 'admin' | 'registrar' | 'hod' | 'student' | 'disabled'>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [cascadeDeleteUser, setCascadeDeleteUser] = useState<SchoolUser | null>(null);
@@ -242,7 +242,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   // New/Edit form state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'teacher' | 'admin' | 'registrar' | 'hod'>('teacher');
+  const [role, setRole] = useState<'teacher' | 'admin' | 'registrar' | 'hod' | 'student'>('teacher');
   const [title, setTitle] = useState('');
   const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>([hodDepartmentId || departments[0]?.id || 'dept-1']);
   const [status, setStatus] = useState<'active' | 'on_leave' | 'invited' | 'disabled'>('active');
@@ -493,7 +493,6 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
 
   // Filtered lists for HOD vs Admin
   const scopedUsers = users.filter((u) => {
-    if (u.role === 'student') return false; // Never show students in the staff directory
     if (!isHOD) return true; // Admins see everyone else
     // HOD sees ONLY teachers in their department
     if (u.role === 'admin') return false;
@@ -524,6 +523,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
 
   const teacherCount = activeUsers.filter((u) => u.role === 'teacher').length;
   const adminCount = activeUsers.filter((u) => u.role === 'admin').length;
+  const studentCount = activeUsers.filter((u) => u.role === 'student').length;
   const registrarCount = activeUsers.filter((u) => u.role === 'registrar').length;
   const hodCount = activeUsers.filter((u) => u.role === 'hod').length;
 
@@ -555,7 +555,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
         <div>
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-600" />
-            <span>{isHOD ? `${hodDeptName} Teacher Directory` : 'Academy User & Staff Directory'}</span>
+            <span>{isHOD ? `${hodDeptName} Teacher Directory` : 'Academy User Directory'}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             {isHOD
@@ -596,6 +596,16 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
             }`}
           >
             Admin ({adminCount})
+          </button>
+          <button
+            onClick={() => setRoleFilter('student')}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+              roleFilter === 'student'
+                ? 'bg-blue-600 text-white'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            Student ({studentCount})
           </button>
           <button
             onClick={() => setRoleFilter('teacher')}
@@ -680,7 +690,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
               <Users className="w-4 h-4 text-blue-600" />
             )}
             <span>
-              {roleFilter === 'disabled' ? 'Disabled Staff Records & Deactivation Log' : 'Active Staff Directory'}
+              {roleFilter === 'disabled' ? 'Disabled User Records & Deactivation Log' : 'Active User Directory'}
             </span>
           </h3>
           <span className="text-xs font-semibold text-slate-500">
@@ -718,6 +728,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                   className="bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                   <option value="">Change Role...</option>
+                  <option value="student">Student</option>
                   <option value="teacher">Teacher</option>
                   <option value="admin">Admin</option>
                   <option value="registrar">Registrar</option>
@@ -1129,6 +1140,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                     disabled={isHOD}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-hidden disabled:bg-slate-100 disabled:text-slate-500"
                   >
+                    <option value="student">Student</option>
                     <option value="teacher">Teacher</option>
                     {!isHOD && <option value="admin">Admin</option>}
                     {!isHOD && <option value="registrar">Registrar</option>}
@@ -1203,6 +1215,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                     <option value="enrolled_paid">Paid & Enrolled</option>
                     <option value="on_leave">On Leave</option>
                     <option value="invited">Invited</option>
+                    <option value="denied">Denied</option>
                     <option value="disabled">Disabled (Archived Log Record)</option>
                   </select>
                 </div>
