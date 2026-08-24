@@ -995,7 +995,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       });
 
       if (!response.ok) {
-        const errData = await response.json();
+        let errData;
+        const rawText = await response.text();
+        try {
+          errData = JSON.parse(rawText);
+        } catch (e) {
+          throw new Error(`Server returned status (${response.status}): ${rawText.substring(0, 100)}...`);
+        }
         throw new Error(errData.error || `Server returned non-200 status (${response.status})`);
       }
 
