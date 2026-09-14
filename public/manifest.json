@@ -1,24 +1,39 @@
 {
-  "short_name": "Shaw STEM Academy",
-  "name": "Shaw STEM Academy Portal",
-  "description": "Shaw STEM Academy's course catalogs, student registries, and online portal.",
+  "short_name": "Shaw STEM",
+  "name": "Shaw STEM Academy",
+  "description": "Shaw STEM Academy - Premier Online CSEC & CAPE Classes, Course Catalogs, and Academic Portal.",
   "icons": [
     {
-      "src": "/android-chrome-512x512.png",
+      "src": "/favicon-32x32.png",
       "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any maskable"
+      "sizes": "32x32"
+    },
+    {
+      "src": "/favicon-48x48.png",
+      "type": "image/png",
+      "sizes": "48x48"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "type": "image/png",
+      "sizes": "180x180"
     },
     {
       "src": "/android-chrome-192x192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
   "start_url": "/",
-  "background_color": "#0f172a",
-  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "theme_color": "#002b36",
   "display": "standalone",
   "orientation": "portrait"
 }
