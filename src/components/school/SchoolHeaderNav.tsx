@@ -228,14 +228,6 @@ export const SchoolHeaderNav: React.FC<SchoolHeaderNavProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
           {/* School Name & Motto */}
           <div className="flex items-center gap-3">
-            <img 
-              src={logoUrl || "/logo.png"} 
-              alt="Shaw STEM Academy" 
-              className="w-8 h-8 rounded-lg object-contain bg-slate-950 p-0.5 border border-slate-800"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
             <div className="flex items-center gap-2">
               <span className="font-extrabold tracking-tight text-white text-sm">
                 Shaw STEM Academy

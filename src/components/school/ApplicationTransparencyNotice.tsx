@@ -69,7 +69,7 @@ export const ApplicationTransparencyNotice: React.FC<ApplicationTransparencyNoti
           <span>Core Purpose of this Application</span>
         </h3>
         <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-          <strong>Shaw STEM Academy</strong> is an educational management portal and learning platform designed to streamline course registration, academic scheduling, classroom coordination, and student records for an accredited STEM institution. The application serves as the central digital hub connecting students, parents, instructors, and school administrators.
+          <strong>Application Purpose:</strong> The <strong>Shaw STEM Academy Portal</strong> is a comprehensive academic management platform designed for students, parents, faculty, and administrative staff. It enables online registration for STEM courses, real-time timetable tracking, attendance management, and direct integration with Google Classroom and Google Meet for virtual learning. The application serves as the central digital hub connecting students, parents, instructors, and school administrators for an accredited STEM institution.
         </p>
       </div>
 

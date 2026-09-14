@@ -167,10 +167,6 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
         <div className="p-8 sm:p-12 md:p-16 flex flex-col md:flex-row items-center gap-12">
           <div className="flex-1 max-w-2xl space-y-6">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Official STEM Learning &amp; Registration Portal</span>
-              </div>
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
                 {info.schoolName || 'Shaw STEM Academy'}
               </h1>
@@ -181,9 +177,6 @@ export const SchoolHomePage: React.FC<SchoolHomePageProps> = ({
 
             <div className="space-y-3 text-slate-300 text-base leading-relaxed">
               <p>
-                <strong>Application Purpose:</strong> The <strong>Shaw STEM Academy Portal</strong> is a comprehensive academic management platform designed for students, parents, faculty, and administrative staff. It enables online registration for STEM courses, real-time timetable tracking, attendance management, and direct integration with Google Classroom and Google Meet for virtual learning.
-              </p>
-              <p className="text-xs text-slate-400">
                 {info.aboutText}
               </p>
             </div>
