@@ -252,6 +252,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     <div className="max-w-md mx-auto space-y-8 pb-16 pt-6">
       {/* Academy Logo & Clean Title */}
       <div className="text-center space-y-3">
+        <div className="w-16 h-16 mx-auto mb-1 rounded-2xl bg-slate-900 border border-slate-800 p-1.5 shadow-md flex items-center justify-center">
+          <img
+            src="/logo.png"
+            alt="Shaw STEM Academy Logo"
+            className="w-full h-full object-contain"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = '/logo.png';
+            }}
+          />
+        </div>
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider">
           <Key className="w-3.5 h-3.5" />
           <span>Secure Portal Access</span>

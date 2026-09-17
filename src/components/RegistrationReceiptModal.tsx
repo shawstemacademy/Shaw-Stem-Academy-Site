@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { motion, useReducedMotion } from 'motion/react';
 import { RegistrationRecord, FormTheme } from '../types';
 import { X, CheckCircle2, Printer, Download, Clock, ShieldCheck, Loader2 } from 'lucide-react';
 import { formatUSD } from '../lib/formatCurrency';
@@ -168,22 +169,35 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
     }
   };
 
+  const shouldReduceMotion = useReducedMotion();
+
   const modalContent = (
-    <div className="printable-receipt-backdrop fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto print:p-0 print:bg-white print:static print:block print:overflow-visible">
-      <div 
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: shouldReduceMotion ? 0.05 : 0.2 }}
+      className="printable-receipt-backdrop fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto print:p-0 print:bg-white print:static print:block print:overflow-visible"
+    >
+      <motion.div 
         id="printable-invoice-card"
+        initial={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0 }}
+        transition={{ duration: shouldReduceMotion ? 0.05 : 0.2 }}
         className="printable-receipt-card bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-gray-200 overflow-hidden my-8 print:my-0 print:shadow-none print:border-none print:max-w-full print:rounded-none"
       >
         {/* Academy Official Invoice Header - Always Visible */}
         <div className="p-6 border-b border-gray-150 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">
-            {logoUrl ? (
-              <img src={logoUrl} alt="Shaw STEM Academy Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
-            ) : (
-              <div className="w-12 h-12 bg-purple-900 text-white rounded-xl flex items-center justify-center font-black text-xl shadow-md border border-purple-800 shrink-0">
-                S
-              </div>
-            )}
+            <img 
+              src={logoUrl || "/logo.png"} 
+              alt="Shaw STEM Academy Logo" 
+              className="w-12 h-12 object-contain" 
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = "/logo.png";
+              }}
+            />
             <div>
               <h1 className="text-lg font-extrabold text-slate-900 tracking-tight leading-none">SHAW STEM ACADEMY</h1>
               <p className="text-[10px] text-purple-700 font-bold uppercase tracking-wider mt-1.5">Official Student Registration Invoice</p>
@@ -369,8 +383,8 @@ export const RegistrationReceiptModal: React.FC<RegistrationReceiptModalProps> =
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 
   return createPortal(modalContent, document.body);

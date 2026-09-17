@@ -4,7 +4,11 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { SEOOptimizer } from './components/common/SEOOptimizer';
+import { LogoLoadingScreen } from './components/common/LogoLoadingScreen';
+import { RouteProgressBar } from './components/common/RouteProgressBar';
+import { PageTransition } from './components/common/PageTransition';
 import { registerUserGetterForErrorLogger, logAppError } from './lib/errorLogger';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { Lock, Loader2, Bell, CheckCircle2, Plus, Sparkles } from 'lucide-react';
@@ -1005,6 +1009,20 @@ export default function App() {
   const [isDiscountConfigOpen, setIsDiscountConfigOpen] = useState(false);
   const [isManageListOptionsOpen, setIsManageListOptionsOpen] = useState(false);
   const [completedRegistration, setCompletedRegistration] = useState<RegistrationRecord | null>(null);
+
+  // Transitions & Loading States
+  const [isInitialAppLoading, setIsInitialAppLoading] = useState(true);
+  const [isSubmittingRegistration, setIsSubmittingRegistration] = useState(false);
+
+  useEffect(() => {
+    // Initial page loading window allows real-time data to sync and displays
+    // the official Shaw STEM Academy logo and branding smoothly with AnimatePresence exit
+    const timer = setTimeout(() => {
+      setIsInitialAppLoading(false);
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Initialize Firebase Auth & Real-Time Firestore Synchronization
   useEffect(() => {
@@ -2397,6 +2415,7 @@ export default function App() {
     }
     
     // Save persistently to Firebase Firestore
+    setIsSubmittingRegistration(true);
     saveRegistrationToFirestore(record);
 
     // Send tailored course registration email to student and parent/guardian
@@ -2468,12 +2487,13 @@ export default function App() {
     setActiveTab('student-portal');
     
     setTimeout(() => {
+      setIsSubmittingRegistration(false);
       if (existingRecord) {
         alert('Your class selections and totals have been updated successfully!');
       } else {
         alert(`Registration submitted! An email confirmation has been sent to ${studentInfo.email}. Your application is now Awaiting Acceptance by the administration.`);
       }
-    }, 500);
+    }, 600);
   };
 
   const siblingAmount = siblingRule?.flatAmountOff || 20;
@@ -3787,6 +3807,9 @@ export default function App() {
         {/* Dynamic SEO Meta Tag Optimizer */}
         <SEOOptimizer activeTab={activeTab} />
 
+        {/* Dynamic Route & Tab Navigation Progress Indicator */}
+        <RouteProgressBar routeKey={activeTab} />
+
         {/* Top School Navbar with Role & Status Switcher */}
         <SchoolHeaderNav
           activeTab={activeTab}
@@ -3811,9 +3834,11 @@ export default function App() {
           isStudentPaid={isCurrentStudentPaid}
         />
 
-        {/* Main Portal Content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {activeTab === 'home' && (
+        {/* Main Portal Content with Smooth Tab Transitions */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[60vh]">
+          <AnimatePresence mode="wait" initial={false}>
+            <PageTransition key={activeTab} pageKey={activeTab}>
+              {activeTab === 'home' && (
             <SchoolHomePage
               news={schoolNews}
               faqs={faqs}
@@ -4553,6 +4578,8 @@ export default function App() {
             </div>
             )
           )}
+            </PageTransition>
+          </AnimatePresence>
         </main>
       </div>
 
@@ -4960,23 +4987,45 @@ export default function App() {
         </div>
       )}
 
-      {/* Global Loading Overlay */}
-      {authLoading && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex flex-col items-center justify-center z-[100] animate-fade-in">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 max-w-xs text-center border border-slate-200">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <div>
-              <p className="font-bold text-slate-900 text-lg">Processing Authentication</p>
-              <p className="text-slate-500 text-sm mt-1">Please wait while we securely connect to your account. This may take a moment...</p>
-              <div className="mt-6 p-3 bg-blue-50 rounded-2xl border border-blue-100">
-                <p className="text-[10px] text-blue-700 font-medium leading-relaxed">
-                  Tip: If the sign-in screen is blocked or doesn't appear, try opening this app in a <strong>New Tab</strong> using the button in the top right of the editor.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Initial Fullscreen Page Loading Animation featuring Shaw STEM Academy Logo */}
+      <AnimatePresence>
+        {isInitialAppLoading && (
+          <LogoLoadingScreen
+            key="app-initial-loader"
+            variant="fullscreen"
+            title="Shaw STEM Academy"
+            subtitle="Innovate • Explore • Lead"
+            message="Initializing Portal..."
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Registration Form Submission Overlay */}
+      <AnimatePresence>
+        {isSubmittingRegistration && (
+          <LogoLoadingScreen
+            key="registration-submitting-loader"
+            variant="overlay"
+            title="Processing Registration"
+            subtitle="Shaw STEM Academy"
+            message="Saving class selections and synchronizing portal records..."
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Global Authentication Processing Overlay featuring Shaw STEM Academy Logo */}
+      <AnimatePresence>
+        {authLoading && (
+          <LogoLoadingScreen
+            key="auth-loading-overlay"
+            variant="overlay"
+            title="Processing Authentication"
+            subtitle="Shaw STEM Academy Secure Auth"
+            message="Please wait while we securely connect to your account. This may take a moment..."
+            tip="Tip: If the sign-in screen is blocked or doesn't appear, try opening this app in a New Tab using the button in the top right of the editor."
+          />
+        )}
+      </AnimatePresence>
 
       {/* Global Auth Alert Modal */}
       {globalAuthAlert && (
