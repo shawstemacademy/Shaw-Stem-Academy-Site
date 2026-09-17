@@ -22,11 +22,23 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <App />
-      <SpeedInsights />
-    </ErrorBoundary>
-  </StrictMode>,
-);
+try {
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    throw new Error('Root container element (#root) not found in DOM.');
+  }
+
+  createRoot(rootElement).render(
+    <StrictMode>
+      <ErrorBoundary>
+        <App />
+        <SpeedInsights />
+      </ErrorBoundary>
+    </StrictMode>,
+  );
+} catch (err: any) {
+  console.error('Fatal initialization error:', err);
+  if (typeof window !== 'undefined' && (window as any).showInitialLoaderError) {
+    (window as any).showInitialLoaderError('Application failed to start: ' + (err?.message || 'Initialization error'));
+  }
+}

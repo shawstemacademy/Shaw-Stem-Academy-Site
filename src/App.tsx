@@ -1011,15 +1011,15 @@ export default function App() {
   const [completedRegistration, setCompletedRegistration] = useState<RegistrationRecord | null>(null);
 
   // Transitions & Loading States
-  const [isInitialAppLoading, setIsInitialAppLoading] = useState(true);
   const [isSubmittingRegistration, setIsSubmittingRegistration] = useState(false);
 
   useEffect(() => {
-    // Initial page loading window allows real-time data to sync and displays
-    // the official Shaw STEM Academy logo and branding smoothly with AnimatePresence exit
+    // Signal readiness to root-level initial loader once App mounts and DOM is ready
     const timer = setTimeout(() => {
-      setIsInitialAppLoading(false);
-    }, 700);
+      if (typeof window !== 'undefined' && (window as any).dismissInitialLoader) {
+        (window as any).dismissInitialLoader();
+      }
+    }, 50);
 
     return () => clearTimeout(timer);
   }, []);
@@ -4986,19 +4986,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* Initial Fullscreen Page Loading Animation featuring Shaw STEM Academy Logo */}
-      <AnimatePresence>
-        {isInitialAppLoading && (
-          <LogoLoadingScreen
-            key="app-initial-loader"
-            variant="fullscreen"
-            title="Shaw STEM Academy"
-            subtitle="Innovate • Explore • Lead"
-            message="Initializing Portal..."
-          />
-        )}
-      </AnimatePresence>
 
       {/* Registration Form Submission Overlay */}
       <AnimatePresence>

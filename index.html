@@ -93,91 +93,300 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <script src="https://www.google.com/recaptcha/enterprise.js" async defer></script>
+
+    <!-- Critical styles for the root-level Shaw STEM Academy loading screen -->
+    <style id="initial-loader-styles">
+      html, body {
+        background-color: #020617;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+      }
+      #initial-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 999999;
+        background-color: #020617;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        box-sizing: border-box;
+        user-select: none;
+        -webkit-user-select: none;
+        transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      #initial-loader.initial-loader-fade-out {
+        opacity: 0;
+        transform: scale(1.02);
+        pointer-events: none;
+      }
+      .initial-loader-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        max-width: 360px;
+        width: 100%;
+        margin: 0 auto;
+      }
+      .initial-loader-logo-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1.25rem;
+      }
+      .initial-loader-glow {
+        position: absolute;
+        width: 140px;
+        height: 140px;
+        border-radius: 9999px;
+        background: radial-gradient(circle, rgba(20, 184, 166, 0.3) 0%, rgba(13, 148, 136, 0) 70%);
+        pointer-events: none;
+        animation: initialLoaderPulse 2.6s infinite ease-in-out;
+      }
+      .initial-loader-logo-box {
+        position: relative;
+        z-index: 10;
+        width: 88px;
+        height: 88px;
+        border-radius: 1.25rem;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(51, 65, 85, 0.6);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px;
+        overflow: hidden;
+        animation: initialLoaderLogoBreath 2.8s infinite ease-in-out;
+      }
+      .initial-loader-logo-img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+      .initial-loader-text {
+        margin-bottom: 1.25rem;
+      }
+      .initial-loader-title {
+        margin: 0 0 0.25rem 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 1.35rem;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+        color: #f8fafc;
+      }
+      .initial-loader-subtitle {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        color: #2dd4bf;
+        text-transform: uppercase;
+      }
+      .initial-loader-bar-track {
+        width: 220px;
+        height: 5px;
+        background: rgba(30, 41, 59, 0.9);
+        border-radius: 9999px;
+        overflow: hidden;
+        border: 1px solid rgba(51, 65, 85, 0.6);
+        position: relative;
+      }
+      .initial-loader-bar-fill {
+        position: absolute;
+        height: 100%;
+        width: 40%;
+        background: linear-gradient(90deg, #2dd4bf, #3b82f6, #2dd4bf);
+        border-radius: 9999px;
+        box-shadow: 0 0 10px rgba(45, 212, 191, 0.6);
+        animation: initialLoaderProgress 1.4s infinite cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .initial-loader-status {
+        margin: 0.75rem 0 0 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #94a3b8;
+      }
+      .initial-loader-error {
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        background: rgba(239, 68, 68, 0.15);
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        border-radius: 0.75rem;
+        max-width: 320px;
+      }
+      .initial-loader-error-text {
+        margin: 0 0 0.5rem 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 0.75rem;
+        color: #fca5a5;
+        line-height: 1.4;
+      }
+      .initial-loader-retry-btn {
+        background: #0f172a;
+        color: #f8fafc;
+        border: 1px solid #334155;
+        border-radius: 0.5rem;
+        padding: 0.35rem 0.85rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .initial-loader-retry-btn:hover {
+        background: #1e293b;
+      }
+      #root.app-root-hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      #root.app-root-visible {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @keyframes initialLoaderPulse {
+        0%, 100% { transform: scale(0.92); opacity: 0.35; }
+        50% { transform: scale(1.12); opacity: 0.7; }
+      }
+      @keyframes initialLoaderProgress {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(320%); }
+      }
+      @keyframes initialLoaderLogoBreath {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.025); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .initial-loader-glow,
+        .initial-loader-logo-box,
+        .initial-loader-bar-fill {
+          animation: none !important;
+        }
+        #initial-loader,
+        #root {
+          transition-duration: 0.05s !important;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root">
-      <!-- Semantic crawlable snapshot for search engines and instant initial paint -->
-      <header class="bg-slate-900 text-white p-6 border-b border-slate-800">
-        <div class="max-w-6xl mx-auto flex justify-between items-center">
-          <div class="flex items-center space-x-3">
-            <div>
-              <h1 class="text-2xl font-bold">Shaw STEM Academy</h1>
-              <p class="text-xs text-teal-400">Innovate • Explore • Lead | Premier Online CSEC & CAPE Classes</p>
-            </div>
+    <!-- Initial Shaw STEM Academy Loading Screen (renders immediately on first paint) -->
+    <div id="initial-loader" class="initial-loader-container" aria-label="Loading Shaw STEM Academy" role="status">
+      <div class="initial-loader-content">
+        <div class="initial-loader-logo-wrapper">
+          <div class="initial-loader-glow"></div>
+          <div class="initial-loader-logo-box">
+            <img
+              src="/logo.png"
+              alt="Shaw STEM Academy"
+              class="initial-loader-logo-img"
+              width="88"
+              height="88"
+              decoding="async"
+            />
           </div>
-          <nav class="space-x-4 text-sm font-medium">
-            <a href="/?tab=academics" class="hover:text-teal-300">Academics & Courses</a>
-            <a href="/?tab=student" class="hover:text-teal-300">Student Portal</a>
-            <a href="/about/" class="hover:text-teal-300">About Us</a>
-            <a href="/?tab=login" class="hover:text-teal-300">Sign In</a>
-          </nav>
         </div>
-      </header>
 
-      <main class="max-w-6xl mx-auto p-6 space-y-8">
-        <section class="bg-gradient-to-r from-teal-900 to-slate-900 text-white p-8 rounded-2xl">
-          <h2 class="text-3xl font-extrabold mb-4">Empowering Future STEM Leaders with Interactive Virtual Classrooms</h2>
-          <p class="text-slate-200 text-base leading-relaxed max-w-3xl mb-6">
-            <strong>Application Purpose:</strong> Shaw STEM Academy is an academic management and learning platform designed to streamline STEM course registration, class scheduling, student attendance management, and educational coordination with Google Classroom and Google Meet for students, parents, faculty, and administrators.
-          </p>
-          <div class="flex flex-wrap gap-3">
-            <a href="/?tab=academics" class="bg-teal-500 hover:bg-teal-600 text-slate-950 font-bold px-6 py-2.5 rounded-xl transition">Explore Course Catalog</a>
-            <a href="/?tab=student" class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-6 py-2.5 rounded-xl border border-slate-700 transition">Register for Classes</a>
-            <a href="/#application-purpose" class="bg-slate-800 hover:bg-slate-700 text-teal-300 font-semibold px-5 py-2.5 rounded-xl border border-teal-500/40 transition">App Purpose &amp; OAuth Disclosure</a>
-          </div>
-        </section>
-
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <article class="p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
-            <h3 class="text-xl font-bold text-slate-900 mb-2">CSEC & CAPE Academics</h3>
-            <p class="text-slate-600 text-sm leading-relaxed">
-              Comprehensive syllabi for Mathematics, Additional Mathematics, Physics, Chemistry, Biology, Information Technology, and Computer Science with expert faculty.
-            </p>
-          </article>
-          <article class="p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
-            <h3 class="text-xl font-bold text-slate-900 mb-2">Interactive Student Portal</h3>
-            <p class="text-slate-600 text-sm leading-relaxed">
-              Access real-time schedules, submit assignments, track tuition balances with automated multi-subject discount calculators, and join virtual classes.
-            </p>
-          </article>
-          <article class="p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
-            <h3 class="text-xl font-bold text-slate-900 mb-2">SBA & Laboratory Hub</h3>
-            <p class="text-slate-600 text-sm leading-relaxed">
-              Step-by-step School-Based Assessment (SBA) workshops, experimental lab protocols, and individualized feedback for regional examinations.
-            </p>
-          </article>
-        </section>
-      </main>
-
-      <footer class="border-t border-slate-200 mt-12 p-6 text-center text-xs text-slate-500">
-        <p>© 2026 Shaw STEM Academy. Official Online Academic Portal. All rights reserved.</p>
-        <div class="mt-2 space-x-4">
-          <a href="/?tab=privacy" class="hover:underline">Privacy Policy</a>
-          <span>•</span>
-          <a href="/?tab=terms" class="hover:underline">Terms of Service</a>
-          <span>•</span>
-          <a href="/about/" class="hover:underline">About & Accreditations</a>
+        <div class="initial-loader-text">
+          <h1 class="initial-loader-title">Shaw STEM Academy</h1>
+          <p class="initial-loader-subtitle">Innovate • Explore • Lead</p>
         </div>
-      </footer>
+
+        <div class="initial-loader-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+          <div class="initial-loader-bar-fill"></div>
+        </div>
+
+        <p id="initial-loader-status" class="initial-loader-status">Initializing Portal...</p>
+
+        <div id="initial-loader-error" class="initial-loader-error" style="display: none;">
+          <p id="initial-loader-error-msg" class="initial-loader-error-text">An error occurred while initializing the portal.</p>
+          <button type="button" onclick="window.location.reload()" class="initial-loader-retry-btn">Retry Initialization</button>
+        </div>
+      </div>
     </div>
+
+    <!-- Application Root Container: hidden during initial boot to prevent any FOUC -->
+    <div id="root" class="app-root-hidden"></div>
+
     <noscript>
-      <div class="p-4 bg-amber-100 border border-amber-400 text-amber-800 text-center text-sm">
-        Please enable JavaScript in your browser to experience all dynamic features of the Shaw STEM Academy Portal.
+      <style>
+        #initial-loader { display: none !important; }
+        #root { opacity: 1 !important; visibility: visible !important; }
+      </style>
+      <div style="padding: 24px; background: #0f172a; color: #38bdf8; text-align: center; font-family: sans-serif; font-size: 15px;">
+        Please enable JavaScript in your browser to experience the Shaw STEM Academy Portal.
       </div>
     </noscript>
+
     <script>
+      window.__appStartTime = performance.now();
+      window.__loaderDismissed = false;
+
+      window.dismissInitialLoader = function() {
+        if (window.__loaderDismissed) return;
+        window.__loaderDismissed = true;
+
+        var elapsed = performance.now() - (window.__appStartTime || 0);
+        // Ensure at least 350ms so instant local caches don't cause an imperceptible jarring flash
+        var delay = Math.max(0, 350 - elapsed);
+
+        setTimeout(function() {
+          var loader = document.getElementById('initial-loader');
+          var root = document.getElementById('root');
+          if (root) {
+            root.classList.remove('app-root-hidden');
+            root.classList.add('app-root-visible');
+          }
+          if (loader) {
+            loader.classList.add('initial-loader-fade-out');
+            setTimeout(function() {
+              if (loader && loader.parentNode) {
+                loader.parentNode.removeChild(loader);
+              }
+            }, 450);
+          }
+        }, delay);
+      };
+
+      window.showInitialLoaderError = function(message) {
+        if (window.__loaderDismissed) return;
+        var status = document.getElementById('initial-loader-status');
+        var bar = document.querySelector('.initial-loader-bar-track');
+        var errBox = document.getElementById('initial-loader-error');
+        var errMsg = document.getElementById('initial-loader-error-msg');
+        if (bar) bar.style.display = 'none';
+        if (status) status.style.display = 'none';
+        if (errMsg && message) errMsg.textContent = message;
+        if (errBox) errBox.style.display = 'block';
+      };
+
+      // Watchdog timer: If initialization takes abnormally long, show error with retry
+      setTimeout(function() {
+        if (!window.__loaderDismissed) {
+          window.showInitialLoaderError('The portal is taking longer than expected to load. Please check your network connection or tap retry.');
+        }
+      }, 10000);
+
       window.addEventListener('error', function(e) {
-        var errDiv = document.createElement('div');
-        errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;z-index:9999;padding:20px;font-family:monospace;white-space:pre-wrap;';
-        errDiv.textContent = 'Uncaught Error: ' + e.message + '\n' + (e.error && e.error.stack ? e.error.stack : '');
-        document.body.prepend(errDiv);
+        if (!window.__loaderDismissed) {
+          window.showInitialLoaderError('Unable to initialize portal (' + (e.message || 'Script error') + ').');
+        }
       });
       window.addEventListener('unhandledrejection', function(e) {
         if (e.reason && e.reason.toString().toLowerCase().includes('websocket')) return;
-        var errDiv = document.createElement('div');
-        errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:orange;color:white;z-index:9999;padding:20px;font-family:monospace;white-space:pre-wrap;';
-        errDiv.textContent = 'Unhandled Rejection: ' + e.reason;
-        document.body.prepend(errDiv);
+        if (!window.__loaderDismissed) {
+          window.showInitialLoaderError('Failed to complete initialization: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+        }
       });
     </script>
     <script type="module" src="/src/main.tsx"></script>
