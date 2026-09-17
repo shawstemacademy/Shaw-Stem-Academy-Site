@@ -4584,106 +4584,124 @@ export default function App() {
       </div>
 
       {/* School Footer */}
-      <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 py-10 mt-16 w-full min-w-fit">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8 text-xs">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <img 
-                src={landingPageSettings.logoUrl && !landingPageSettings.logoUrl.includes('favicon') ? landingPageSettings.logoUrl : "/logo.png"} 
-                alt="Shaw STEM Academy Logo" 
-                className="w-7 h-7 rounded-lg object-contain bg-slate-950 p-0.5 border border-slate-800"
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = "/logo.png";
-                }}
-              />
-              <span className="font-extrabold text-white text-sm">Shaw STEM Academy</span>
+      <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 py-12 mt-16 w-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10 text-xs">
+            {/* 1. Brand & Mission */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2.5">
+                <img 
+                  src={landingPageSettings.logoUrl && !landingPageSettings.logoUrl.includes('favicon') ? landingPageSettings.logoUrl : "/logo.png"} 
+                  alt="Shaw STEM Academy Logo" 
+                  className="w-8 h-8 rounded-lg object-contain bg-slate-950 p-0.5 border border-slate-800"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = "/logo.png";
+                  }}
+                />
+                <span className="font-extrabold text-white text-sm tracking-tight">Shaw STEM Academy</span>
+              </div>
+              <p className="leading-relaxed text-slate-400">
+                Innovate • Explore • Lead. Empowering youth through hands-on engineering, robotics, artificial intelligence, and applied sciences.
+              </p>
             </div>
-            <p className="leading-relaxed text-slate-400">
-              Innovate • Explore • Lead. Empowering youth through hands-on engineering, robotics, artificial intelligence, and applied sciences.
-            </p>
-          </div>
 
-          <div className="space-y-2">
-            <h4 className="font-bold text-white text-sm">Portal Dashboards</h4>
-            <ul className="space-y-1">
-              <li>
-                <button onClick={() => setActiveTab('home')} className="hover:text-blue-400 transition-colors">
-                  Academy Home
-                </button>
-              </li>
-              <li>
-                <button onClick={() => setActiveTab('academics')} className="hover:text-blue-400 transition-colors">
-                  Academics & Labs Directory
-                </button>
-              </li>
-              {(() => {
-                const isStudent = (loggedInUser?.role || currentRole) === 'student';
-                const status = loggedInUser?.status || studentStatus;
-                const isAccepted = status === 'accepted' || status === 'enrolled_paid';
-                const isTeacherOrHod = currentRole === 'teacher' || currentRole === 'hod';
-                if (isTeacherOrHod) return false;
-                if (isStudent && !isAccepted) return false;
-                return true;
-              })() && (
+            {/* 2. Portal Dashboards */}
+            <div className="space-y-3">
+              <h4 className="font-bold text-white text-sm">Portal Dashboards</h4>
+              <ul className="space-y-2">
                 <li>
-                  <button 
-                    onClick={() => setActiveTab('registration')} 
-                    className="hover:text-blue-400 transition-colors"
-                  >
-                    Class Registration & Tuition Form
+                  <button onClick={() => setActiveTab('home')} className="hover:text-blue-400 transition-colors text-left">
+                    Academy Home
                   </button>
                 </li>
-              )}
-            </ul>
-          </div>
+                <li>
+                  <button onClick={() => setActiveTab('academics')} className="hover:text-blue-400 transition-colors text-left">
+                    Academics &amp; Course Directory
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => setActiveTab('student-portal')} className="hover:text-blue-400 transition-colors text-left">
+                    Student Portal
+                  </button>
+                </li>
+                {(() => {
+                  const isStudent = (loggedInUser?.role || currentRole) === 'student';
+                  const status = loggedInUser?.status || studentStatus;
+                  const isAccepted = status === 'accepted' || status === 'enrolled_paid';
+                  const isTeacherOrHod = currentRole === 'teacher' || currentRole === 'hod';
+                  if (isTeacherOrHod) return false;
+                  if (isStudent && !isAccepted) return false;
+                  return true;
+                })() && (
+                  <li>
+                    <button 
+                      onClick={() => setActiveTab('registration')} 
+                      className="hover:text-blue-400 transition-colors text-left"
+                    >
+                      Class Registration &amp; Tuition
+                    </button>
+                  </li>
+                )}
+              </ul>
+            </div>
 
-          <div className="space-y-2">
-            <h4 className="font-bold text-white text-sm">Campus &amp; Location</h4>
-            <p className="text-slate-400 leading-relaxed">
-              {academyInfo?.address || DEFAULT_ACADEMY_INFO.address}<br />
-              {(academyInfo ? academyInfo.contactPhone?.trim() : DEFAULT_ACADEMY_INFO.contactPhone?.trim()) ? (
-                <>Tel: {academyInfo ? academyInfo.contactPhone : DEFAULT_ACADEMY_INFO.contactPhone}<br /></>
-              ) : null}
-              Email: {academyInfo?.contactEmail || DEFAULT_ACADEMY_INFO.contactEmail}
-            </p>
-            <div className="text-[11px] text-slate-500 pt-1">
-              <span>© {new Date().getFullYear()} Shaw STEM Academy. All rights reserved.</span>
+            {/* 3. Campus & Location */}
+            <div className="space-y-3">
+              <h4 className="font-bold text-white text-sm">Campus &amp; Location</h4>
+              <div className="text-slate-400 leading-relaxed space-y-1">
+                <p>{academyInfo?.address || DEFAULT_ACADEMY_INFO.address}</p>
+                {(academyInfo ? academyInfo.contactPhone?.trim() : DEFAULT_ACADEMY_INFO.contactPhone?.trim()) ? (
+                  <p>Tel: {academyInfo ? academyInfo.contactPhone : DEFAULT_ACADEMY_INFO.contactPhone}</p>
+                ) : null}
+                <p>Email: {academyInfo?.contactEmail || DEFAULT_ACADEMY_INFO.contactEmail}</p>
+              </div>
+            </div>
+
+            {/* 4. Google OAuth & Compliance */}
+            <div className="space-y-3">
+              <h4 className="font-bold text-white text-sm">Google OAuth &amp; Compliance</h4>
+              <p className="text-slate-400 leading-relaxed">
+                Google Sign-In is used exclusively for secure authentication of students and staff.
+              </p>
+              <ul className="space-y-2 text-slate-300">
+                <li>
+                  <button 
+                    onClick={() => { 
+                      setActiveTab('home'); 
+                      setTimeout(() => {
+                        document.getElementById('application-purpose')?.scrollIntoView({ behavior: 'smooth' });
+                      }, 100);
+                    }} 
+                    className="hover:text-blue-400 transition-colors text-left flex items-center gap-1"
+                  >
+                    <span>App Purpose Notice</span>
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => setActiveTab('privacy')} 
+                    className="hover:text-blue-400 transition-colors text-left"
+                  >
+                    Privacy Policy
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => setActiveTab('terms')} 
+                    className="hover:text-blue-400 transition-colors text-left"
+                  >
+                    Terms of Service
+                  </button>
+                </li>
+              </ul>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <h4 className="font-bold text-white text-sm">Google OAuth &amp; Compliance</h4>
-            <p className="text-slate-400 text-2xs leading-relaxed">
-              Google Sign-In is used exclusively for secure authentication of students and staff.
-            </p>
-            <ul className="space-y-1 text-slate-300">
-              <li>
-                <a 
-                  href="#application-purpose" 
-                  onClick={(e) => { 
-                    e.preventDefault(); 
-                    setActiveTab('home'); 
-                    setTimeout(() => {
-                      document.getElementById('application-purpose')?.scrollIntoView({ behavior: 'smooth' });
-                    }, 100);
-                  }} 
-                  className="hover:text-blue-400 transition-colors flex items-center gap-1"
-                >
-                  <span>App Purpose Notice</span>
-                </a>
-              </li>
-              <li>
-                <a href="#privacy" onClick={(e) => { e.preventDefault(); setActiveTab('privacy'); }} className="hover:text-blue-400 transition-colors">
-                  Privacy Policy
-                </a>
-              </li>
-              <li>
-                <a href="#terms" onClick={(e) => { e.preventDefault(); setActiveTab('terms'); }} className="hover:text-blue-400 transition-colors">
-                  Terms of Service
-                </a>
-              </li>
-            </ul>
+          {/* Bottom Copyright & Accreditation Divider */}
+          <div className="border-t border-slate-800/80 pt-6 mt-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+            <p>© {new Date().getFullYear()} Shaw STEM Academy. All rights reserved.</p>
+            <p className="text-slate-500 text-2xs">Official Academic Management &amp; Virtual Classroom Portal</p>
           </div>
         </div>
       </footer>
