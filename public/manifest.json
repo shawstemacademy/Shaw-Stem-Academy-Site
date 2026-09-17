@@ -29,6 +29,12 @@
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "697x697",
+      "purpose": "any"
     }
   ],
   "start_url": "/",

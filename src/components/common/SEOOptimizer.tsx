@@ -6,6 +6,7 @@ export interface SEOOptimizerProps {
   keywords?: string;
   ogTitle?: string;
   ogDescription?: string;
+  ogImage?: string;
   canonicalUrl?: string;
   activeTab?: string;
 }
@@ -59,6 +60,7 @@ export const SEOOptimizer: React.FC<SEOOptimizerProps> = ({
   keywords,
   ogTitle,
   ogDescription,
+  ogImage,
   canonicalUrl,
   activeTab = 'home',
 }) => {
@@ -70,7 +72,8 @@ export const SEOOptimizer: React.FC<SEOOptimizerProps> = ({
     const finalKeywords = keywords || tabMeta.keywords;
     const finalOgTitle = ogTitle || finalTitle;
     const finalOgDescription = ogDescription || finalDescription;
-    const finalCanonical = canonicalUrl || `https://www.shawstemacademy.com/${activeTab && activeTab !== 'home' ? `?tab=${activeTab}` : ''}`;
+    const finalOgImage = ogImage || 'https://www.shawstemacademy.com/logo.png';
+    const finalCanonical = canonicalUrl || `https://www.shawstemacademy.com${activeTab && activeTab !== 'home' ? `/?tab=${activeTab}` : '/'}`;
 
     // Update document title
     document.title = finalTitle;
@@ -91,7 +94,7 @@ export const SEOOptimizer: React.FC<SEOOptimizerProps> = ({
       let element = document.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null;
       if (!element) {
         element = document.createElement('link');
-        element.setAttribute('rel', rel);
+        element.setAttribute(rel, rel);
         document.head.appendChild(element);
       }
       element.setAttribute('href', href);
@@ -110,15 +113,21 @@ export const SEOOptimizer: React.FC<SEOOptimizerProps> = ({
     updateMetaTag('meta[property="og:description"]', 'property', 'og:description', finalOgDescription);
     updateMetaTag('meta[property="og:type"]', 'property', 'og:type', 'website');
     updateMetaTag('meta[property="og:url"]', 'property', 'og:url', finalCanonical);
-    updateMetaTag('meta[property="og:image"]', 'property', 'og:image', 'https://www.shawstemacademy.com/og-image.png');
+    updateMetaTag('meta[property="og:image"]', 'property', 'og:image', finalOgImage);
+    updateMetaTag('meta[property="og:image:secure_url"]', 'property', 'og:image:secure_url', finalOgImage);
+    updateMetaTag('meta[property="og:image:type"]', 'property', 'og:image:type', 'image/png');
+    updateMetaTag('meta[property="og:image:width"]', 'property', 'og:image:width', '697');
+    updateMetaTag('meta[property="og:image:height"]', 'property', 'og:image:height', '697');
+    updateMetaTag('meta[property="og:image:alt"]', 'property', 'og:image:alt', 'Shaw STEM Academy Official Logo');
     updateMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
     updateMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', finalOgTitle);
     updateMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', finalOgDescription);
-    updateMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', 'https://www.shawstemacademy.com/og-image.png');
+    updateMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', finalOgImage);
+    updateMetaTag('meta[name="twitter:image:alt"]', 'name', 'twitter:image:alt', 'Shaw STEM Academy Official Logo');
 
     // Set canonical link
     updateLinkTag('canonical', finalCanonical);
-  }, [title, description, keywords, ogTitle, ogDescription, canonicalUrl, activeTab]);
+  }, [title, description, keywords, ogTitle, ogDescription, ogImage, canonicalUrl, activeTab]);
 
   return null;
 };
