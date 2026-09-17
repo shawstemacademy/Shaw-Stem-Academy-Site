@@ -4683,11 +4683,6 @@ export default function App() {
                   Terms of Service
                 </a>
               </li>
-              <li>
-                <a href="mailto:shawstemacademy@gmail.com" className="hover:text-blue-400 transition-colors">
-                  Developer Contact (Email)
-                </a>
-              </li>
             </ul>
           </div>
         </div>
